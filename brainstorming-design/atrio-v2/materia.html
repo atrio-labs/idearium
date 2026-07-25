@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Matéria — o dado é a imagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&display=swap" rel="stylesheet">
+<style>
+/* Departure Mono — Helena Zhang & Tobias Fried, licença MIT, 22KB.
+   É a mono do cofounder.co, o site que a GNIX apontou. Dá sabor de
+   pixel sem o cosplay de Press Start 2P, e por ser MIT cabe num
+   projeto CC BY-SA. Em produção: self-host em /public/fonts/.
+   Sendo pixel font, só usar em corpos inteiros (10/11/12px) — em
+   tamanho fracionário a grade borra. */
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@main/public/assets/DepartureMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+/* ==================================================================
+   MATÉRIA — v2, polo macio
+   ==================================================================
+   A imagem de cada RFC é o DADO da própria RFC, renderizado com
+   dithering. Onde as referências do painel põem pintura decorativa
+   (ou hero gerado por IA), aqui entra a densidade de relatos de
+   alagamento, o campo de pontos de doação, o grafo de empréstimos.
+   Assim a estética e o sinal de "tech" param de ser duas coisas —
+   resolve o escopo travado em 24.07 sem ícone de engrenagem.
+
+   ------------------------------------------------------------------
+   DECODIFICADO DE craft.do (polo macio escolhido pela GNIX)
+   ------------------------------------------------------------------
+   Medido no site, não no olho:
+
+   fundo        rgb(252,249,247)   off-white quente
+   tinta        rgb(3,3,2) com alpha .9 / .75 / .65 / .5
+                → UMA tinta, nunca cinzas nomeados separados
+   peso         400 em 2417 elementos, contra 157 de peso 500
+                → praticamente tudo regular; ênfase por incremento
+                  fracionário de fonte variável (430, 450, 520),
+                  nunca por salto pra 600/700
+   raio         24px (196 elementos) e 14px (101)
+                → externo = interno + padding, a regra do ref-14
+   sombra       0 50px 40px rgba(0,0,0,0.01) em camadas
+                → enorme e quase invisível. Difusão máxima,
+                  opacidade mínima. Nada de sombra "de card".
+   acento       menta rgb(155,216,169), amarelo rgb(253,233,155)
+                → pastéis DESSATURADOS, não saturados
+
+   O "fofo" que a GNIX viu em craft/cofounder/agentation não está na
+   paleta: está em dezenas de micro-animações CSS escritas à mão, uma
+   por componente (connectorDraw, badgeSlideIn, numEnterUp, notif-
+   wheel-in). Por isso as animações aqui são nomeadas por peça e
+   disparadas por IntersectionObserver, não uma transição genérica.
+
+   ------------------------------------------------------------------
+   CONSEQUÊNCIA DO PASTEL — e a decisão que ela força
+   ------------------------------------------------------------------
+   Pastel dessaturado não tem contraste pra desenhar o dither: em cima
+   de off-white ele lava. Então a relação se inverte: o pastel do lab
+   vira o FUNDO do canvas, e o dither é desenhado na tinta única.
+   Ganha duas coisas — contraste real (e portanto legibilidade), e
+   coerência com a regra de uma tinta só.
+
+   RECUSADO do painel: hero gerado por IA, gradiente iridescente,
+   pill de "try for free". VISAO §8.2 ("não é startup"), §12 ("sem
+   hype"). Peguei a gramática, não a retórica.
+
+   Fontes: Inter e Newsreader, ambas variáveis e OFL. Em produção,
+   trocar a mono por Departure Mono (licença livre, self-host) — é a
+   que dá sabor de pixel sem o cosplay de Press Start 2P.
+   ================================================================== */
+
+:root {
+  /* --- superfícies --- */
+  --fundo:     #FCF9F7;              /* off-white quente, medido no craft */
+  --cartao:    #FFFFFF;
+  --rebaixo:   #F7F4F1;              /* superfície interna, 1 passo abaixo */
+
+  /* --- UMA tinta, hierarquia por alpha --- */
+  --tinta:     3, 3, 2;
+  --t-100: rgba(var(--tinta), 1);
+  --t-90:  rgba(var(--tinta), 0.90);
+  --t-75:  rgba(var(--tinta), 0.75);
+  --t-65:  rgba(var(--tinta), 0.65);
+  --t-50:  rgba(var(--tinta), 0.50);
+  --t-35:  rgba(var(--tinta), 0.35);
+  --t-12:  rgba(var(--tinta), 0.12);
+  --t-07:  rgba(var(--tinta), 0.07);
+
+  /* --- acentos pastéis dessaturados. Preenchem superfície; o texto
+         em cima é sempre a tinta, então o contraste nunca depende
+         da cor do lab. --- */
+  --educacao:  #E8B79B;
+  --cidades:   #A9C6E4;
+  --saude:     #9BD8A9;              /* a menta do craft */
+  --cultura:   #FDE99B;              /* o amarelo do craft */
+  --civica:    #C6BCE6;
+  --solidaria: #E9B2B8;
+
+  /* --- geometria macia --- */
+  --r-fora:  24px;
+  --r-dentro: 14px;
+  --r-pilula: 999px;
+
+  /* --- sombra difusa quase invisível, do craft --- */
+  --sombra:
+    0 1px 1px rgba(var(--tinta), 0.015),
+    0 8px 10px rgba(var(--tinta), 0.02),
+    0 20px 20px rgba(var(--tinta), 0.015),
+    0 50px 40px rgba(var(--tinta), 0.01);
+  --sombra-alta:
+    0 2px 2px rgba(var(--tinta), 0.02),
+    0 14px 18px rgba(var(--tinta), 0.03),
+    0 32px 34px rgba(var(--tinta), 0.022),
+    0 70px 60px rgba(var(--tinta), 0.016);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--t-90);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-optical-sizing: auto;
+  font-size: 15px;
+  font-weight: 400;                  /* o padrão é regular. Sempre. */
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mono {
+  font-family: 'Departure Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+.serif {
+  font-family: 'Newsreader', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.palco { max-width: 1180px; margin: 0 auto; padding: 18px 20px 80px; }
+
+/* ============ NAV ============ */
+.nav {
+  position: sticky;
+  top: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--t-07);
+  border-radius: var(--r-pilula);
+  padding: 6px 7px 6px 17px;
+  box-shadow: 0 1px 1px rgba(var(--tinta),0.015), 0 10px 20px -8px rgba(var(--tinta),0.05);
+  margin-bottom: 26px;
+}
+.nav .marca {
+  font-weight: 470;                  /* incremento fracionário, não 600 */
+  font-size: 14.5px;
+  letter-spacing: -0.018em;
+  margin-right: 14px;
+  white-space: nowrap;
+  color: var(--t-100);
+}
+.nav a {
+  color: var(--t-65);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  padding: 6px 11px;
+  border-radius: var(--r-pilula);
+  transition: background 200ms var(--ease), color 200ms var(--ease);
+  white-space: nowrap;
+}
+.nav a:hover { background: var(--t-07); color: var(--t-90); }
+.nav .fim { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+.nav .entrar {
+  background: var(--t-100);
+  color: #fff;
+  padding: 7px 15px;
+  font-weight: 430;
+}
+.nav .entrar:hover { background: var(--t-75); color: #fff; }
+@media (max-width: 760px) { .nav .esconde { display: none; } }
+
+/* ============ ABERTURA ============
+   A primeira coisa da página não pode ser uma RFC real: quem chega não
+   sabe o que é RFC, nem lab, nem "pedindo mão". Então a abertura
+   explica o ciclo — e faz isso ENSINANDO O VOCABULÁRIO, porque cada
+   etapa mostra o chip de estado que ela produz. Quando a pessoa
+   encontra "em discussão" no cartão logo abaixo, já sabe o que é.
+
+   Chapada de propósito: sem cartão branco, sem sombra. A hierarquia
+   é essa — explicação é plana, conteúdo é o que flutua. */
+.abertura { padding: 30px 4px 8px; }
+.abertura h1 {
+  font-size: clamp(30px, 4.1vw, 50px);
+  line-height: 1.06;
+  font-weight: 420;
+  letter-spacing: -0.032em;
+  margin: 0 0 16px;
+  max-width: 20ch;
+  color: var(--t-100);
+}
+.abertura h1 .serif { font-size: 1.05em; font-weight: 400; }
+.abertura .sub { color: var(--t-65); max-width: 54ch; font-size: 16px; margin: 0 0 40px; }
+
+/* sem régua entre as etapas — o que separa é o espaço e o número.
+   Como não há mais borda pra criar o intervalo, o gap do grid assume. */
+.fluxo {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 30px 34px;
+  border-top: 1px solid var(--t-12);
+  padding-top: 26px;
+}
+@media (max-width: 900px) { .fluxo { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 520px) { .fluxo { grid-template-columns: 1fr; } }
+
+.etapa { padding: 0; }
+
+.etapa .n {
+  font-family: 'Departure Mono', ui-monospace, monospace;
+  font-size: 22px;
+  color: var(--t-35);
+  display: block;
+  margin-bottom: 14px;
+  line-height: 1;
+}
+.etapa h3 {
+  font-size: 16.5px;
+  font-weight: 460;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0 0 7px;
+  color: var(--t-100);
+}
+.etapa p { margin: 0 0 13px; font-size: 13.5px; color: var(--t-65); }
+.etapa .vira {
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  font-family: 'Departure Mono', ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--t-35);
+}
+
+/* rótulo de seção — separa a explicação do conteúdo real */
+.faixa-rotulo {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  padding: 46px 4px 14px;
+}
+.faixa-rotulo .r {
+  font-family: 'Departure Mono', ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--t-35);
+}
+.faixa-rotulo a { font-size: 13px; color: var(--t-50); text-decoration: none; }
+.faixa-rotulo a:hover { color: var(--t-90); }
+
+/* ============ CARTÃO ============ */
+.cartao {
+  background: var(--cartao);
+  border-radius: var(--r-fora);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+/* --- destaque: split matéria | texto, e o pedido atravessando embaixo.
+       O pedido fica FORA da coluna de propósito: dentro dela, o texto
+       empurrava a matéria pra 940px de altura (proporção 0.56, um
+       retrato alongado). Nenhum split do painel faz isso. --- */
+.destaque { display: grid; grid-template-columns: 46% minmax(0,1fr); }
+@media (max-width: 900px) { .destaque { grid-template-columns: 1fr; } }
+
+.materia { position: relative; min-height: 380px; }
+/* absolute pro canvas não entrar no cálculo de altura da linha do grid */
+.materia canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.materia figcaption {
+  position: absolute;
+  left: 16px; bottom: 15px;
+  font-family: 'Departure Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--t-65);
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 11px;
+  border-radius: var(--r-pilula);
+}
+
+.conteudo { padding: 34px 36px 32px; }
+
+/* --- chips: superfície pastel, texto na tinta --- */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 430;
+  padding: 5px 12px;
+  border-radius: var(--r-pilula);
+  color: var(--t-90);
+  background: var(--t-07);
+  white-space: nowrap;
+}
+.chip .ponto { width: 6px; height: 6px; border-radius: 50%; background: var(--t-50); flex-shrink: 0; }
+.chip.pastel .ponto { background: var(--t-75); }
+.codigo { font-family: 'Departure Mono', monospace; font-size: 11px; color: var(--t-35); letter-spacing: 0.02em; }
+
+h1, h2, h3 { font-weight: 400; }     /* nunca bold por padrão */
+
+.conteudo h1 {
+  font-size: clamp(28px, 3.5vw, 42px);
+  line-height: 1.08;
+  font-weight: 420;                  /* 420, não 600 */
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+  max-width: 21ch;
+  color: var(--t-100);
+}
+.conteudo h1 .serif { font-size: 1.06em; font-weight: 400; }
+
+.conteudo p.resumo {
+  margin: 0 0 26px;
+  color: var(--t-65);
+  font-size: 15.5px;
+  max-width: 46ch;
+}
+
+/* ============ TRILHA ============
+   Barrinhas verticais finas (ref-07, ref-09). Cada barrinha é um passo
+   já dado, não porcentagem: numa RFC voluntária não há prazo, e
+   porcentagem viraria métrica de vaidade (VISAO §9). */
+.trilha {
+  background: var(--rebaixo);
+  border-radius: var(--r-dentro);
+  padding: 17px 19px 18px;
+}
+.trilha .cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.trilha .titulo { font-size: 13px; font-weight: 460; color: var(--t-90); }
+.trilha .versao { font-family: 'Departure Mono', monospace; font-size: 11px; color: var(--t-50); }
+
+.barras { display: flex; gap: 2px; align-items: flex-end; height: 24px; margin-bottom: 14px; }
+.barras i {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--t-12);
+  height: 38%;
+  transform-origin: bottom;
+}
+.barras i.feito { background: var(--t-75); height: 100%; }
+.barras i.meio  { background: var(--t-35); height: 68%; }
+
+.passos { display: grid; gap: 7px; }
+.passo { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: var(--t-65); }
+.passo .marca { font-family: 'Departure Mono', monospace; font-size: 10px; color: var(--t-35); width: 12px; flex-shrink: 0; }
+.passo b { color: var(--t-90); font-weight: 460; }
+.passo.aberto { color: var(--t-35); }
+
+/* ============ PEDIDO ============ */
+.pedido {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--t-07);
+  background: var(--rebaixo);
+  padding: 22px 36px 24px;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+.pedido .texto { flex: 1; min-width: 260px; }
+.pedido .rotulo {
+  font-family: 'Departure Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--t-35);
+  margin: 0 0 8px;
+}
+.pedido p { margin: 0; font-size: 14.5px; color: var(--t-75); }
+.pedido p b { font-weight: 470; color: var(--t-100); }
+
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.botao {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 430;
+  padding: 10px 18px;
+  border-radius: var(--r-pilula);
+  border: 1px solid transparent;
+  background: var(--t-100);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 220ms var(--ease), transform 160ms var(--ease);
+}
+.botao:hover { background: var(--t-75); }
+.botao:active { transform: translateY(1px); }
+.botao.leve { background: transparent; color: var(--t-90); border-color: var(--t-12); }
+.botao.leve:hover { background: var(--t-07); }
+
+.rostos { display: flex; margin-left: 6px; }
+.rostos span {
+  width: 27px; height: 27px;
+  border-radius: 50%;
+  border: 2px solid var(--rebaixo);
+  margin-left: -9px;
+  font-family: 'Departure Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--t-90);
+  display: grid;
+  place-items: center;
+}
+.rostos span:first-child { margin-left: 0; }
+
+/* ============ GRADE ============ */
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 18px; margin-bottom: 18px; }
+.ideia {
+  display: flex; flex-direction: column;
+  text-decoration: none; color: inherit;
+  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+.ideia:hover { transform: translateY(-4px); box-shadow: var(--sombra-alta); }
+.ideia .capa { height: 152px; position: relative; }
+.ideia .capa canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ideia .miolo { padding: 17px 19px 19px; display: flex; flex-direction: column; flex: 1; }
+.ideia h3 {
+  font-size: 18.5px;
+  font-weight: 440;
+  letter-spacing: -0.024em;
+  line-height: 1.2;
+  margin: 11px 0 8px;
+  color: var(--t-100);
+}
+.ideia p { margin: 0 0 15px; font-size: 13.5px; color: var(--t-65); flex: 1; }
+.ideia .pe {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  font-family: 'Departure Mono', monospace;
+  font-size: 11px;
+  color: var(--t-35);
+  border-top: 1px solid var(--t-07);
+  padding-top: 13px;
+}
+
+/* ============ LABS ============ */
+.labs-faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.lab-card {
+  background: var(--cartao);
+  border-radius: 18px;
+  padding: 0 0 15px;
+  text-decoration: none; color: inherit;
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  transition: transform 260ms var(--ease);
+}
+.lab-card:hover { transform: translateY(-3px); }
+/* a faixa pastel é generosa: no craft a cor é superfície, não detalhe.
+   display:block é obrigatório — são <span>, e span inline ignora
+   height e padding vertical. Era o bug do CSS quebrado. */
+.lab-card .fita { display: block; height: 54px; }
+.lab-card .txt  { display: block; padding: 13px 16px 0; }
+.lab-card .nome { font-size: 14.5px; font-weight: 450; letter-spacing: -0.016em; display: block; color: var(--t-100); }
+.lab-card .qtd { font-family: 'Departure Mono', monospace; font-size: 11px; color: var(--t-35); display: block; margin-top: 3px; }
+
+/* ============ CHAMADA ============ */
+.chamada { padding: 52px 40px 54px; text-align: center; }
+.chamada h2 {
+  font-size: clamp(25px, 3.1vw, 36px);
+  font-weight: 420;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  margin: 0 auto 14px;
+  max-width: 26ch;
+  color: var(--t-100);
+}
+.chamada p { margin: 0 auto 28px; color: var(--t-65); max-width: 42ch; }
+
+.rodape {
+  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding: 6px 10px;
+  font-family: 'Departure Mono', monospace;
+  font-size: 11px;
+  color: var(--t-35);
+}
+.rodape a { color: var(--t-50); text-decoration: none; }
+.rodape a:hover { color: var(--t-90); }
+.rodape nav { display: flex; gap: 16px; flex-wrap: wrap; }
+
+a:focus-visible, button:focus-visible { outline: 2px solid var(--t-75); outline-offset: 3px; }
+
+/* ==================================================================
+   MICRO-ANIMAÇÕES — uma por peça, nomeada, como craft/cofounder/
+   agentation fazem. É daqui que vem o "fofo", não da paleta.
+   Todas disparadas por IntersectionObserver via .vem → .veio.
+   ================================================================== */
+
+@keyframes cartao-sobe {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dither-revela {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes barra-enche {
+  from { transform: scaleY(0.06); opacity: 0.4; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+@keyframes rosto-entra {
+  from { opacity: 0; transform: translateX(-7px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes chip-respira {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.34; }
+}
+@keyframes fita-abre {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.vem { opacity: 0; }
+.vem.veio { animation: cartao-sobe 620ms var(--ease) both; }
+
+/* o dither aparece depois do cartão — a matéria "revela" */
+.veio .materia canvas,
+.veio .capa canvas { animation: dither-revela 900ms ease-out 180ms both; }
+
+/* barrinhas crescem em sequência: 45ms de atraso por índice */
+.veio .barras i { animation: barra-enche 480ms var(--ease) both; }
+.veio .barras i:nth-child(1) { animation-delay: 260ms; }
+.veio .barras i:nth-child(2) { animation-delay: 305ms; }
+.veio .barras i:nth-child(3) { animation-delay: 350ms; }
+.veio .barras i:nth-child(4) { animation-delay: 395ms; }
+.veio .barras i:nth-child(5) { animation-delay: 440ms; }
+.veio .barras i:nth-child(6) { animation-delay: 485ms; }
+.veio .barras i:nth-child(7) { animation-delay: 530ms; }
+.veio .barras i:nth-child(8) { animation-delay: 575ms; }
+
+.veio .rostos span { animation: rosto-entra 380ms var(--ease) both; }
+.veio .rostos span:nth-child(1) { animation-delay: 420ms; }
+.veio .rostos span:nth-child(2) { animation-delay: 480ms; }
+.veio .rostos span:nth-child(3) { animation-delay: 540ms; }
+.veio .rostos span:nth-child(4) { animation-delay: 600ms; }
+.veio .rostos span:nth-child(5) { animation-delay: 660ms; }
+
+.veio .lab-card .fita { animation: fita-abre 520ms var(--ease) both; transform-origin: left; }
+.labs-faixa.veio .lab-card:nth-child(2) .fita { animation-delay: 60ms; }
+.labs-faixa.veio .lab-card:nth-child(3) .fita { animation-delay: 120ms; }
+.labs-faixa.veio .lab-card:nth-child(4) .fita { animation-delay: 180ms; }
+.labs-faixa.veio .lab-card:nth-child(5) .fita { animation-delay: 240ms; }
+.labs-faixa.veio .lab-card:nth-child(6) .fita { animation-delay: 300ms; }
+
+/* só o estado "em discussão" respira — indica conversa em curso */
+.chip.vivo .ponto { animation: chip-respira 2.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vem, .vem.veio { opacity: 1; animation: none; }
+  .veio .materia canvas, .veio .capa canvas,
+  .veio .barras i, .veio .rostos span, .veio .lab-card .fita {
+    animation: none;
+  }
+  .chip.vivo .ponto { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="palco">
+
+  <nav class="nav">
+    <span class="marca">idearium</span>
+    <a class="esconde" href="#">laboratórios</a>
+    <a class="esconde" href="#">ideias</a>
+    <a class="esconde" href="#">mãos</a>
+    <a class="esconde" href="#">sobre</a>
+    <span class="fim">
+      <a class="mono esconde" href="#" style="font-size:11px">pt · en</a>
+      <a class="entrar" href="#">entrar</a>
+    </span>
+  </nav>
+
+  <!-- ============ ABERTURA ============ -->
+  <header class="abertura vem">
+    <h1>Ideias abertas, esperando <span class="serif">quem sabe fazer</span>.</h1>
+    <p class="sub">
+      Alguém vê um problema de perto e escreve. Outra pessoa sabe construir e
+      procura no que aplicar isso. O Idearium é o lugar onde os dois se
+      encontram — sem gatekeeper, sem taxa, e com o crédito dividido.
+    </p>
+
+    <div class="fluxo">
+      <div class="etapa">
+        <span class="n">01</span>
+        <h3>Alguém escreve</h3>
+        <p>Uma ideia vira proposta numerada. Não precisa saber construir — precisa conhecer o problema.</p>
+        <div class="vira">vira <span class="chip" style="font-size:11px; padding:3px 9px">rascunho</span></div>
+      </div>
+
+      <div class="etapa">
+        <span class="n">02</span>
+        <h3>A comunidade refina</h3>
+        <p>Gente comenta, contesta, corrige. A proposta muda e o histórico fica: nada é apagado.</p>
+        <div class="vira">vira <span class="chip vivo" style="font-size:11px; padding:3px 9px"><span class="ponto"></span>em discussão</span></div>
+      </div>
+
+      <div class="etapa">
+        <span class="n">03</span>
+        <h3>Alguém se inscreve</h3>
+        <p>Quem sabe fazer entra. Sem aprovação e sem contrato — e pode sair quando quiser, publicamente.</p>
+        <div class="vira">vira <span class="chip" style="font-size:11px; padding:3px 9px">em construção</span></div>
+      </div>
+
+      <div class="etapa">
+        <span class="n">04</span>
+        <h3>Vira real, e segue aberta</h3>
+        <p>Quando existe, o crédito é de todos que passaram por ela. E outra cidade pode construir de novo.</p>
+        <div class="vira">vira <span class="chip" style="font-size:11px; padding:3px 9px">publicada</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ DESTAQUE ============ -->
+  <div class="faixa-rotulo">
+    <span class="r">uma delas, agora</span>
+    <a href="#">ver as 47 ideias abertas &rarr;</a>
+  </div>
+
+  <article class="cartao destaque vem">
+
+    <figure class="materia" style="margin:0">
+      <canvas data-materia="mancha" data-lab="cidades" data-semente="11"></canvas>
+      <figcaption>relatos agregados · 14 dias · rec/pe</figcaption>
+    </figure>
+
+    <div class="conteudo">
+      <div class="chips">
+        <span class="chip pastel" style="background:var(--cidades)">Cidades</span>
+        <span class="chip vivo"><span class="ponto"></span>em discussão</span>
+        <span class="codigo">RFC-0011</span>
+      </div>
+
+      <h1>Registre onde a água subiu, <span class="serif">não</span> quem registrou.</h1>
+
+      <p class="resumo">
+        Canal colaborativo de relatos geolocalizados sobre alagamentos, agregando
+        ocorrências em tempo quase-real como dado público, preservando anonimato.
+      </p>
+
+      <div class="trilha">
+        <div class="cabeca">
+          <span class="titulo">O que já existe</span>
+          <span class="versao">v0.2 · há 4 dias</span>
+        </div>
+        <div class="barras" role="img" aria-label="3 de 8 passos dados">
+          <i class="feito"></i><i class="feito"></i><i class="feito"></i><i class="meio"></i>
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <div class="passos">
+          <div class="passo"><span class="marca">→</span><span><b>Fluxo desenhado</b> e discutido em 11 comentários</span></div>
+          <div class="passo"><span class="marca">→</span><span><b>Anonimato resolvido</b> — limite por região, após crítica de @jhonatan</span></div>
+          <div class="passo aberto"><span class="marca">○</span><span>Falta quem conheça defesa civil por dentro</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pedido">
+      <div class="texto">
+        <p class="rotulo">para sair do papel</p>
+        <p>Precisa de <b>geo/back-end</b> e de alguém que já tenha trabalhado com defesa civil. Duas ou três pessoas.</p>
+      </div>
+      <div class="acoes">
+        <a class="botao" href="#">quero construir</a>
+        <a class="botao leve" href="#">ler a discussão</a>
+        <span class="rostos" aria-label="5 pessoas inscritas">
+          <span style="background:var(--cidades)">RF</span>
+          <span style="background:var(--saude)">JH</span>
+          <span style="background:var(--cultura)">LU</span>
+          <span style="background:var(--civica)">MF</span>
+          <span style="background:var(--t-12)">+1</span>
+        </span>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ GRADE ============ -->
+  <div class="grade">
+
+    <a class="cartao ideia vem" href="#">
+      <div class="capa"><canvas data-materia="pontos" data-lab="saude" data-semente="14"></canvas></div>
+      <div class="miolo">
+        <div class="chips" style="margin:0">
+          <span class="chip pastel" style="background:var(--saude)">Saúde</span>
+          <span class="codigo">RFC-0014</span>
+        </div>
+        <h3>Deixe o remédio a três ruas de quem precisa dele.</h3>
+        <p>Pontos comunitários de doação de medicamento fechado, com busca por proximidade e moderação local.</p>
+        <div class="pe"><span>@marina · v0.4</span><span>1 ponto piloto</span></div>
+      </div>
+    </a>
+
+    <a class="cartao ideia vem" href="#">
+      <div class="capa"><canvas data-materia="grafo" data-lab="educacao" data-semente="7"></canvas></div>
+      <div class="miolo">
+        <div class="chips" style="margin:0">
+          <span class="chip pastel" style="background:var(--educacao)">Educação</span>
+          <span class="codigo">RFC-0007</span>
+        </div>
+        <h3>Empreste o livro sem pedir garantia.</h3>
+        <p>Catálogo leve para vizinhos emprestarem entre si. Sem nota, sem pontuação — só histórico de devolução.</p>
+        <div class="pe"><span>@luisa · v0.6</span><span>3 bairros</span></div>
+      </div>
+    </a>
+
+    <a class="cartao ideia vem" href="#">
+      <div class="capa"><canvas data-materia="serie" data-lab="civica" data-semente="23"></canvas></div>
+      <div class="miolo">
+        <div class="chips" style="margin:0">
+          <span class="chip pastel" style="background:var(--civica)">Tec. Cívica</span>
+          <span class="codigo">RFC-0023</span>
+        </div>
+        <h3>Publique o orçamento antes de gastá-lo.</h3>
+        <p>Acompanha o portal de transparência e avisa quando uma rubrica muda, em linguagem que o vizinho entende.</p>
+        <div class="pe"><span>@dev.raposa · v0.1</span><span>precisa de tudo</span></div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ============ LABS ============ -->
+  <div class="labs-faixa vem">
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--educacao)"></span><span class="txt"><span class="nome">Educação</span><span class="qtd">12 ideias · 4 pedindo mão</span></span></a>
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--cidades)"></span><span class="txt"><span class="nome">Cidades</span><span class="qtd">9 ideias · 3 pedindo mão</span></span></a>
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--saude)"></span><span class="txt"><span class="nome">Saúde</span><span class="qtd">7 ideias · 1 pedindo mão</span></span></a>
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--cultura)"></span><span class="txt"><span class="nome">Cultura</span><span class="qtd">6 ideias · 5 pedindo mão</span></span></a>
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--civica)"></span><span class="txt"><span class="nome">Tec. Cívica</span><span class="qtd">8 ideias · 2 pedindo mão</span></span></a>
+    <a class="lab-card" href="#"><span class="fita" style="background:var(--solidaria)"></span><span class="txt"><span class="nome">Econ. Solidária</span><span class="qtd">5 ideias · 4 pedindo mão</span></span></a>
+  </div>
+
+  <!-- ============ CHAMADA ============ -->
+  <section class="cartao chamada vem">
+    <h2>Escreva uma ideia. <span class="serif">Não precisa saber fazer.</span></h2>
+    <p>Precisa só querer que aconteça. Quem sabe fazer está aqui, procurando no que aplicar isso.</p>
+    <a class="botao" href="#">escrever uma ideia</a>
+  </section>
+
+  <footer class="rodape">
+    <span>idearium · construção coletiva</span>
+    <nav>
+      <a href="#">governança</a>
+      <a href="#">código de conduta</a>
+      <a href="#">transparência</a>
+    </nav>
+    <span>cc by-sa 4.0</span>
+  </footer>
+
+</div>
+
+<script>
+/* ==================================================================
+   MATÉRIA — o dado da RFC em dithering ordenado (Bayer 8×8)
+   ==================================================================
+   Cada RFC exibe o SEU dado como imagem, 1 bit por pixel. Quatro
+   campos, um por tipo de dado:
+     mancha — densidade de relatos num território  (RFC-0011)
+     pontos — pontos discretos e seu alcance       (RFC-0014)
+     grafo  — quem emprestou pra quem              (RFC-0007)
+     serie  — uma rubrica ao longo do tempo        (RFC-0023)
+
+   O pastel do lab é o FUNDO; o dither é desenhado na tinta única.
+   Pastel dessaturado não teria contraste pra ser o traço.
+
+   Determinístico: mesma semente, mesma imagem, em qualquer máquina,
+   sem guardar nada e sem requisição. Em produção o campo vem da API
+   e o resto do código não muda.
+   ================================================================== */
+
+const BAYER8 = [
+  [ 0,32, 8,40, 2,34,10,42],[48,16,56,24,50,18,58,26],
+  [12,44, 4,36,14,46, 6,38],[60,28,52,20,62,30,54,22],
+  [ 3,35,11,43, 1,33, 9,41],[51,19,59,27,49,17,57,25],
+  [15,47, 7,39,13,45, 5,37],[63,31,55,23,61,29,53,21]
+];
+
+function prng(seed) {
+  let a = (seed * 2654435761) >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* cada campo devolve (x,y) -> intensidade 0..1 */
+function campo(tipo, r, L, A) {
+  if (tipo === 'mancha') {
+    const focos = Array.from({length: 7}, () => ({
+      x: r() * L, y: r() * A, s: (0.10 + r() * 0.22) * Math.min(L, A), p: 0.5 + r()
+    }));
+    return (x, y) => {
+      let v = 0;
+      for (const f of focos) v += f.p * Math.exp(-(((x-f.x)**2 + (y-f.y)**2) / (f.s*f.s)));
+      return Math.min(1, v * 0.62);
+    };
+  }
+  if (tipo === 'pontos') {
+    const pts = Array.from({length: 22}, () => ({
+      x: r() * L, y: r() * A, s: (0.05 + r() * 0.07) * Math.min(L, A)
+    }));
+    return (x, y) => {
+      let v = 0;
+      for (const p of pts) {
+        const d = Math.hypot(x - p.x, y - p.y) / p.s;
+        v = Math.max(v, Math.exp(-d * d * 0.8));
+      }
+      return Math.min(1, v * 0.95);
+    };
+  }
+  if (tipo === 'grafo') {
+    const nos = Array.from({length: 11}, () => ({
+      x: 0.1 * L + r() * 0.8 * L, y: 0.1 * A + r() * 0.8 * A
+    }));
+    const arestas = [];
+    for (let i = 0; i < nos.length; i++) {
+      const j = Math.floor(r() * nos.length);
+      if (i !== j) arestas.push([nos[i], nos[j]]);
+    }
+    return (x, y) => {
+      let v = 0;
+      for (const n of nos) v = Math.max(v, Math.exp(-(((x-n.x)**2 + (y-n.y)**2)) / 90));
+      for (const [a, b] of arestas) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const t = Math.max(0, Math.min(1, ((x-a.x)*dx + (y-a.y)*dy) / (dx*dx + dy*dy || 1)));
+        const d = Math.hypot(x - (a.x + t*dx), y - (a.y + t*dy));
+        v = Math.max(v, Math.exp(-(d*d) / 5) * 0.62);
+      }
+      return Math.min(1, v);
+    };
+  }
+  const n = 26;
+  const alt = Array.from({length: n}, (_, i) =>
+    0.32 + 0.42 * Math.abs(Math.sin(i * 0.55 + r())) * (0.6 + r() * 0.6));
+  return (x, y) => {
+    const i = Math.min(n - 1, Math.floor((x / L) * n));
+    const topo = A * (1 - alt[i]);
+    if (y < topo) return 0;
+    return 0.30 + 0.62 * (1 - (y - topo) / (A - topo));
+  };
+}
+
+function pintar(cv) {
+  const caixa = cv.getBoundingClientRect();
+  if (!caixa.width || !caixa.height) return;
+
+  const raiz = getComputedStyle(document.documentElement);
+  const pastel = raiz.getPropertyValue('--' + cv.dataset.lab).trim();
+
+  const ESCALA = 4;                       // 1 pixel de dado = 4 CSS px
+  // piso baixo de propósito: um piso alto distorce capas curtas
+  // (152px / 4 = 38 seria forçado pra 40 e esticaria o dither)
+  const L = Math.max(8, Math.round(caixa.width  / ESCALA));
+  const A = Math.max(8, Math.round(caixa.height / ESCALA));
+  cv.width = L; cv.height = A;
+
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  cv.style.imageRendering = 'pixelated';
+
+  const f = campo(cv.dataset.materia, prng(parseInt(cv.dataset.semente, 10)), L, A);
+
+  ctx.fillStyle = pastel;                 // pastel do lab é o fundo
+  ctx.fillRect(0, 0, L, A);
+  ctx.fillStyle = 'rgba(3, 3, 2, 0.86)';  // a tinta única é o traço
+
+  for (let y = 0; y < A; y++) {
+    for (let x = 0; x < L; x++) {
+      if (f(x, y) > (BAYER8[y & 7][x & 7] + 0.5) / 64) ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+const pintarTudo = () => document.querySelectorAll('canvas[data-materia]').forEach(pintar);
+pintarTudo();
+
+let t;
+addEventListener('resize', () => { clearTimeout(t); t = setTimeout(pintarTudo, 180); });
+
+/* --- entrada por IntersectionObserver: cada peça anima quando chega --- */
+const olho = new IntersectionObserver((entradas) => {
+  for (const e of entradas) {
+    if (!e.isIntersecting) continue;
+    e.target.classList.add('veio');
+    olho.unobserve(e.target);
+  }
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.vem').forEach((el, i) => {
+  el.style.animationDelay = (i * 70) + 'ms';   // escada leve entre blocos
+  olho.observe(el);
+});
+</script>
+
+</body>
+</html>

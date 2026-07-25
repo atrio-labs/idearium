@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Átrio v2 — comparar direções</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=Archivo+Narrow:wght@600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:   #F4F3EF;
+    --ink:  #16150F;
+    --mid:  rgba(22,21,15,0.58);
+    --lo:   rgba(22,21,15,0.26);
+    --line: rgba(22,21,15,0.16);
+    --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 48px 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  .rotulo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--lo);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 500;
+    letter-spacing: -0.022em;
+    line-height: 1.1;
+    margin: 0 0 16px;
+    max-width: 30ch;
+  }
+  .lede { max-width: 68ch; color: var(--mid); margin: 0 0 12px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .aviso {
+    border-left: 2px solid var(--ink);
+    padding: 2px 0 2px 14px;
+    margin: 28px 0 48px;
+    max-width: 68ch;
+    font-size: 14px;
+    color: var(--mid);
+  }
+
+  /* ============ CARTÕES ============ */
+  .grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+  .cartao {
+    border: 1px solid var(--ink);
+    background: #fff;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
+  }
+  .cartao:hover { transform: translateY(-3px); box-shadow: 0 10px 0 -6px var(--ink); }
+  .cartao:active { transform: translateY(0); }
+
+  .cartao-topo {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 8px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .cartao-topo .abrir { opacity: 0.7; }
+
+  /* amostra: cada cartão mostra o próprio sistema tipográfico e a paleta */
+  .amostra {
+    padding: 26px 18px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .amostra .titulo { line-height: 1.05; margin: 0 0 8px; }
+  .amostra .corpo  { font-size: 13px; margin: 0; }
+
+  .a-bancada { background: #EEF1E6; }
+  .a-bancada .titulo { font-family: 'Newsreader', serif; font-size: 27px; font-weight: 500; color: #2E3128; }
+  .a-bancada .corpo  { font-family: 'IBM Plex Mono', monospace; color: rgba(27,42,91,0.7); font-size: 11px; letter-spacing: 0.05em; }
+
+  .a-certificado { background: #FCFCFA; }
+  .a-certificado .titulo { font-family: 'Archivo', sans-serif; font-size: 27px; font-weight: 300; letter-spacing: -0.022em; }
+  .a-certificado .corpo  { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; color: rgba(17,17,16,0.5); }
+
+  .a-catalogo { background: #E7E3D6; }
+  .a-catalogo .titulo { font-family: 'Archivo Narrow', sans-serif; font-size: 30px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; }
+  .a-catalogo .titulo span { color: #D14A1C; }
+  .a-catalogo .corpo  { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: rgba(26,26,23,0.6); }
+
+  .cartao-corpo { padding: 18px 18px 20px; flex: 1; display: flex; flex-direction: column; }
+  .cartao-corpo h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+    margin: 0 0 4px;
+  }
+  .cartao-corpo .fonte-ref {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--mid);
+    margin: 0 0 12px;
+  }
+  .cartao-corpo .pitch { font-size: 13.5px; color: var(--mid); margin: 0 0 14px; flex: 1; }
+  .cartao-corpo .pitch b { color: var(--ink); font-weight: 600; }
+
+  .tintas { display: flex; border: 1px solid var(--ink); margin: 0 0 12px; }
+  .tintas div { flex: 1; height: 20px; }
+
+  .ficha {
+    border-top: 1px dashed var(--line);
+    padding-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.7;
+    color: var(--mid);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .ficha b { color: var(--ink); }
+
+  /* ============ EIXOS ============ */
+  .eixos { margin-top: 64px; border-top: 1px solid var(--ink); padding-top: 28px; }
+  .eixos h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.014em; margin: 0 0 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--lo);
+    font-weight: 500;
+    border-bottom: 1px solid var(--ink);
+  }
+  td:first-child { font-weight: 600; width: 20%; }
+  td.mid { color: var(--mid); }
+
+  .nota-pe {
+    margin-top: 56px;
+    border-top: 1px solid var(--line);
+    padding-top: 22px;
+    font-size: 13.5px;
+    color: var(--mid);
+    max-width: 74ch;
+  }
+  .nota-pe h3 { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
+  .nota-pe ul { padding-left: 20px; line-height: 1.7; }
+  .nota-pe code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    background: rgba(22,21,15,0.06);
+    padding: 1px 5px;
+  }
+  a { color: var(--ink); }
+  a:focus-visible { outline: 2px solid #D14A1C; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="rotulo">Átrio v2 · comparador de direções</p>
+  <h1>Três átrios, mesmo conteúdo, três estruturas.</h1>
+  <p class="lede">
+    Cada um leva uma referência pré-2020 até o fim, em vez de aplicá-la como
+    pele. Conteúdo idêntico nos três (as mesmas RFCs, os mesmos labs, a mesma
+    frase-âncora) — <strong>então o que você sentir de diferente é estrutura,
+    não conteúdo</strong>. Abra em abas separadas e volte aqui pra comparar.
+  </p>
+
+  <div class="aviso">
+    Nenhum dos três usa PP Mondwest ou PP NeueBit. Aquelas fontes são
+    <em>free for personal use</em> e o próprio <code>global.css</code> já
+    sinaliza o risco. Aqui só entram fontes com licença aberta (OFL), servidas
+    do Google Fonts.
+  </div>
+
+  <div class="grade">
+
+    <!-- ============ BANCADA ============ -->
+    <a class="cartao" href="bancada.html" target="_blank" rel="noopener">
+      <div class="cartao-topo">
+        <span>01 · BANCADA</span>
+        <span class="abrir">abrir &rarr;</span>
+      </div>
+      <div class="amostra a-bancada">
+        <p class="titulo">Biblioteca Cooperativa de Bairro</p>
+        <p class="corpo">RFC-0007 &middot; 18.07 &middot; 08h05 &middot; v0.6</p>
+      </div>
+      <div class="cartao-corpo">
+        <h2>Caderno de laboratório</h2>
+        <p class="fonte-ref">Newsreader + Courier Prime</p>
+        <p class="pitch">
+          A home é uma folha de caderno de bancada: papel milimetrado, linhas
+          numeradas na margem, entradas datadas, assinatura do autor e da
+          testemunha. <b>O achado são as erratas</b> — texto riscado com a
+          correção ao lado, porque no caderno você não apaga. É o "nada se
+          deleta" do VISAO §6 ficando visível.
+        </p>
+        <div class="tintas">
+          <div style="background:#EEF1E6"></div>
+          <div style="background:#E6EADC"></div>
+          <div style="background:#1B2A5B"></div>
+          <div style="background:#2E3128"></div>
+          <div style="background:#9E3B2A"></div>
+        </div>
+        <div class="ficha">
+          <b>referência:</b> convenção do caderno de lab (séc. XIX)<br>
+          <b>estrutura:</b> registro cronológico + margem<br>
+          <b>densidade:</b> média<br>
+          <b>risco:</b> pode ler como nostálgico se o grão pesar
+        </div>
+      </div>
+    </a>
+
+    <!-- ============ CERTIFICADO ============ -->
+    <a class="cartao" href="certificado.html" target="_blank" rel="noopener">
+      <div class="cartao-topo">
+        <span>02 · CERTIFICADO</span>
+        <span class="abrir">abrir &rarr;</span>
+      </div>
+      <div class="amostra a-certificado">
+        <p class="titulo">Empreste o livro sem pedir garantia.</p>
+        <p class="corpo">RFC-0007 &middot; 3 EXECUÇÕES</p>
+      </div>
+      <div class="cartao-corpo">
+        <h2>Instrução e execução</h2>
+        <p class="fonte-ref">Archivo + IBM Plex Mono</p>
+        <p class="pitch">
+          Sol LeWitt escrevia a instrução e outra pessoa executava. Aqui cada
+          RFC é uma instrução no imperativo, e a tela mostra
+          <b>quantas vezes ela já foi executada, por quem, onde</b> — nenhuma
+          é a oficial. <b>Cada ideia ganha um diagrama gerado do próprio
+          número</b>, determinístico: RFC-0011 desenha sempre igual.
+        </p>
+        <div class="tintas">
+          <div style="background:#FCFCFA"></div>
+          <div style="background:#111110"></div>
+          <div style="background:#CC2E26"></div>
+          <div style="background:#1B4FA0"></div>
+          <div style="background:#E8B004"></div>
+        </div>
+        <div class="ficha">
+          <b>referência:</b> LeWitt, Wall Drawings (1968&ndash;)<br>
+          <b>estrutura:</b> eixo deslocado, espaço como material<br>
+          <b>densidade:</b> baixa<br>
+          <b>risco:</b> pode ler como frio / galeria
+        </div>
+      </div>
+    </a>
+
+    <!-- ============ CATÁLOGO ============ -->
+    <a class="cartao" href="catalogo.html" target="_blank" rel="noopener">
+      <div class="cartao-topo">
+        <span>03 · CATÁLOGO</span>
+        <span class="abrir">abrir &rarr;</span>
+      </div>
+      <div class="amostra a-catalogo">
+        <p class="titulo">Acesso a<br><span>Ferramentas</span></p>
+        <p class="corpo">47 IDEIAS ABERTAS &middot; 6 BANCADAS</p>
+      </div>
+      <div class="cartao-corpo">
+        <h2>Catálogo de acesso</h2>
+        <p class="fonte-ref">Archivo Narrow + Spectral + Courier Prime</p>
+        <p class="pitch">
+          Whole Earth Catalog: quatro colunas densas, duas tintas, verbas de
+          alturas diferentes. <b>O achado é o bloco de acesso</b> — o Whole
+          Earth dizia preço e onde encomendar, aqui diz o que já existe, que
+          mãos faltam e quanto tempo leva. É o matchmaking na superfície,
+          não escondido atrás de "128 builders".
+        </p>
+        <div class="tintas">
+          <div style="background:#E7E3D6"></div>
+          <div style="background:#DEDACB"></div>
+          <div style="background:#1A1A17"></div>
+          <div style="background:#D14A1C"></div>
+          <div style="background:rgba(209,74,28,0.16)"></div>
+        </div>
+        <div class="ficha">
+          <b>referência:</b> Whole Earth Catalog (1968&ndash;74)<br>
+          <b>estrutura:</b> multicoluna densa, fluxo<br>
+          <b>densidade:</b> alta<br>
+          <b>risco:</b> pode cansar / difícil no celular
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ============ EIXOS ============ -->
+  <section class="eixos">
+    <h2>O que cada um decide de diferente</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>eixo</th>
+          <th>Bancada</th>
+          <th>Certificado</th>
+          <th>Catálogo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>unidade da tela</td>
+          <td class="mid">entrada datada</td>
+          <td class="mid">uma instrução em cartaz</td>
+          <td class="mid">verba de catálogo</td>
+        </tr>
+        <tr>
+          <td>como mostra "tech"</td>
+          <td class="mid">versão, errata, assinatura</td>
+          <td class="mid">execuções e diagrama por regra</td>
+          <td class="mid">o que falta pra construir</td>
+        </tr>
+        <tr>
+          <td>o que faz do estado</td>
+          <td class="mid">carimbo torto</td>
+          <td class="mid">contagem de execuções</td>
+          <td class="mid">selo impresso na verba</td>
+        </tr>
+        <tr>
+          <td>comentário aparece como</td>
+          <td class="mid">observação e errata</td>
+          <td class="mid">nota de execução</td>
+          <td class="mid">marginália de leitor</td>
+        </tr>
+        <tr>
+          <td>ritmo de leitura</td>
+          <td class="mid">linear, de cima pra baixo</td>
+          <td class="mid">lento, uma coisa por vez</td>
+          <td class="mid">saltado, você tropeça</td>
+        </tr>
+        <tr>
+          <td>o que sacrifica</td>
+          <td class="mid">escala — 47 entradas cansam</td>
+          <td class="mid">densidade — mostra pouco por tela</td>
+          <td class="mid">calma — não há repouso</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="nota-pe">
+    <h3>Como decidir</h3>
+    <ul>
+      <li>Não escolha pela beleza da home. Pergunte: <em>qual dessas estruturas
+        ainda funciona com 500 RFCs?</em> Bancada e Certificado precisam de uma
+        segunda tela pra escalar; Catálogo já nasce escalado.</li>
+      <li>Se gostar da estrutura de um e da paleta de outro, dá pra cruzar —
+        os três são CSS puro, sem framework, tokens no <code>:root</code>.</li>
+      <li>Cada arquivo abre direto com <code>file://</code>, sem servidor.
+        Só o <code>certificado.html</code> usa JavaScript, e só pra desenhar
+        os diagramas.</li>
+      <li>O conteúdo é fixture: as mesmas RFCs placeholder de
+        <code>apps/web/src/pages/atrio.astro</code>, pra comparação justa.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

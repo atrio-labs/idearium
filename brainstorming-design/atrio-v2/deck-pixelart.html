@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Deck de pixel art — 10 briefings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==================================================================
+   DECK DE PIXEL ART — 10 briefings pra gerar e escolher
+   ==================================================================
+   Mesmo sistema visual do materia.html (polo macio, decodificado do
+   craft.do): off-white quente, uma tinta com alpha, peso 400, raio
+   24/14, sombra difusa quase invisível.
+
+   MÉTODO: 6 tratamentos do MESMO assunto isolam o eixo estilo — você
+   compara sem o assunto interferir. Depois 4 assuntos diferentes
+   testam se o estilo escolhido aguenta variedade. É o mesmo raciocínio
+   do compare.html.
+   ================================================================== */
+:root {
+  --fundo: #FCF9F7; --cartao: #FFFFFF; --rebaixo: #F7F4F1;
+  --tinta: 3,3,2;
+  --t-100: rgba(var(--tinta),1); --t-90: rgba(var(--tinta),.9);
+  --t-75: rgba(var(--tinta),.75); --t-65: rgba(var(--tinta),.65);
+  --t-50: rgba(var(--tinta),.5);  --t-35: rgba(var(--tinta),.35);
+  --t-12: rgba(var(--tinta),.12); --t-07: rgba(var(--tinta),.07);
+  --educacao:#E8B79B; --cidades:#A9C6E4; --saude:#9BD8A9;
+  --cultura:#FDE99B;  --civica:#C6BCE6;  --solidaria:#E9B2B8;
+  --r-fora:24px; --r-dentro:14px; --r-pilula:999px;
+  --sombra: 0 1px 1px rgba(var(--tinta),.015), 0 8px 10px rgba(var(--tinta),.02),
+            0 20px 20px rgba(var(--tinta),.015), 0 50px 40px rgba(var(--tinta),.01);
+  --ease: cubic-bezier(0.22,1,0.36,1);
+}
+* { box-sizing: border-box; }
+body {
+  margin:0; background:var(--fundo); color:var(--t-90);
+  font-family:'Inter',system-ui,sans-serif; font-optical-sizing:auto;
+  font-size:15px; font-weight:400; line-height:1.55; letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased;
+}
+.mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
+.serif { font-family:'Newsreader',Georgia,serif; font-style:italic; font-weight:400; letter-spacing:0; }
+.palco { max-width:1120px; margin:0 auto; padding:44px 20px 90px; }
+
+h1,h2,h3 { font-weight:400; }
+h1 { font-size:clamp(28px,3.4vw,40px); font-weight:420; letter-spacing:-.03em; line-height:1.08; margin:0 0 14px; max-width:26ch; color:var(--t-100); }
+.lede { color:var(--t-65); max-width:66ch; margin:0 0 10px; font-size:15.5px; }
+.rotulo { font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.14em; color:var(--t-35); margin:0 0 12px; }
+
+/* ---- painel de especificação ---- */
+.spec { background:var(--cartao); border-radius:var(--r-fora); box-shadow:var(--sombra); padding:28px 30px 26px; margin:32px 0 44px; }
+.spec h2 { font-size:19px; font-weight:450; letter-spacing:-.022em; margin:0 0 16px; color:var(--t-100); }
+.spec-grade { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:22px; }
+.spec dl { margin:0; font-size:13.5px; }
+.spec dt { font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--t-35); margin-top:12px; }
+.spec dt:first-child { margin-top:0; }
+.spec dd { margin:2px 0 0; color:var(--t-75); }
+.paleta { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.paleta span { width:34px; height:34px; border-radius:9px; box-shadow:inset 0 0 0 1px var(--t-07); }
+code { font-family:'JetBrains Mono',monospace; font-size:12px; background:var(--t-07); padding:2px 6px; border-radius:5px; }
+pre {
+  font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.6;
+  background:var(--rebaixo); border-radius:var(--r-dentro); padding:14px 16px;
+  overflow-x:auto; margin:8px 0 0; color:var(--t-90);
+}
+
+/* ---- cartões de briefing ---- */
+.secao-titulo { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin:48px 0 6px; }
+.secao-titulo h2 { font-size:23px; font-weight:430; letter-spacing:-.026em; margin:0; color:var(--t-100); }
+.secao-titulo .nota { color:var(--t-50); font-size:14px; }
+
+.grade { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px; margin-top:22px; }
+.brief { background:var(--cartao); border-radius:var(--r-fora); box-shadow:var(--sombra); overflow:hidden; display:flex; flex-direction:column; }
+
+/* moldura mostrando a proporção-alvo real, com o pastel do lab */
+.moldura { position:relative; display:grid; place-items:center; }
+.moldura.quadrado  { aspect-ratio:1/1; }
+.moldura.panoramico { aspect-ratio:184/76; }
+.moldura .vazio {
+  font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.06em;
+  color:var(--t-50); text-align:center; padding:10px 16px; line-height:1.7;
+}
+.moldura .dim {
+  position:absolute; top:12px; left:12px;
+  font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.04em;
+  background:rgba(255,255,255,.82); backdrop-filter:blur(8px);
+  padding:4px 9px; border-radius:var(--r-pilula); color:var(--t-65);
+}
+.brief .miolo { padding:19px 21px 20px; display:flex; flex-direction:column; flex:1; }
+.brief .n { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--t-35); }
+.brief h3 { font-size:18.5px; font-weight:445; letter-spacing:-.024em; line-height:1.2; margin:7px 0 8px; color:var(--t-100); }
+.brief .p { font-size:13.5px; color:var(--t-65); margin:0 0 14px; flex:1; }
+.brief .risco { font-size:12.5px; color:var(--t-50); margin:0 0 14px; padding-left:11px; border-left:2px solid var(--t-12); }
+.brief .risco b { color:var(--t-75); font-weight:460; }
+
+.prompt {
+  background:var(--rebaixo); border-radius:var(--r-dentro);
+  padding:13px 15px 14px; margin-top:auto;
+}
+.prompt .cab { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; }
+.prompt .cab span { font-family:'JetBrains Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--t-35); }
+.prompt textarea {
+  width:100%; border:0; background:transparent; resize:vertical;
+  font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.62;
+  color:var(--t-90); min-height:132px; padding:0;
+}
+.prompt textarea:focus { outline:none; }
+.copiar {
+  font-family:'Inter',sans-serif; font-size:11.5px; font-weight:430;
+  background:var(--t-100); color:#fff; border:0; border-radius:var(--r-pilula);
+  padding:6px 13px; cursor:pointer; transition:background 200ms var(--ease);
+}
+.copiar:hover { background:var(--t-75); }
+.copiar.feito { background:#3E7A4E; }
+
+.aviso { background:var(--cartao); border-radius:var(--r-fora); box-shadow:var(--sombra); padding:26px 30px 24px; margin-top:44px; }
+.aviso h2 { font-size:19px; font-weight:450; letter-spacing:-.022em; margin:0 0 12px; color:var(--t-100); }
+.aviso p { color:var(--t-75); max-width:74ch; font-size:14.5px; margin:0 0 12px; }
+.aviso ul { color:var(--t-75); max-width:74ch; font-size:14.5px; line-height:1.75; padding-left:20px; margin:0 0 12px; }
+button:focus-visible, textarea:focus-visible { outline:2px solid var(--t-75); outline-offset:3px; }
+</style>
+</head>
+<body>
+<div class="palco">
+
+  <p class="rotulo">Idearium · átrio v2</p>
+  <h1>Deck de pixel art — <span class="serif">10 briefings</span></h1>
+  <p class="lede">
+    Pra gerar e escolher. Os seis primeiros são <strong>tratamentos diferentes do
+    mesmo assunto</strong> — isolam o eixo estilo, então você compara sem o assunto
+    interferir. Os quatro últimos são <strong>assuntos diferentes</strong>, pra testar
+    se o estilo que você escolher aguenta variedade.
+  </p>
+
+  <!-- ============ ESPECIFICAÇÃO ============ -->
+  <section class="spec">
+    <h2>O que vale pros dez</h2>
+    <div class="spec-grade">
+      <dl>
+        <dt>paleta fechada</dt>
+        <dd>
+          Máximo 12 cores. Fundo <code>#FCF9F7</code>, tinta <code>#030302</code>,
+          e o pastel do lab. Dois tons derivados por pastel (uma sombra, uma luz).
+          <div class="paleta">
+            <span style="background:#FCF9F7"></span>
+            <span style="background:#030302"></span>
+            <span style="background:var(--educacao)"></span>
+            <span style="background:var(--cidades)"></span>
+            <span style="background:var(--saude)"></span>
+            <span style="background:var(--cultura)"></span>
+            <span style="background:var(--civica)"></span>
+            <span style="background:var(--solidaria)"></span>
+          </div>
+        </dd>
+        <dt>tamanho final</dt>
+        <dd>
+          Destaque <code>131 × 131</code> px de arte real.<br>
+          Capa da grade <code>184 × 76</code> px.<br>
+          Gere grande e reduza — receita ao lado.
+        </dd>
+      </dl>
+      <dl>
+        <dt>proibido</dt>
+        <dd>
+          Anti-aliasing, gradiente suave, glow, textura de grão, contorno preto
+          grosso em tudo, e sombra com blur. Pixel art macia é pixel art falsa.
+        </dd>
+        <dt>obrigatório</dt>
+        <dd>
+          Pixels quadrados alinhados em grade única, cores planas, sombra chapada
+          (sem degradê), e silêncio: muito espaço vazio no pastel.
+        </dd>
+      </dl>
+      <dl>
+        <dt>por que reduzir depois</dt>
+        <dd>
+          Modelo de imagem não faz pixel art de verdade — faz imitação, com pixels
+          de tamanhos diferentes e bordas suaves. O downscale com
+          <em>nearest neighbor</em> força a grade e mata o anti-aliasing.
+        </dd>
+        <dt>receita</dt>
+        <dd>
+          <pre>magick entrada.png \
+  -filter point \
+  -resize 131x131! \
+  -colors 12 \
+  saida.png</pre>
+        </dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ EIXO A: TRATAMENTOS ============ -->
+  <div class="secao-titulo">
+    <h2>Seis tratamentos</h2>
+    <span class="nota">mesmo assunto — RFC-0011, enchente urbana · formato quadrado · pastel Cidades</span>
+  </div>
+
+  <div class="grade">
+
+    <!-- 01 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">01 · isométrico<br>diorama de quadra</p>
+      </div>
+      <div class="miolo">
+        <span class="n">01</span>
+        <h3>Isométrico limpo</h3>
+        <p class="p">Um pedaço de quadra visto em isometria, como diorama. Legível, cabe informação, e é o tratamento que escala melhor pra muitos assuntos.</p>
+        <p class="risco"><b>Risco:</b> é o mais usado em produto hoje. Pode sair genérico.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art isométrica de um pedaço de quadra urbana durante alagamento: duas casas simples, um poste, uma árvore, e a água cobrindo a rua até a calçada. Sem pessoas.
+
+Estilo: pixel art estrita, pixels quadrados numa grade única, cores planas, sombras chapadas sem degradê. SEM anti-aliasing, SEM contorno preto, SEM glow, SEM textura.
+
+Paleta fechada de no máximo 10 cores, baseada em: fundo #A9C6E4, tinta #030302, e tons de azul-acinzentado derivados de #A9C6E4. Muito espaço vazio no fundo.
+
+Composição quadrada, o diorama centrado ocupando 60% do quadro. Fundo liso na cor #A9C6E4.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 02 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">02 · silhueta lateral<br>figura pequena, muito ar</p>
+      </div>
+      <div class="miolo">
+        <span class="n">02</span>
+        <h3>Cena lateral com silhueta</h3>
+        <p class="p">Vista de lado, uma figura minúscula e muito espaço vazio. É o tratamento do cofounder — a escala pequena da figura é o que dá o afeto.</p>
+        <p class="risco"><b>Risco:</b> depende de uma composição muito boa. Ruim, vira vazio sem graça.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art em vista lateral: uma pessoa muito pequena de costas, parada na beira de uma calçada alagada, olhando a água. Horizonte baixo, dois terços do quadro é céu liso. A figura ocupa menos de 8% da imagem.
+
+Estilo: pixel art estrita, pixels quadrados em grade única, cores planas, sombra chapada. SEM anti-aliasing, SEM contorno preto grosso, SEM glow, SEM gradiente.
+
+Paleta fechada de 8 cores: fundo/céu #A9C6E4, tinta #030302, e tons derivados de #A9C6E4. Silêncio visual, muito vazio.
+
+Composição quadrada.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 03 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">03 · vista de cima<br>mapa, quase dado</p>
+      </div>
+      <div class="miolo">
+        <span class="n">03</span>
+        <h3>Mapa visto de cima</h3>
+        <p class="p">Top-down, lendo como planta ou dado geográfico. É o tratamento mais próximo do que o Idearium <em>é</em> — e conversa direto com o dither que já está no mockup.</p>
+        <p class="risco"><b>Aposta:</b> é o que melhor resolve "problema social + software" sem ícone de engrenagem.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art vista de cima (top-down), como planta de bairro: malha de ruas, quarteirões retangulares, e manchas irregulares de água cobrindo parte das ruas. Alguns pontos marcados como pequenos quadrados escuros, indicando relatos.
+
+Estilo: pixel art estrita, pixels quadrados em grade única, cores planas, sem perspectiva, sem sombra. SEM anti-aliasing, SEM contorno, SEM glow, SEM gradiente.
+
+Paleta fechada de 6 cores: fundo #A9C6E4, tinta #030302, e dois tons intermediários derivados de #A9C6E4. Leitura de mapa, não de ilustração.
+
+Composição quadrada, malha preenchendo o quadro inteiro.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 04 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">04 · objeto único<br>centrado, fundo liso</p>
+      </div>
+      <div class="miolo">
+        <span class="n">04</span>
+        <h3>Objeto único centrado</h3>
+        <p class="p">Um só objeto grande sobre fundo liso. O mais barato de produzir em escala e o mais fácil de manter coerente entre 47 RFCs.</p>
+        <p class="risco"><b>Risco:</b> pode virar biblioteca de ícones e perder a graça de cena.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art de um único objeto centrado: uma régua de medição de nível de água (marco fluviométrico) cravada no chão, com a água na metade e marcas numeradas. Nada mais no quadro.
+
+Estilo: pixel art estrita, pixels quadrados em grade única, cores planas, sombra chapada projetada no chão. SEM anti-aliasing, SEM contorno preto grosso, SEM glow, SEM gradiente.
+
+Paleta fechada de 8 cores: fundo liso #A9C6E4, tinta #030302, e tons derivados de #A9C6E4.
+
+Composição quadrada, objeto centrado ocupando 55% da altura, muito ar em volta.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 05 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">05 · paisagem com céu<br>nuvem em dither</p>
+      </div>
+      <div class="miolo">
+        <span class="n">05</span>
+        <h3>Paisagem com céu</h3>
+        <p class="p">Horizonte largo, nuvens grandes com degradê feito em dithering. É o tratamento mais bonito de olhar e o mais atmosférico.</p>
+        <p class="risco"><b>Risco:</b> bonito demais pode soar decorativo e esvaziar o assunto.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art de paisagem: horizonte baixo de cidade pequena vista de longe, céu ocupando três quartos do quadro com nuvens volumosas de chuva. Degradê do céu feito APENAS com dithering de pontos (padrão ordenado), nunca com degradê suave.
+
+Estilo: pixel art estrita, pixels quadrados em grade única, cores planas. SEM anti-aliasing, SEM glow, SEM degradê suave, SEM textura de grão.
+
+Paleta fechada de 8 cores: base #A9C6E4, tinta #030302, e tons derivados. O dithering faz toda a transição de tom.
+
+Composição quadrada.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 06 -->
+    <article class="brief">
+      <div class="moldura quadrado" style="background:var(--cidades)">
+        <span class="dim mono">131 × 131</span>
+        <p class="vazio">06 · 1-bit<br>duas cores, só dither</p>
+      </div>
+      <div class="miolo">
+        <span class="n">06</span>
+        <h3>1-bit, duas cores</h3>
+        <p class="p">Só o pastel e a tinta, todo o volume feito por dithering. É a ponte com o que já está no <code>materia.html</code> — se escolher este, arte gerada e dado gerado ficam no mesmo idioma.</p>
+        <p class="risco"><b>Aposta:</b> o mais coerente com o resto. E o mais fácil de acertar na geração.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art estritamente de DUAS cores (1-bit): apenas #A9C6E4 e #030302. Nenhuma terceira cor.
+
+Cena: rua alagada vista em ângulo baixo, com um poste e o reflexo na água. Todo o volume, sombra e meio-tom feitos APENAS com dithering ordenado (padrão Bayer de pontos), porque só existem duas cores.
+
+Estilo: pixel art estrita, pixels quadrados em grade única. SEM anti-aliasing, SEM terceira cor, SEM degradê, SEM glow.
+
+Composição quadrada. Metade da imagem deve ser área lisa sem dither.</textarea>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ============ EIXO B: ASSUNTOS ============ -->
+  <div class="secao-titulo">
+    <h2>Quatro assuntos</h2>
+    <span class="nota">formato panorâmico das capas · troque o trecho de estilo pelo tratamento que você escolher</span>
+  </div>
+
+  <div class="grade">
+
+    <!-- 07 -->
+    <article class="brief">
+      <div class="moldura panoramico" style="background:var(--educacao)">
+        <span class="dim mono">184 × 76</span>
+        <p class="vazio">07 · RFC-0007 · Educação</p>
+      </div>
+      <div class="miolo">
+        <span class="n">07</span>
+        <h3>Biblioteca de bairro</h3>
+        <p class="p">O assunto mais quente do conjunto: livro passando de mão em mão. Testa se o tratamento escolhido consegue mostrar <em>relação entre pessoas</em>, não só objeto.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="6" spellcheck="false">Pixel art panorâmica (proporção 184x76, bem horizontal): três casas vizinhas lado a lado, e livros pequenos passando de uma janela para a outra, formando uma linha entre elas.
+
+[COLE AQUI O BLOCO DE ESTILO DO TRATAMENTO ESCOLHIDO]
+
+Paleta fechada de 8 cores: fundo #E8B79B, tinta #030302, e tons derivados de #E8B79B.
+
+Composição bem horizontal, muito espaço vazio no alto.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 08 -->
+    <article class="brief">
+      <div class="moldura panoramico" style="background:var(--saude)">
+        <span class="dim mono">184 × 76</span>
+        <p class="vazio">08 · RFC-0014 · Saúde</p>
+      </div>
+      <div class="miolo">
+        <span class="n">08</span>
+        <h3>Farmácia solidária</h3>
+        <p class="p">Assunto delicado: precisa dizer "doação de remédio" sem parecer clínico nem publicitário. Testa o tom do tratamento.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="6" spellcheck="false">Pixel art panorâmica (proporção 184x76, bem horizontal): um pequeno armário comunitário aberto na parede de uma esquina, com caixas de remédio dentro organizadas em prateleiras. Uma mão pequena colocando uma caixa. Sem rosto, sem logo, sem cruz de farmácia.
+
+[COLE AQUI O BLOCO DE ESTILO DO TRATAMENTO ESCOLHIDO]
+
+Paleta fechada de 8 cores: fundo #9BD8A9, tinta #030302, e tons derivados de #9BD8A9.
+
+Composição bem horizontal, o armário à esquerda, vazio à direita.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 09 -->
+    <article class="brief">
+      <div class="moldura panoramico" style="background:var(--civica)">
+        <span class="dim mono">184 × 76</span>
+        <p class="vazio">09 · RFC-0023 · Tec. Cívica</p>
+      </div>
+      <div class="miolo">
+        <span class="n">09</span>
+        <h3>Orçamento público</h3>
+        <p class="p">O assunto mais abstrato: não há objeto óbvio pra "acompanhar rubrica orçamentária". Se o tratamento resolve este, resolve qualquer RFC de tecnologia.</p>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="6" spellcheck="false">Pixel art panorâmica (proporção 184x76, bem horizontal): a fachada de um prédio público pequeno, e saindo de uma janela uma longa fita de papel contínuo (listagem de impressora matricial) que atravessa o quadro na horizontal, com linhas de números.
+
+[COLE AQUI O BLOCO DE ESTILO DO TRATAMENTO ESCOLHIDO]
+
+Paleta fechada de 8 cores: fundo #C6BCE6, tinta #030302, e tons derivados de #C6BCE6.
+
+Composição bem horizontal, prédio à esquerda, a fita atravessando até a borda direita.</textarea>
+        </div>
+      </div>
+    </article>
+
+    <!-- 10 -->
+    <article class="brief">
+      <div class="moldura panoramico" style="background:var(--cultura)">
+        <span class="dim mono">184 × 76</span>
+        <p class="vazio">10 · átrio · cena-mãe</p>
+      </div>
+      <div class="miolo">
+        <span class="n">10</span>
+        <h3>A cena-mãe do átrio</h3>
+        <p class="p">A única que não é de uma RFC: é a imagem da home, que precisa dizer o projeto inteiro. Se você gerar só uma, gere esta — ela decide o tom de tudo.</p>
+        <div class="risco"><b>Referência de conceito:</b> não é "gente colaborando" genérico. É uma ideia escrita num lugar e sendo construída em outro.</div>
+        <div class="prompt">
+          <div class="cab"><span>prompt</span><button class="copiar">copiar</button></div>
+          <textarea rows="7" spellcheck="false">Pixel art panorâmica (proporção 184x76, bem horizontal): à esquerda, uma pessoa pequena sentada escrevendo numa mesa junto a uma janela. À direita, longe, duas pessoas pequenas construindo algo (andaime, estrutura simples). Entre as duas cenas, apenas espaço vazio — nada literal ligando as duas, nenhuma seta, nenhuma linha.
+
+[COLE AQUI O BLOCO DE ESTILO DO TRATAMENTO ESCOLHIDO]
+
+Paleta fechada de 10 cores: fundo #FDE99B, tinta #030302, e tons derivados de #FDE99B.
+
+Composição bem horizontal e muito silenciosa. As duas figuras devem ser minúsculas. O vazio no meio é o assunto da imagem.</textarea>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ============ AVISOS ============ -->
+  <section class="aviso">
+    <h2>Três coisas antes de gerar</h2>
+    <p>
+      <strong>Gere 4 variações de cada, não 1.</strong> Modelo de imagem erra pixel art com
+      frequência alta — pixels de tamanhos diferentes na mesma imagem, bordas suavizadas,
+      cor a mais. Com quatro você tem chance de uma sair na grade certa.
+    </p>
+    <p>
+      <strong>Sempre passe pelo downscale.</strong> Sem reduzir com <em>nearest neighbor</em> a
+      imagem vai parecer pixel art de longe e desmanchar de perto. Me manda os PNGs que eu
+      rodo a receita e devolvo nos tamanhos exatos, já com a paleta reduzida.
+    </p>
+    <p>
+      <strong>Proveniência.</strong> O VISAO §4 põe todo conteúdo em CC BY-SA 4.0, e imagem
+      gerada tem autoria juridicamente cinzenta em vários lugares — pode dar atrito justamente
+      no ponto que o projeto trata como imutável. Não é impedimento e a decisão é sua com o
+      Kae; só não vale descobrir depois. Alternativas, se pesar: desenhar à mão em Aseprite
+      (a paleta fechada e o tamanho pequeno tornam isso viável), ou usar só o dado ditherizado
+      que o <code>materia.html</code> já gera, que é autoria do projeto.
+    </p>
+  </section>
+
+</div>
+
+<script>
+/* copiar o prompt do cartão */
+document.querySelectorAll('.copiar').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const txt = btn.closest('.prompt').querySelector('textarea');
+    try {
+      await navigator.clipboard.writeText(txt.value);
+    } catch {
+      txt.select(); document.execCommand('copy');   // fallback file://
+    }
+    const antes = btn.textContent;
+    btn.textContent = 'copiado';
+    btn.classList.add('feito');
+    setTimeout(() => { btn.textContent = antes; btn.classList.remove('feito'); }, 1400);
+  });
+});
+</script>
+
+</body>
+</html>

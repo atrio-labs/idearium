@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Catálogo — Acesso a Ferramentas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ==================================================================
+   CATÁLOGO — átrio como Whole Earth Catalog
+   ==================================================================
+   TESE: o Whole Earth Catalog (1968-1974) tinha como subtítulo "Access
+   to Tools", e não era loja: era um dispositivo de acesso. Toda verba
+   dizia o que a ferramenta fazia, quanto custava, e ONDE ENCOMENDAR.
+   Resenhas de leitores entravam encaixadas na própria verba.
+
+   O Idearium é isso: um catálogo cuja função é te entregar ferramenta
+   pra você construir a sua coisa. Densidade é feature, não defeito —
+   o leitor tropeça em ideias que não procurava. É o oposto do feed.
+
+   O ACHADO: o BLOCO DE ACESSO. O Whole Earth dizia "US$ 8, pedir pela
+   Sears". Aqui diz o que falta pra essa ideia sair do papel: quais
+   mãos, o que já existe, onde entrar. É o matchmaking do VISAO §8.1
+   exposto na superfície, em vez de escondido atrás de "128 builders".
+
+   REGRA DE SISTEMA: duas tintas, como impressão barata de verdade.
+   Preto e um laranja de risografia. Nenhuma terceira cor. Nenhum
+   gradiente, nenhuma sombra suave. Se precisar de hierarquia, use
+   corpo, peso ou régua.
+   ================================================================== */
+
+:root {
+  --papel:    #E7E3D6;         /* papel jornal barato, cinza-amarelado */
+  --papel-lo: #DEDACB;
+  --tinta:    #1A1A17;         /* preto de impressão densa */
+  --tinta-md: rgba(26,26,23,0.62);
+  --tinta-lo: rgba(26,26,23,0.34);
+  --spot:     #D14A1C;         /* segunda tinta: laranja riso */
+  --spot-lo:  rgba(209,74,28,0.16);
+  --regua:    rgba(26,26,23,0.30);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: 'Spectral', Georgia, serif;
+  font-size: 13.5px;
+  line-height: 1.44;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.cond { font-family: 'Archivo Narrow', 'Arial Narrow', sans-serif; }
+.dado { font-family: 'Courier Prime', 'Courier New', monospace; }
+
+.folha { max-width: 1440px; margin: 0 auto; padding: 0 22px 60px; }
+
+/* ============ CABEÇA DO CATÁLOGO ============
+   Título imenso e condensado, como capa de catálogo de encomenda.
+   A régua dupla embaixo é assinatura de impressão barata. */
+.cabeca {
+  padding: 26px 0 0;
+  border-bottom: 3px solid var(--tinta);
+}
+.cabeca .linha-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-md);
+  padding-bottom: 14px;
+}
+.cabeca .linha-topo a { color: var(--tinta); text-decoration: none; border-bottom: 1px solid var(--tinta-lo); }
+.cabeca .linha-topo a:hover { color: var(--spot); border-color: var(--spot); }
+.cabeca .linha-topo nav { display: flex; gap: 16px; flex-wrap: wrap; }
+
+.cabeca h1 {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-weight: 700;
+  font-size: clamp(46px, 9.4vw, 132px);
+  line-height: 0.86;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.cabeca h1 .spot { color: var(--spot); }
+.cabeca .lede {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 8px 0 14px;
+}
+.cabeca .lede p {
+  margin: 0;
+  max-width: 58ch;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.cabeca .lede p em { font-style: italic; color: var(--spot); }
+.cabeca .selo {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tinta-md);
+  white-space: nowrap;
+}
+
+/* ============ ÍNDICE DE BANCADAS ============
+   Faixa horizontal densa. Cada seção do catálogo, como o índice do
+   Whole Earth: "Understanding Whole Systems / Shelter / Industry". */
+.indice {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  border-bottom: 1px solid var(--tinta);
+  background: var(--papel-lo);
+}
+.indice a {
+  padding: 10px 12px 11px;
+  text-decoration: none;
+  color: var(--tinta);
+  border-right: 1px solid var(--regua);
+  transition: background 180ms var(--ease);
+}
+.indice a:last-child { border-right: 0; }
+.indice a:hover { background: var(--spot-lo); }
+.indice .secao {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  display: block;
+  line-height: 1.15;
+}
+.indice .conta {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--tinta-md);
+  display: block;
+  margin-top: 2px;
+}
+.indice .conta b { color: var(--spot); font-weight: 700; }
+
+/* ============ CORPO MULTICOLUNA ============
+   Densidade real: 4 colunas, verbas de alturas diferentes fluindo.
+   O leitor encontra o que não procurava. */
+.corpo {
+  column-count: 4;
+  column-gap: 22px;
+  column-rule: 1px solid var(--regua);
+  padding: 20px 0 0;
+}
+@media (max-width: 1180px) { .corpo { column-count: 3; } }
+@media (max-width: 860px)  { .corpo { column-count: 2; } }
+@media (max-width: 620px)  { .corpo { column-count: 1; column-rule: 0; } }
+
+/* ============ VERBA ============
+   A unidade do catálogo. Nunca quebra entre colunas. */
+.verba {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  padding: 0 0 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--regua);
+}
+.verba:last-child { border-bottom: 0; }
+
+.verba .ref {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--spot);
+  display: block;
+  margin-bottom: 3px;
+}
+.verba h2 {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.05;
+  letter-spacing: -0.008em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.verba h2 a { color: inherit; text-decoration: none; }
+.verba h2 a:hover { color: var(--spot); }
+
+/* verba grande — a "ferramenta em destaque" da página, com corpo maior */
+.verba.grande h2 { font-size: 30px; line-height: 1.0; }
+.verba.grande > p { font-size: 14.5px; }
+
+.verba p { margin: 0 0 9px; }
+.verba .procedencia {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--tinta-md);
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+/* ============ BLOCO DE ACESSO ============
+   O achado. O Whole Earth dizia preço e onde encomendar. Aqui:
+   o que falta, o que já existe, e a porta de entrada. */
+.acesso {
+  border: 1px solid var(--tinta);
+  padding: 9px 10px 10px;
+  margin: 10px 0 0;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.acesso dl { margin: 0; }
+.acesso dt {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--spot);
+  font-weight: 700;
+  font-size: 9.5px;
+  margin-top: 6px;
+}
+.acesso dt:first-child { margin-top: 0; }
+.acesso dd { margin: 0 0 0; color: var(--tinta); }
+.acesso .porta {
+  display: block;
+  margin-top: 10px;
+  border-top: 1px solid var(--regua);
+  padding-top: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tinta);
+  text-decoration: none;
+}
+.acesso .porta:hover { color: var(--spot); }
+.acesso .porta::after { content: " \2192"; }
+
+/* selo de estado — impresso, não badge digital */
+.selo-estado {
+  display: inline-block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 2px 6px;
+  border: 1px solid var(--tinta);
+  margin-bottom: 8px;
+}
+.selo-estado.construindo { background: var(--spot); color: var(--papel); border-color: var(--spot); }
+.selo-estado.discutindo  { background: transparent; color: var(--tinta); }
+.selo-estado.publicada   { background: var(--tinta); color: var(--papel); }
+
+/* ============ MARGINÁLIA ============
+   Resenha de leitor encaixada na verba, como no Whole Earth. Segunda
+   tinta, corpo menor, recuada. É o Comment do backend, na forma que
+   um catálogo impresso usava. */
+.margem {
+  border-left: 2px solid var(--spot);
+  padding: 2px 0 2px 9px;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.42;
+  font-style: italic;
+  color: var(--tinta-md);
+}
+.margem cite {
+  display: block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9.5px;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  color: var(--spot);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+/* ============ VERBA DE CHAMADA ============
+   A única verba que não é uma ideia: é o convite. Fundo invertido,
+   como o anúncio de página cheia que catálogos vendiam. */
+.verba.chamada {
+  background: var(--tinta);
+  color: var(--papel);
+  border: 0;
+  padding: 16px 15px 17px;
+}
+.verba.chamada h2 { color: var(--papel); font-size: 26px; }
+.verba.chamada p { color: rgba(231,227,214,0.82); }
+.verba.chamada .ref { color: var(--spot); }
+.verba.chamada .botao {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--spot);
+  color: var(--papel);
+  padding: 8px 14px;
+  text-decoration: none;
+  transition: transform 160ms var(--ease);
+}
+.verba.chamada .botao:hover { background: var(--papel); color: var(--tinta); }
+.verba.chamada .botao:active { transform: translateY(1px); }
+
+/* ============ VERBA DE MÃOS ============
+   Quem está disponível. No Whole Earth havia páginas de "gente e
+   endereços" — contato direto, sem intermediário. */
+.verba.maos ul { list-style: none; margin: 0; padding: 0; }
+.verba.maos li {
+  border-top: 1px dotted var(--regua);
+  padding: 7px 0 6px;
+}
+.verba.maos li:first-child { border-top: 0; }
+.verba.maos .handle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tinta);
+  display: block;
+}
+.verba.maos .oficio { color: var(--tinta-md); font-size: 12.5px; }
+
+/* ============ PÉ ============ */
+.pe {
+  border-top: 3px solid var(--tinta);
+  margin-top: 24px;
+  padding: 14px 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-md);
+}
+.pe a { color: var(--tinta); text-decoration: none; border-bottom: 1px solid var(--tinta-lo); }
+.pe a:hover { color: var(--spot); border-color: var(--spot); }
+.pe nav { display: flex; gap: 16px; flex-wrap: wrap; }
+
+a:focus-visible { outline: 2px solid var(--spot); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="folha">
+
+  <!-- ============ CABEÇA ============ -->
+  <header class="cabeca">
+    <div class="linha-topo">
+      <span>idearium · catálogo n.º 3 · julho 2026</span>
+      <nav>
+        <a href="#">bancadas</a>
+        <a href="#">mãos</a>
+        <a href="#">como funciona</a>
+        <a href="#">pt · en</a>
+        <a href="#">entrar</a>
+      </nav>
+    </div>
+
+    <h1>Acesso a<br><span class="spot">Ferramentas</span></h1>
+
+    <div class="lede">
+      <p>
+        Catálogo de ideias que precisam ser construídas. Cada verba diz o que a
+        ideia é, o que já existe dela, e <em>o que falta pra sair do papel</em>.
+        Nada aqui está à venda. Tudo aqui está pedindo mão.
+      </p>
+      <div class="selo">
+        47 ideias abertas<br>
+        6 bancadas<br>
+        cc by-sa 4.0
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ ÍNDICE ============ -->
+  <nav class="indice">
+    <a href="#"><span class="secao">Educação</span><span class="conta"><b>12</b> verbas · 4 pedindo mão</span></a>
+    <a href="#"><span class="secao">Cidades</span><span class="conta"><b>9</b> verbas · 3 pedindo mão</span></a>
+    <a href="#"><span class="secao">Saúde</span><span class="conta"><b>7</b> verbas · 1 pedindo mão</span></a>
+    <a href="#"><span class="secao">Cultura</span><span class="conta"><b>6</b> verbas · 5 pedindo mão</span></a>
+    <a href="#"><span class="secao">Tec. Cívica</span><span class="conta"><b>8</b> verbas · 2 pedindo mão</span></a>
+    <a href="#"><span class="secao">Econ. Solidária</span><span class="conta"><b>5</b> verbas · 4 pedindo mão</span></a>
+  </nav>
+
+  <!-- ============ CORPO ============ -->
+  <main class="corpo">
+
+    <!-- ---------- VERBA DESTAQUE ---------- -->
+    <article class="verba grande">
+      <span class="ref">RFC-0014 · SAÚDE</span>
+      <span class="selo-estado construindo">em construção</span>
+      <h2><a href="#">Farmácia Solidária por Geolocalização</a></h2>
+      <p class="procedencia">proposta por @marina · v0.4 · aberta há 6 dias</p>
+      <p>
+        Rede de pontos comunitários onde pessoas doam medicamentos fechados e
+        dentro da validade, com busca por proximidade e moderação local. O
+        remédio que sobra na sua gaveta está a três ruas de quem precisa dele.
+      </p>
+      <div class="acesso">
+        <dl>
+          <dt>já existe</dt>
+          <dd>schema fechado · protótipo de busca rodando · 1 ponto piloto</dd>
+          <dt>precisa-se</dt>
+          <dd>quem entenda de regra sanitária de doação · alguém de mobile</dd>
+          <dt>tamanho</dt>
+          <dd>2 a 3 pessoas · fim de semana longo pra um MVP</dd>
+        </dl>
+        <a class="porta" href="#">entrar nessa</a>
+      </div>
+      <blockquote class="margem">
+        Trabalhei em UBS por seis anos. O problema nunca foi falta de remédio
+        doado, foi ninguém saber onde entregar. Isso resolve a metade certa.
+        <cite>@marina · proponente</cite>
+      </blockquote>
+    </article>
+
+    <!-- ---------- VERBA ---------- -->
+    <article class="verba">
+      <span class="ref">RFC-0011 · CIDADES</span>
+      <span class="selo-estado discutindo">em discussão</span>
+      <h2><a href="#">Rastreamento Anônimo de Enchentes Urbanas</a></h2>
+      <p class="procedencia">proposta por @rafael · v0.2 · aberta há 4 dias</p>
+      <p>
+        Canal colaborativo de relatos geolocalizados sobre alagamentos,
+        agregando ocorrências em tempo quase-real como dado público,
+        preservando anonimato.
+      </p>
+      <div class="acesso">
+        <dl>
+          <dt>já existe</dt>
+          <dd>desenho do fluxo · 3 perguntas abertas na discussão</dd>
+          <dt>precisa-se</dt>
+          <dd>alguém que conheça defesa civil por dentro · geo/back-end</dd>
+          <dt>tamanho</dt>
+          <dd>indefinido — a discussão ainda está fechando escopo</dd>
+        </dl>
+        <a class="porta" href="#">entrar na discussão</a>
+      </div>
+      <blockquote class="margem">
+        Cuidado com o anonimato virar buraco: se qualquer um relata sem
+        rastro, alguém vai poluir o dado de propósito. Sugeri um limite por
+        região na thread.
+        <cite>@jhonatan · comentário</cite>
+      </blockquote>
+    </article>
+
+    <!-- ---------- VERBA ---------- -->
+    <article class="verba">
+      <span class="ref">RFC-0007 · EDUCAÇÃO</span>
+      <span class="selo-estado construindo">em construção</span>
+      <h2><a href="#">Biblioteca Cooperativa de Bairro</a></h2>
+      <p class="procedencia">proposta por @luisa · v0.6 · executada 3 vezes</p>
+      <p>
+        Catálogo leve para vizinhos emprestarem livros entre si — registro
+        simples de posse, devolução e histórico de confiança. Sem nota, sem
+        pontuação: só o histórico visível a quem empresta.
+      </p>
+      <div class="acesso">
+        <dl>
+          <dt>já existe</dt>
+          <dd>código em repositório aberto · rodando em 3 bairros</dd>
+          <dt>precisa-se</dt>
+          <dd>tradução pt→en · alguém pra documentar a instalação</dd>
+          <dt>tamanho</dt>
+          <dd>1 pessoa · algumas tardes</dd>
+        </dl>
+        <a class="porta" href="#">pegar essa ferramenta</a>
+      </div>
+    </article>
+
+    <!-- ---------- CHAMADA ---------- -->
+    <article class="verba chamada">
+      <span class="ref">VERBA ABERTA</span>
+      <h2>Escreva a sua</h2>
+      <p>
+        Não precisa saber fazer. Precisa só querer que aconteça. Quem sabe
+        fazer está lendo este catálogo agora, procurando no que aplicar isso.
+      </p>
+      <a class="botao" href="#">abrir uma verba</a>
+    </article>
+
+    <!-- ---------- VERBA ---------- -->
+    <article class="verba">
+      <span class="ref">RFC-0023 · TEC. CÍVICA</span>
+      <span class="selo-estado discutindo">em discussão</span>
+      <h2><a href="#">Orçamento Municipal Publicado Antes do Gasto</a></h2>
+      <p class="procedencia">proposta por @dev.raposa · v0.1 · aberta hoje</p>
+      <p>
+        Raspador que acompanha o portal de transparência da prefeitura e avisa
+        quando uma rubrica muda, em linguagem que o vizinho entende.
+      </p>
+      <div class="acesso">
+        <dl>
+          <dt>já existe</dt>
+          <dd>só a proposta escrita</dd>
+          <dt>precisa-se</dt>
+          <dd>quase tudo — raspagem, texto, e alguém do controle social</dd>
+          <dt>tamanho</dt>
+          <dd>a definir</dd>
+        </dl>
+        <a class="porta" href="#">discutir</a>
+      </div>
+    </article>
+
+    <!-- ---------- MÃOS ---------- -->
+    <article class="verba maos">
+      <span class="ref">GENTE E OFÍCIOS</span>
+      <h2>Mãos disponíveis</h2>
+      <p class="procedencia">contato direto, sem intermediário</p>
+      <ul>
+        <li><span class="handle">@mari.fe</span><span class="oficio">front + ilustração — procura projeto de cultura</span></li>
+        <li><span class="handle">@jhonatan</span><span class="oficio">dados + infra — interesse em cidades e saúde</span></li>
+        <li><span class="handle">@lu.design</span><span class="oficio">produto + UX — disponível para MVP curto</span></li>
+        <li><span class="handle">@dev.raposa</span><span class="oficio">backend + devops — gravita para tec. cívica</span></li>
+      </ul>
+      <div class="acesso">
+        <a class="porta" href="#">ver as 128 mãos</a>
+      </div>
+    </article>
+
+    <!-- ---------- VERBA ---------- -->
+    <article class="verba">
+      <span class="ref">RFC-0002 · CULTURA</span>
+      <span class="selo-estado publicada">publicada</span>
+      <h2><a href="#">Acervo Sonoro de Feira Livre</a></h2>
+      <p class="procedencia">proposta por @luisa · v1.0 · virou projeto</p>
+      <p>
+        Gravação e catalogação dos pregões de feirantes como patrimônio
+        imaterial. Saiu do catálogo: hoje é acervo de três cidades, mantido
+        por um coletivo próprio.
+      </p>
+      <div class="acesso">
+        <dl>
+          <dt>estado</dt>
+          <dd>construída e entregue — segue aberta pra ser executada de novo</dd>
+          <dt>crédito</dt>
+          <dd>@luisa propôs · @mari.fe e mais 6 construíram</dd>
+        </dl>
+        <a class="porta" href="#">ver o que virou</a>
+      </div>
+      <blockquote class="margem">
+        Começou como uma verba de três linhas neste catálogo. Achei que
+        ninguém ia se inscrever.
+        <cite>@luisa · proponente</cite>
+      </blockquote>
+    </article>
+
+    <!-- ---------- COMO FUNCIONA ---------- -->
+    <article class="verba">
+      <span class="ref">INSTRUÇÕES DE USO</span>
+      <h2>Como este catálogo funciona</h2>
+      <p>
+        Uma ideia entra como verba. Gente discute e a verba muda — nada é
+        apagado, o histórico fica. Quando alguém se inscreve pra construir,
+        a verba passa a "em construção". Quando existe de verdade, passa a
+        "publicada" — e continua aberta, porque a mesma ideia pode ser
+        construída outra vez, em outro lugar.
+      </p>
+      <p>
+        Não há pontuação, medalha nem ranking. Não há taxa. A plataforma
+        nunca toca o dinheiro de ninguém.
+      </p>
+      <div class="acesso">
+        <a class="porta" href="#">governança e custos</a>
+      </div>
+    </article>
+
+  </main>
+
+  <!-- ============ PÉ ============ -->
+  <footer class="pe">
+    <span>idearium · catálogo de ideias que pedem mão</span>
+    <nav>
+      <a href="#">governança</a>
+      <a href="#">código de conduta</a>
+      <a href="#">transparência de custos</a>
+      <a href="#">rss</a>
+    </nav>
+    <span>impresso em duas tintas · cc by-sa 4.0</span>
+  </footer>
+
+</div>
+
+</body>
+</html>

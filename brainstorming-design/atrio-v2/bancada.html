@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Bancada — Caderno de Laboratório</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ==================================================================
+   BANCADA — átrio como página de caderno de laboratório
+   ==================================================================
+   TESE: o Idearium já É um caderno de bancada. Lab, RFC numerada,
+   RfcVersion imutável, log público, crédito compartilhado. A convenção
+   do caderno de laboratório (páginas encadernadas e numeradas, tinta
+   permanente, assinatura do autor + de uma testemunha que entende o
+   trabalho e não contribuiu nele) é o que dá validade jurídica a uma
+   invenção desde o século XIX. Não é analogia: é o mesmo objeto.
+
+   REGRA DE SISTEMA: todo espaçamento vertical é múltiplo de 20px, e o
+   grid de 20px é visível como papel milimetrado. Nenhum valor solto.
+   Se um bloco não cabe no grid, o bloco está errado, não o grid.
+
+   O QUE ISSO RESOLVE: a metade "tech" que hoje está invisível. Aqui a
+   página não mostra contagem, mostra trabalho — versão, errata, mão
+   que assinou. "128 builders" é vaidade (VISAO §9). Uma trilha de
+   registro não é.
+   ================================================================== */
+
+:root {
+  --u: 20px;                    /* unidade do grid — tudo é múltiplo */
+  --paper:    #EEF1E6;          /* papel técnico levemente esverdeado */
+  --paper-lo: #E6EADC;          /* zona rebaixada */
+  --grid:     rgba(31,58,46,0.07);
+  --grid-5:   rgba(31,58,46,0.13);
+  --ink:      #1B2A5B;          /* tinta de caneta esferográfica azul */
+  --ink-soft: rgba(27,42,91,0.62);
+  --ink-dim:  rgba(27,42,91,0.38);
+  --graphite: #2E3128;          /* lápis, para texto corrido */
+  --stamp:    #9E3B2A;          /* carimbo vermelho-óxido */
+  --rule:     rgba(46,49,40,0.28);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background-color: var(--paper);
+  /* papel milimetrado: linha fina a cada 20px, linha forte a cada 100px */
+  background-image:
+    linear-gradient(var(--grid-5) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-5) 1px, transparent 1px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  color: var(--graphite);
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 17px;
+  line-height: 20px;              /* baseline cravada no grid */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.reg { font-family: 'Courier Prime', 'Courier New', monospace; }
+
+/* ============ CADERNO ============
+   Largura de folha A4-ish. Sem sombra suave de "card": a folha é
+   presa por uma costura à esquerda, não flutuando. */
+.caderno {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: var(--paper);
+  border-left: 2px solid var(--ink);
+  border-right: 1px solid var(--rule);
+  min-height: 100vh;
+  position: relative;
+}
+/* costura da encadernação */
+.caderno::before {
+  content: "";
+  position: absolute;
+  left: 8px; top: 0; bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    180deg, var(--ink) 0 8px, transparent 8px 20px
+  );
+  opacity: 0.5;
+}
+
+/* ============ CABEÇALHO DO CADERNO ============ */
+.capa {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: var(--u);
+  padding: 40px 40px 20px 60px;
+  border-bottom: 2px solid var(--ink);
+}
+.capa h1 {
+  font-size: 44px;
+  line-height: 40px;
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.capa h1 em {
+  font-style: normal;
+  color: var(--graphite);
+}
+.capa .sub {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ink-soft);
+  margin: var(--u) 0 0;
+  max-width: 46ch;
+}
+/* campos de identificação do caderno — igual à contracapa real */
+.campos { text-align: right; font-size: 11px; line-height: 20px; }
+.campos div { white-space: nowrap; }
+.campos .k {
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.campos .v {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink-dim);
+  padding: 0 6px;
+  margin-left: 6px;
+}
+
+/* ============ CORPO: MARGEM NUMERADA + REGISTRO ============
+   A margem esquerda é a coluna de linha numerada do caderno. Ela corre
+   continuamente pela página. À direita dela, o registro. */
+.folha {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) 240px;
+}
+@media (max-width: 900px) {
+  .folha { grid-template-columns: 40px minmax(0, 1fr); }
+  .lateral { display: none; }
+}
+
+/* --- coluna de numeração de linha --- */
+.linhas {
+  border-right: 1px solid var(--stamp);
+  padding-top: var(--u);
+  text-align: right;
+  user-select: none;
+}
+.linhas span {
+  display: block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  line-height: 20px;
+  color: var(--ink-dim);
+  padding-right: 8px;
+}
+
+/* --- registro (coluna central) --- */
+.registro { padding: var(--u) 40px 60px; min-width: 0; }
+
+/* ============ ENTRADA DE REGISTRO ============
+   Cada RFC é uma entrada datada, não um card. Sem borda em volta,
+   sem sombra: o que separa entradas é a régua e o timestamp. */
+.entrada {
+  border-top: 1px solid var(--rule);
+  padding: var(--u) 0 var(--u);
+  position: relative;
+}
+.entrada:first-of-type { border-top: 0; }
+
+.entrada-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  line-height: 20px;
+  margin-bottom: var(--u);
+}
+.codigo {
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.hora {
+  font-family: 'Courier Prime', monospace;
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+.lab-tag {
+  font-family: 'Courier Prime', monospace;
+  color: var(--graphite);
+  border-bottom: 1px solid var(--ink-dim);
+}
+
+/* carimbo de status — dupla borda, levemente torto, como carimbo real */
+.carimbo {
+  margin-left: auto;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--stamp);
+  border: 2px solid var(--stamp);
+  box-shadow: inset 0 0 0 1px var(--paper), inset 0 0 0 2px var(--stamp);
+  padding: 3px 9px;
+  transform: rotate(-1.4deg);
+  opacity: 0.82;
+  white-space: nowrap;
+}
+.carimbo.discussao { transform: rotate(1.1deg); }
+
+.entrada h2 {
+  font-size: 30px;
+  line-height: 40px;
+  margin: 0 0 var(--u);
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--graphite);
+  max-width: 30ch;
+}
+.entrada h2 a { color: inherit; text-decoration: none; }
+.entrada h2 a:hover { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+
+.entrada p.corpo {
+  margin: 0 0 var(--u);
+  max-width: 62ch;
+  font-size: 17px;
+  line-height: 20px;
+}
+
+/* ============ ERRATA ============
+   O achado deste mockup. No caderno de laboratório você NÃO apaga:
+   risca, e escreve a correção ao lado, datada. É exatamente o
+   "nada se deleta, tudo é reversível" do VISAO §6, mas visível.
+   Aqui a errata mostra que a RFC evoluiu, sem esconder o que era. */
+.errata {
+  border-left: 2px solid var(--stamp);
+  padding: 0 0 0 16px;
+  margin: 0 0 var(--u);
+  max-width: 58ch;
+  font-size: 15px;
+  line-height: 20px;
+}
+.errata .antes {
+  text-decoration: line-through;
+  text-decoration-color: var(--stamp);
+  text-decoration-thickness: 1px;
+  color: rgba(46,49,40,0.45);
+}
+.errata .depois { color: var(--graphite); }
+.errata .nota {
+  display: block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--stamp);
+  text-transform: uppercase;
+  margin-top: 0;
+}
+
+/* ============ TRILHA DE VERSÃO ============
+   Substitui a contagem de vaidade. Não diz "8 builders": diz o que
+   foi feito, quando, e por quem. É o sinal de "tech" pedido. */
+.trilha {
+  border-top: 1px dotted var(--rule);
+  border-bottom: 1px dotted var(--rule);
+  padding: 10px 0 9px;
+  margin: 0 0 var(--u);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+.trilha b { color: var(--ink); font-weight: 700; }
+
+/* ============ ASSINATURAS ============
+   Autor + testemunha. A linha de assinatura é literal. */
+.assinaturas {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  line-height: 20px;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.assinaturas div { min-width: 180px; }
+.assinaturas .risco {
+  display: block;
+  border-bottom: 1px solid var(--ink);
+  height: 20px;
+  margin-bottom: 2px;
+  font-family: 'Newsreader', serif;
+  font-size: 16px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  padding-left: 2px;
+  /* a "assinatura" é o @username em itálico — pseudônimo respeitado */
+  font-style: italic;
+}
+
+/* ============ LATERAL: BANCADAS + RUBRICAS ============ */
+.lateral {
+  border-left: 1px solid var(--rule);
+  padding: var(--u) 20px 60px;
+}
+.lateral h3 {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  margin: 0 0 var(--u);
+  line-height: 20px;
+}
+.lateral + .lateral { border-top: 0; }
+
+.bancadas { list-style: none; margin: 0 0 40px; padding: 0; }
+.bancadas li { border-bottom: 1px solid var(--rule); }
+.bancadas a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0 10px;
+  text-decoration: none;
+  color: var(--graphite);
+  transition: color 180ms var(--ease);
+}
+.bancadas a:hover { color: var(--ink); }
+.bancadas .nome { font-size: 16px; line-height: 20px; }
+.bancadas .qtd {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+/* aberta = tem trabalho em curso. Ponto de tinta, não badge. */
+.bancadas .aberta::after {
+  content: "";
+  display: inline-block;
+  width: 5px; height: 5px;
+  background: var(--stamp);
+  border-radius: 50%;
+  margin-left: 7px;
+  vertical-align: 2px;
+}
+
+/* mãos disponíveis — quem pode testemunhar/construir */
+.maos { list-style: none; margin: 0 0 40px; padding: 0; }
+.maos li {
+  padding: 0 0 var(--u);
+  font-size: 14px;
+  line-height: 20px;
+}
+.maos .handle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  display: block;
+}
+.maos .oficio { color: rgba(46,49,40,0.68); }
+
+/* ============ CHAMADA ============
+   Uma só na página. Não é banner: é a linha de "nova entrada" que
+   todo caderno tem no fim da última página escrita. */
+.nova {
+  border-top: 2px solid var(--ink);
+  padding: var(--u) 40px 40px;
+  margin-top: var(--u);
+}
+.nova .rotulo {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  line-height: 20px;
+}
+.nova p {
+  font-size: 26px;
+  line-height: 40px;
+  margin: 0;
+  max-width: 34ch;
+  color: var(--graphite);
+}
+.nova p em { font-style: italic; color: var(--ink); }
+.nova .caret {
+  display: inline-block;
+  width: 9px;
+  border-bottom: 2px solid var(--ink);
+  margin-left: 4px;
+  animation: pisca 1.1s steps(1) infinite;
+}
+@keyframes pisca { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } }
+
+.abrir {
+  display: inline-block;
+  margin-top: var(--u);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  background: var(--ink);
+  padding: 9px 18px;
+  text-decoration: none;
+  transition: background 180ms var(--ease), transform 180ms var(--ease);
+}
+.abrir:hover { background: var(--stamp); }
+.abrir:active { transform: translateY(1px); }
+
+/* ============ PÉ DE PÁGINA ============
+   Numeração contínua + zona de fecho da folha, como caderno real. */
+.pe {
+  border-top: 1px solid var(--ink);
+  padding: 10px 40px 10px 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  line-height: 20px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  background: var(--paper-lo);
+}
+.pe .folio { color: var(--ink); font-weight: 700; }
+
+a:focus-visible {
+  outline: 2px solid var(--stamp);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova .caret { animation: none; opacity: 1; }
+  * { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="caderno">
+
+  <!-- ============ CABEÇALHO ============ -->
+  <header class="capa">
+    <div>
+      <h1>idearium <em>·</em> bancada</h1>
+      <p class="sub">
+        Caderno aberto de ideias que viram software. Páginas numeradas,
+        tinta permanente, nada apagado. Toda entrada é assinada por quem
+        propôs e testemunhada por quem constrói.
+      </p>
+    </div>
+    <div class="campos reg">
+      <div><span class="k">caderno</span><span class="v">III</span></div>
+      <div><span class="k">aberto em</span><span class="v">04.2026</span></div>
+      <div><span class="k">bancadas</span><span class="v">6</span></div>
+      <div><span class="k">entradas</span><span class="v">47</span></div>
+    </div>
+  </header>
+
+  <!-- ============ FOLHA ============ -->
+  <div class="folha">
+
+    <!-- numeração de linha contínua -->
+    <div class="linhas" aria-hidden="true">
+      <span>001</span><span>002</span><span>003</span><span>004</span><span>005</span>
+      <span>006</span><span>007</span><span>008</span><span>009</span><span>010</span>
+      <span>011</span><span>012</span><span>013</span><span>014</span><span>015</span>
+      <span>016</span><span>017</span><span>018</span><span>019</span><span>020</span>
+      <span>021</span><span>022</span><span>023</span><span>024</span><span>025</span>
+      <span>026</span><span>027</span><span>028</span><span>029</span><span>030</span>
+      <span>031</span><span>032</span><span>033</span><span>034</span><span>035</span>
+      <span>036</span><span>037</span><span>038</span><span>039</span><span>040</span>
+      <span>041</span><span>042</span><span>043</span><span>044</span><span>045</span>
+      <span>046</span><span>047</span><span>048</span><span>049</span><span>050</span>
+      <span>051</span><span>052</span><span>053</span><span>054</span><span>055</span>
+      <span>056</span><span>057</span><span>058</span><span>059</span><span>060</span>
+    </div>
+
+    <!-- ============ REGISTRO ============ -->
+    <main class="registro">
+
+      <!-- ---------- ENTRADA 1 ---------- -->
+      <article class="entrada">
+        <div class="entrada-head">
+          <span class="codigo">RFC-0014</span>
+          <span class="hora">24.07 · 09h12</span>
+          <span class="lab-tag">bancada de saúde</span>
+          <span class="carimbo">em construção</span>
+        </div>
+
+        <h2><a href="#">Farmácia Solidária por Geolocalização</a></h2>
+
+        <p class="corpo">
+          Rede de pontos comunitários onde pessoas doam medicamentos fechados
+          e dentro da validade, com busca por proximidade e moderação local.
+        </p>
+
+        <div class="errata">
+          <span class="antes">Qualquer pessoa cadastra um ponto de doação.</span>
+          <span class="depois">
+            Ponto precisa de duas pessoas responsáveis, e a validade é
+            conferida na entrega — não no cadastro.
+          </span>
+          <span class="nota">errata · 22.07 · após observação de @marina</span>
+        </div>
+
+        <div class="trilha reg">
+          <span>versão <b>v0.4</b></span>
+          <span>schema <b>fechado</b></span>
+          <span>protótipo de busca <b>rodando</b></span>
+          <span>aberto <b>há 6 dias</b></span>
+        </div>
+
+        <div class="assinaturas reg">
+          <div>
+            <span class="risco">@marina</span>
+            propôs
+          </div>
+          <div>
+            <span class="risco">@dev.raposa</span>
+            testemunhou · constrói
+          </div>
+        </div>
+      </article>
+
+      <!-- ---------- ENTRADA 2 ---------- -->
+      <article class="entrada">
+        <div class="entrada-head">
+          <span class="codigo">RFC-0011</span>
+          <span class="hora">20.07 · 17h40</span>
+          <span class="lab-tag">bancada de cidades</span>
+          <span class="carimbo discussao">em discussão</span>
+        </div>
+
+        <h2><a href="#">Rastreamento Anônimo de Enchentes Urbanas</a></h2>
+
+        <p class="corpo">
+          Canal colaborativo de relatos geolocalizados sobre alagamentos,
+          agregando ocorrências em tempo quase-real como dado público,
+          preservando anonimato.
+        </p>
+
+        <div class="trilha reg">
+          <span>versão <b>v0.2</b></span>
+          <span>perguntas abertas <b>3</b></span>
+          <span>falta <b>quem conheça defesa civil</b></span>
+          <span>aberto <b>há 4 dias</b></span>
+        </div>
+
+        <div class="assinaturas reg">
+          <div>
+            <span class="risco">@rafael</span>
+            propôs
+          </div>
+          <div>
+            <span class="risco">&nbsp;</span>
+            sem testemunha ainda
+          </div>
+        </div>
+      </article>
+
+      <!-- ---------- ENTRADA 3 ---------- -->
+      <article class="entrada">
+        <div class="entrada-head">
+          <span class="codigo">RFC-0007</span>
+          <span class="hora">18.07 · 08h05</span>
+          <span class="lab-tag">bancada de educação</span>
+          <span class="carimbo">em construção</span>
+        </div>
+
+        <h2><a href="#">Biblioteca Cooperativa de Bairro</a></h2>
+
+        <p class="corpo">
+          Catálogo leve para vizinhos emprestarem livros entre si — registro
+          simples de posse, devolução e reputação baseada em confiança.
+        </p>
+
+        <div class="errata">
+          <span class="antes">Reputação numérica de 0 a 5 por vizinho.</span>
+          <span class="depois">
+            Sem nota. Só histórico de devolução, visível a quem empresta.
+          </span>
+          <span class="nota">errata · 19.07 · pontuação contraria VISAO §9</span>
+        </div>
+
+        <div class="trilha reg">
+          <span>versão <b>v0.6</b></span>
+          <span>código <b>em repositório aberto</b></span>
+          <span>primeiro empréstimo real <b>feito</b></span>
+          <span>aberto <b>há 6 dias</b></span>
+        </div>
+
+        <div class="assinaturas reg">
+          <div>
+            <span class="risco">@luisa</span>
+            propôs
+          </div>
+          <div>
+            <span class="risco">@mari.fe</span>
+            testemunhou · constrói
+          </div>
+        </div>
+      </article>
+
+    </main>
+
+    <!-- ============ LATERAL ============ -->
+    <aside class="lateral">
+
+      <h3>bancadas</h3>
+      <ul class="bancadas">
+        <li><a href="#"><span class="nome aberta">Educação</span>       <span class="qtd">12</span></a></li>
+        <li><a href="#"><span class="nome aberta">Cidades</span>        <span class="qtd">9</span></a></li>
+        <li><a href="#"><span class="nome aberta">Saúde</span>          <span class="qtd">7</span></a></li>
+        <li><a href="#"><span class="nome">Cultura</span>               <span class="qtd">6</span></a></li>
+        <li><a href="#"><span class="nome aberta">Tec. Cívica</span>    <span class="qtd">8</span></a></li>
+        <li><a href="#"><span class="nome">Econ. Solidária</span>       <span class="qtd">5</span></a></li>
+      </ul>
+
+      <h3>mãos disponíveis</h3>
+      <ul class="maos">
+        <li><span class="handle">@mari.fe</span>    <span class="oficio">front + ilustração — procura projeto de cultura</span></li>
+        <li><span class="handle">@jhonatan</span>   <span class="oficio">dados + infra — interesse em cidades e saúde</span></li>
+        <li><span class="handle">@lu.design</span>  <span class="oficio">produto + UX — disponível para MVP curto</span></li>
+        <li><span class="handle">@dev.raposa</span> <span class="oficio">backend + devops — gravita para tec. cívica</span></li>
+      </ul>
+
+      <h3>consulta</h3>
+      <ul class="maos">
+        <li><span class="oficio"><a href="#" style="color:var(--ink)">o que é idearium</a></span></li>
+        <li><span class="oficio"><a href="#" style="color:var(--ink)">governança</a></span></li>
+        <li><span class="oficio"><a href="#" style="color:var(--ink)">código de conduta</a></span></li>
+        <li><span class="oficio"><a href="#" style="color:var(--ink)">transparência de custos</a></span></li>
+      </ul>
+
+    </aside>
+
+  </div>
+
+  <!-- ============ NOVA ENTRADA ============ -->
+  <section class="nova">
+    <p class="rotulo">próxima entrada</p>
+    <p>
+      Abra uma página. <em>Não precisa saber fazer.</em> Precisa só querer
+      que aconteça.<span class="caret" aria-hidden="true"></span>
+    </p>
+    <a class="abrir" href="#">escrever entrada &rarr;</a>
+  </section>
+
+  <!-- ============ PÉ ============ -->
+  <footer class="pe">
+    <span>idearium · caderno aberto de construção coletiva</span>
+    <span>cc by-sa 4.0</span>
+    <span class="folio">folha 12 de 47</span>
+  </footer>
+
+</div>
+
+</body>
+</html>

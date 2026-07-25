@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Certificado — a ideia é a instrução</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ==================================================================
+   CERTIFICADO — átrio como certificado de instrução (Sol LeWitt)
+   ==================================================================
+   TESE: LeWitt escrevia a instrução, assinava um certificado com
+   diagrama, e OUTRA PESSOA executava na parede. "The idea becomes a
+   machine that makes the art." Comparava suas instruções a partituras:
+   realizadas de forma nova a cada execução.
+
+   É o modelo do Idearium ao pé da letra — e resolve algo que o produto
+   ainda não expressa: a MESMA RFC pode ser executada mais de uma vez,
+   por grupos diferentes, em lugares diferentes. VISAO §4 já diz que
+   nenhuma RFC tem dono após publicação. Aqui isso vira a coisa
+   principal da tela, em vez de letra miúda.
+
+   O QUE HÁ DE NOVO: cada RFC ganha um DIAGRAMA-ASSINATURA gerado por
+   regra a partir do próprio número. Determinístico (RFC-0011 desenha
+   sempre igual), único por RFC, e conceitualmente correto — a regra é
+   a obra, o traço é só uma realização dela. Ninguém desenha ícone à
+   mão: o número da ideia desenha a si mesmo.
+
+   REGRA DE SISTEMA: eixo deslocado. Nada centralizado, nada alinhado
+   à borda. Todo texto nasce na mesma vertical (36%), e a margem
+   esquerda carrega só registro. Espaço vazio é material, não sobra.
+   ================================================================== */
+
+:root {
+  --branco:   #FCFCFA;         /* branco de galeria, não branco de tela */
+  --preto:    #111110;
+  --cinza:    rgba(17,17,16,0.52);
+  --cinza-lo: rgba(17,17,16,0.24);
+  --linha:    rgba(17,17,16,0.14);
+
+  /* As quatro tintas de LeWitt + as três misturas. Nenhuma cor fora
+     desta paleta aparece na página. */
+  --vermelho: #CC2E26;
+  --azul:     #1B4FA0;
+  --amarelo:  #E8B004;
+  --verde:    #2C7A4B;         /* azul + amarelo */
+  --violeta:  #5B3B8C;         /* vermelho + azul */
+  --laranja:  #D2691E;         /* vermelho + amarelo */
+
+  --eixo: 36%;                 /* o eixo deslocado */
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--branco);
+  color: var(--preto);
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.reg {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ ESTRUTURA DE EIXO ============
+   Duas colunas em toda a página: registro (esquerda, estreita) e
+   corpo (direita, começa no eixo). A régua vertical do eixo é a única
+   linha estrutural da página inteira. */
+.eixo {
+  display: grid;
+  grid-template-columns: var(--eixo) minmax(0, 1fr);
+  gap: 0 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+.eixo > .lado {
+  text-align: right;
+  padding-top: 8px;
+}
+.eixo > .corpo {
+  border-left: 1px solid var(--linha);
+  padding-left: 48px;
+  min-width: 0;
+}
+@media (max-width: 860px) {
+  .eixo { grid-template-columns: 1fr; gap: 0; padding: 0 24px; }
+  .eixo > .lado { text-align: left; padding-top: 0; }
+  .eixo > .corpo { border-left: 0; padding-left: 0; }
+}
+
+.rotulo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--cinza-lo);
+  margin: 0;
+  line-height: 1.8;
+}
+
+/* ============ TOPO ============ */
+.topo { padding: 40px 0 0; }
+.topo .marca {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.topo nav {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 13px;
+}
+.topo nav a {
+  color: var(--cinza);
+  text-decoration: none;
+  transition: color 180ms var(--ease);
+}
+.topo nav a:hover { color: var(--preto); }
+
+/* ============ INSTRUÇÃO EM DESTAQUE ============
+   Uma só. Ocupa a tela. É a "obra na parede da entrada". */
+.destaque { padding: 96px 0 0; }
+
+.destaque .codigo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--preto);
+  display: block;
+  margin-bottom: 28px;
+}
+
+/* A instrução em si. Corpo grande, peso leve, medida curta.
+   Escrita no imperativo, como LeWitt escrevia. */
+.instrucao {
+  font-size: clamp(30px, 4.4vw, 54px);
+  line-height: 1.14;
+  font-weight: 300;
+  letter-spacing: -0.022em;
+  margin: 0;
+  max-width: 24ch;
+}
+.instrucao b { font-weight: 600; }
+
+.glosa {
+  margin: 32px 0 0;
+  max-width: 52ch;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--cinza);
+}
+
+/* ============ DIAGRAMA ============
+   Gerado por regra a partir do número da RFC. Ver <script> no fim. */
+.diagrama {
+  margin: 56px 0 0;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 28px 0;
+}
+.diagrama svg { display: block; width: 100%; height: auto; }
+.diagrama figcaption {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cinza-lo);
+  margin-top: 16px;
+}
+
+/* ============ EXECUÇÕES ============
+   O achado deste mockup. A mesma instrução, realizada mais de uma vez,
+   por gente diferente, em lugares diferentes. Nenhuma execução é a
+   canônica. Isso é VISAO §4 ("nenhuma RFC tem dono") virando tela. */
+.execucoes { padding: 72px 0 0; }
+.execucoes h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.execucoes .nota {
+  font-size: 14px;
+  color: var(--cinza);
+  margin: 0 0 28px;
+  max-width: 46ch;
+}
+.exec-lista { list-style: none; margin: 0; padding: 0; }
+.exec-lista li {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: baseline;
+  padding: 16px 0;
+  border-top: 1px solid var(--linha);
+}
+.exec-lista li:last-child { border-bottom: 1px solid var(--linha); }
+.exec-n {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--cinza-lo);
+}
+.exec-onde { font-size: 16px; font-weight: 500; }
+.exec-onde span {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--cinza);
+  margin-top: 2px;
+}
+.exec-quando {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--cinza);
+  white-space: nowrap;
+}
+
+/* ============ CERTIFICAÇÃO ============
+   O bloco que autoriza qualquer pessoa a executar. Linha de assinatura
+   literal, como no certificado que LeWitt assinava. */
+.certificacao {
+  margin: 40px 0 0;
+  border: 1px solid var(--preto);
+  padding: 28px 32px 24px;
+  max-width: 62ch;
+}
+.certificacao p {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.certificacao p em { font-style: italic; }
+.assina {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cinza-lo);
+}
+.assina div { min-width: 150px; }
+.assina .risco {
+  display: block;
+  border-bottom: 1px solid var(--preto);
+  height: 26px;
+  font-family: 'Archivo', sans-serif;
+  font-size: 16px;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--preto);
+  margin-bottom: 4px;
+  padding-left: 1px;
+}
+
+/* ============ CATÁLOGO DE INSTRUÇÕES ============
+   As outras RFCs. Cada uma com seu diagrama pequeno, gerado pela
+   mesma regra. Vira um índice visual: você reconhece uma ideia pelo
+   desenho antes de ler o título. */
+.catalogo { padding: 112px 0 0; }
+.inst-lista { list-style: none; margin: 0; padding: 0; }
+.inst-lista li { border-top: 1px solid var(--linha); }
+.inst-lista li:last-child { border-bottom: 1px solid var(--linha); }
+.inst-lista a {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  padding: 24px 0;
+  text-decoration: none;
+  color: inherit;
+  transition: background 200ms var(--ease);
+}
+.inst-lista a:hover { background: rgba(17,17,16,0.028); }
+.inst-lista .mini svg { display: block; width: 108px; height: 68px; }
+.inst-lista h3 {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+.inst-lista .meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--cinza);
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.inst-lista .vezes {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  text-align: right;
+  color: var(--cinza);
+  white-space: nowrap;
+}
+.inst-lista .vezes b { display: block; font-size: 26px; font-weight: 400; color: var(--preto); }
+@media (max-width: 700px) {
+  .inst-lista a { grid-template-columns: 1fr; gap: 14px; }
+  .inst-lista .vezes { text-align: left; }
+  .exec-lista li { grid-template-columns: 1fr; gap: 6px; }
+}
+
+/* ============ BANCOS DE TRABALHO (labs) ============
+   Cada lab é uma cor. A cor não decora: identifica o traço do
+   diagrama de toda RFC daquele lab. */
+.labs { padding: 96px 0 0; }
+.lab-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--linha);
+  border: 1px solid var(--linha);
+}
+.lab-grade a {
+  background: var(--branco);
+  padding: 20px 18px 18px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 200ms var(--ease);
+}
+.lab-grade a:hover { background: rgba(17,17,16,0.028); }
+.lab-grade .tinta {
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 14px;
+}
+.lab-grade .nome { display: block; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.lab-grade .qtd {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--cinza);
+  margin-top: 3px;
+}
+
+/* ============ CHAMADA ============ */
+.chamada { padding: 112px 0 0; }
+.chamada p {
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.2;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  margin: 0;
+  max-width: 28ch;
+}
+.chamada p em { font-style: italic; }
+.escrever {
+  display: inline-block;
+  margin-top: 36px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--branco);
+  background: var(--preto);
+  padding: 14px 26px;
+  text-decoration: none;
+  transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+}
+.escrever:hover { opacity: 0.82; }
+.escrever:active { transform: translateY(1px); }
+
+/* ============ PÉ ============ */
+.pe {
+  margin-top: 128px;
+  border-top: 1px solid var(--linha);
+  padding: 24px 0 56px;
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cinza-lo);
+}
+.pe a { color: var(--cinza); text-decoration: none; }
+.pe a:hover { color: var(--preto); }
+
+a:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ TOPO ============ -->
+<div class="eixo topo">
+  <div class="lado"><p class="marca">idearium</p></div>
+  <div class="corpo">
+    <nav>
+      <a href="#">instruções</a>
+      <a href="#">bancos</a>
+      <a href="#">execuções</a>
+      <a href="#">sobre</a>
+      <a href="#" class="reg" style="letter-spacing:0.1em">pt · en</a>
+      <a href="#">entrar</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ============ INSTRUÇÃO EM DESTAQUE ============ -->
+<div class="eixo destaque">
+  <div class="lado">
+    <p class="rotulo">instrução em cartaz</p>
+    <p class="rotulo" style="color:var(--cinza)">banco de cidades</p>
+    <p class="rotulo" style="color:var(--cinza)">aberta há 4 dias</p>
+  </div>
+  <div class="corpo">
+    <span class="codigo">RFC-0011</span>
+    <h1 class="instrucao">
+      Registre onde a água subiu. <b>Não registre quem registrou.</b>
+    </h1>
+    <p class="glosa">
+      Canal colaborativo de relatos geolocalizados sobre alagamentos, agregando
+      ocorrências em tempo quase-real como dado público, preservando anonimato.
+      A instrução é curta de propósito: quem executa decide como.
+    </p>
+
+    <figure class="diagrama">
+      <svg data-diagrama="11" data-tinta="azul" viewBox="0 0 900 300" role="img"
+           aria-label="Diagrama-assinatura da RFC-0011, gerado a partir do número da instrução"></svg>
+      <figcaption>
+        diagrama-assinatura · gerado da regra · idêntico a cada carregamento
+      </figcaption>
+    </figure>
+  </div>
+</div>
+
+<!-- ============ EXECUÇÕES ============ -->
+<div class="eixo execucoes">
+  <div class="lado"><p class="rotulo">realizações</p></div>
+  <div class="corpo">
+    <h2>Esta instrução foi executada 2 vezes.</h2>
+    <p class="nota">
+      Nenhuma delas é a versão oficial. Como uma partitura, a instrução admite
+      leituras diferentes — e o crédito é de todas.
+    </p>
+    <ul class="exec-lista">
+      <li>
+        <span class="exec-n">EXEC. 01</span>
+        <span class="exec-onde">
+          Recife, PE
+          <span>@rafael e mais 4 · app web + bot de mensagem · em uso pela associação de moradores</span>
+        </span>
+        <span class="exec-quando">desde 05.2026</span>
+      </li>
+      <li>
+        <span class="exec-n">EXEC. 02</span>
+        <span class="exec-onde">
+          Blumenau, SC
+          <span>@jhonatan e mais 2 · painel público com dado aberto · piloto</span>
+        </span>
+        <span class="exec-quando">desde 07.2026</span>
+      </li>
+    </ul>
+
+    <div class="certificacao">
+      <p>
+        Esta instrução pode ser executada por qualquer pessoa, quantas vezes for,
+        sem pedir licença a ninguém. Quem propôs mantém o crédito de autoria.
+        Quem executa mantém o crédito da execução. <em>Nenhum dos dois pode
+        revogar o do outro.</em>
+      </p>
+      <div class="assina">
+        <div><span class="risco">@rafael</span>propôs a instrução</div>
+        <div><span class="risco">&nbsp;</span>sua execução</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CATÁLOGO DE INSTRUÇÕES ============ -->
+<div class="eixo catalogo">
+  <div class="lado">
+    <p class="rotulo">catálogo</p>
+    <p class="rotulo" style="color:var(--cinza)">47 instruções abertas</p>
+  </div>
+  <div class="corpo">
+    <ul class="inst-lista">
+
+      <li>
+        <a href="#">
+          <span class="mini">
+            <svg data-diagrama="14" data-tinta="verde" data-escala="mini" viewBox="0 0 300 190" aria-hidden="true"></svg>
+          </span>
+          <span>
+            <h3>Deixe o remédio a três ruas de quem precisa dele.</h3>
+            <span class="meta">
+              <span>RFC-0014</span>
+              <span>banco de saúde</span>
+              <span>@marina</span>
+              <span>v0.4</span>
+            </span>
+          </span>
+          <span class="vezes"><b>1</b>execução</span>
+        </a>
+      </li>
+
+      <li>
+        <a href="#">
+          <span class="mini">
+            <svg data-diagrama="7" data-tinta="vermelho" data-escala="mini" viewBox="0 0 300 190" aria-hidden="true"></svg>
+          </span>
+          <span>
+            <h3>Empreste o livro sem pedir garantia.</h3>
+            <span class="meta">
+              <span>RFC-0007</span>
+              <span>banco de educação</span>
+              <span>@luisa</span>
+              <span>v0.6</span>
+            </span>
+          </span>
+          <span class="vezes"><b>3</b>execuções</span>
+        </a>
+      </li>
+
+      <li>
+        <a href="#">
+          <span class="mini">
+            <svg data-diagrama="23" data-tinta="violeta" data-escala="mini" viewBox="0 0 300 190" aria-hidden="true"></svg>
+          </span>
+          <span>
+            <h3>Publique o orçamento antes de gastá-lo.</h3>
+            <span class="meta">
+              <span>RFC-0023</span>
+              <span>banco de tec. cívica</span>
+              <span>@dev.raposa</span>
+              <span>v0.1</span>
+            </span>
+          </span>
+          <span class="vezes"><b>0</b>execuções</span>
+        </a>
+      </li>
+
+    </ul>
+  </div>
+</div>
+
+<!-- ============ BANCOS ============ -->
+<div class="eixo labs">
+  <div class="lado">
+    <p class="rotulo">bancos de trabalho</p>
+    <p class="rotulo" style="color:var(--cinza)">a tinta identifica<br>o traço de cada banco</p>
+  </div>
+  <div class="corpo">
+    <div class="lab-grade">
+      <a href="#"><span class="tinta" style="background:var(--vermelho)"></span><span class="nome">Educação</span><span class="qtd">12 instruções</span></a>
+      <a href="#"><span class="tinta" style="background:var(--azul)"></span><span class="nome">Cidades</span><span class="qtd">9 instruções</span></a>
+      <a href="#"><span class="tinta" style="background:var(--verde)"></span><span class="nome">Saúde</span><span class="qtd">7 instruções</span></a>
+      <a href="#"><span class="tinta" style="background:var(--amarelo)"></span><span class="nome">Cultura</span><span class="qtd">6 instruções</span></a>
+      <a href="#"><span class="tinta" style="background:var(--violeta)"></span><span class="nome">Tec. Cívica</span><span class="qtd">8 instruções</span></a>
+      <a href="#"><span class="tinta" style="background:var(--laranja)"></span><span class="nome">Econ. Solidária</span><span class="qtd">5 instruções</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHAMADA ============ -->
+<div class="eixo chamada">
+  <div class="lado"><p class="rotulo">escrever</p></div>
+  <div class="corpo">
+    <p>
+      Escreva a instrução. <em>Não precisa saber fazer.</em> Precisa só querer
+      que aconteça.
+    </p>
+    <a class="escrever" href="#">escrever instrução</a>
+  </div>
+</div>
+
+<!-- ============ PÉ ============ -->
+<div class="eixo">
+  <div class="lado"></div>
+  <div class="corpo">
+    <footer class="pe">
+      <span>idearium</span>
+      <a href="#">governança</a>
+      <a href="#">código de conduta</a>
+      <a href="#">transparência</a>
+      <span>cc by-sa 4.0</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* ==================================================================
+   GERADOR DE DIAGRAMA-ASSINATURA
+   ==================================================================
+   Regra, escrita como LeWitt escreveria:
+
+     "Divida o campo em N faixas horizontais de altura igual. Em cada
+      faixa, desenhe uma linha não reta que atravesse o campo de ponta
+      a ponta. Nenhuma linha entra na faixa da outra, logo nenhuma
+      toca a outra. A quantidade de faixas, a curvatura e a ondulação
+      derivam do número da instrução."
+
+   A restrição por faixas é o que garante "não se tocam" — a promessa
+   é estrutural, não sorteada. E o PRNG é semeado no número da RFC,
+   então RFC-0011 desenha sempre o mesmo traço, em qualquer máquina,
+   sem guardar nada.
+   ================================================================== */
+
+// PRNG determinístico (mulberry32). Mesma seed, mesma sequência.
+function prng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function desenhar(svg) {
+  const numero = parseInt(svg.dataset.diagrama, 10);
+  const tinta  = getComputedStyle(document.documentElement)
+                   .getPropertyValue('--' + svg.dataset.tinta).trim();
+  const mini   = svg.dataset.escala === 'mini';
+
+  const vb = svg.getAttribute('viewBox').split(' ').map(Number);
+  const L = vb[2], A = vb[3];
+
+  const r = prng(numero * 2654435761);
+
+  // Nº de faixas derivado do número da instrução, entre 5 e 12.
+  const faixas = 5 + (numero % 8);
+  const altura = A / faixas;
+  const margem = mini ? 6 : 16;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  for (let i = 0; i < faixas; i++) {
+    // A linha vive dentro da sua faixa e nunca sai dela.
+    const topo  = i * altura + altura * 0.18;
+    const base  = (i + 1) * altura - altura * 0.18;
+    const meio  = (topo + base) / 2;
+    const folga = (base - topo) / 2;
+
+    // Nº de vértices e amplitude variam por faixa, mas sempre presos à folga.
+    const vertices = 3 + Math.floor(r() * 5);
+    const passo = (L - margem * 2) / vertices;
+
+    let d = `M ${margem} ${meio + (r() - 0.5) * folga}`;
+    for (let v = 1; v <= vertices; v++) {
+      const x  = margem + passo * v;
+      const y  = meio + (r() - 0.5) * 2 * folga;
+      const cx = x - passo / 2;
+      const cy = meio + (r() - 0.5) * 2 * folga;
+      d += ` Q ${cx} ${cy} ${x} ${y}`;
+    }
+
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', tinta);
+    path.setAttribute('stroke-width', mini ? 1 : 1.6);
+    path.setAttribute('stroke-linecap', 'round');
+    // Faixas alternadas em preto: as duas tintas do banco, como LeWitt
+    // sobrepondo duas cores de lápis na mesma parede.
+    if (i % 3 === 2) {
+      path.setAttribute('stroke', 'var(--preto)');
+      path.setAttribute('opacity', '0.5');
+    }
+    svg.appendChild(path);
+  }
+}
+
+document.querySelectorAll('svg[data-diagrama]').forEach(desenhar);
+</script>
+
+</body>
+</html>
