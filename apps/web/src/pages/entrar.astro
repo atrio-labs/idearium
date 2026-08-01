@@ -11,11 +11,29 @@
    interceptou (exigirSessao monta esse link). Só caminho interno é
    aceito: "//evil.com" é caminho válido pro browser e viraria redirect
    aberto se eu confiasse no valor cru.
+
+   ----------------------------------------------------------------
+   DESENHO: a tela mostra a consequência do ato
+   ----------------------------------------------------------------
+   Conta no Idearium não é portão — o site inteiro se lê sem ela. Uma
+   tela de login com dois campos num cartão branco diz o contrário, e
+   diz errado. Então a coluna da direita mostra o que a sessão muda:
+   os três atos que ela destrava, cada um preso ao CHIP DE ESTADO que
+   lhe corresponde no sistema — o mesmo vocabulário que a abertura do
+   átrio ensina. Dois desses atos movem o chip e um só acontece dentro
+   dele; o conector de cada linha diz qual é qual.
+
+   Quem chegou por `?voltar=` vê o que especificamente a trouxe, e,
+   quando o caminho é uma RFC, o cartão real dela (CartaoIdeia, o
+   mesmo componente do átrio, com a matéria rodando na semente da
+   própria ideia). Cartão parecido feito à mão mentiria.
    ================================================================ */
 import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
-import { entrar, destinoSeguro } from '../lib/sessao';
+import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
+import { entrar, destinoSeguro, comSessao } from '../lib/sessao';
+import { statusLabel, type Rfc } from '../lib/api';
 
 const voltar = destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin);
 const pediramVolta = voltar !== '/';
@@ -59,6 +77,103 @@ const acao = pediramVolta
 const linkCriar = pediramVolta
   ? `/criar-conta?voltar=${encodeURIComponent(voltar)}`
   : '/criar-conta';
+
+/* ---------------- o que trouxe a pessoa até aqui ----------------
+   Resolvido DEPOIS do POST de propósito: login que dá certo redireciona
+   ali em cima e não paga a chamada.
+
+   O guard só preserva o caminho, então o caminho é a única evidência do
+   que a pessoa ia fazer. `/rfcs/:slug` cobre dois atos (comentar e se
+   inscrever) porque a página de RFC manda os dois pra cá pelo mesmo
+   link — a frase diz os dois em vez de chutar um. */
+const partes = voltar.split('?')[0].split('/').filter(Boolean);
+const slugDestino = partes[0] === 'rfcs' && partes[1] && partes[1] !== 'nova'
+  ? partes[1]
+  : null;
+const editando = slugDestino != null && partes[2] === 'editar';
+
+/* comSessao, e não obterRfc: a flag apiIndisponivel de api.ts é do
+   módulo e nunca desliga, então uma queda passageira aqui contaminaria
+   o aviso de outras rotas SSR do mesmo processo. Sem cookie a chamada
+   sai sem Authorization, igual à leitura pública — rascunho alheio
+   continua 404. */
+let rfcDestino: Rfc | null = null;
+if (slugDestino) {
+  const r = await comSessao<Rfc>(Astro.cookies, 'GET', `/rfcs/${slugDestino}`);
+  rfcDestino = r.dado;
+}
+
+/* `marca` diz quais atos da lista ficam na tinta cheia: são a
+   consequência concreta do que a pessoa tentou fazer. */
+function lerDestino(): { frase: string | null; caminho?: string; marca: string[] } {
+  if (!pediramVolta) return { frase: null, marca: [] };
+  if (voltar === '/rfcs/nova') {
+    return { frase: 'Você ia escrever uma ideia.', marca: ['escrever'] };
+  }
+  if (voltar === '/perfil') {
+    return { frase: 'Você ia mexer no seu perfil.', marca: [] };
+  }
+  if (editando) {
+    return {
+      frase: rfcDestino
+        ? 'Você ia corrigir esta ideia. A correção vira errata: nada é apagado.'
+        : 'Você ia corrigir uma ideia.',
+      marca: [],
+    };
+  }
+  if (slugDestino) {
+    return rfcDestino
+      ? { frase: 'Comentar ou se inscrever nesta ideia pede sessão. Ler, não.',
+          marca: ['comentar', 'inscrever'] }
+      : { frase: 'Você ia para uma ideia que não consegui carregar agora.', marca: [] };
+  }
+  return { frase: null, caminho: voltar, marca: [] };
+}
+const destino = lerDestino();
+
+/* Os três atos, na ordem do ciclo que a abertura do átrio ensina. Os
+   rótulos vêm de statusLabel: sinônimo inventado aqui quebraria o
+   vocabulário que a pessoa acabou de aprender lá.
+
+   O conector muda de ato pra ato porque a relação com o estado muda.
+   Escrever e se inscrever MOVEM o chip: a API grava DRAFT na criação e
+   recalcula em construção quando entra alguém pra construir. Comentar
+   não move nada — a API só lê o estado pra decidir se libera. Dizer
+   "vira em discussão" no comentar prometeria uma transição que o
+   sistema não executa, e quem está aprendendo o vocabulário aqui
+   aprenderia errado. Pior: numa ideia já em construção, o chip do
+   cartão logo acima diria o contrário na mesma tela. */
+const atos = [
+  {
+    chave: 'escrever',
+    verbo: 'escrever uma ideia',
+    antes: 'vira',
+    estado: statusLabel.DRAFT,
+    depois: null,
+    vivo: false,
+    /* a frase-âncora do produto explica exatamente este ato, e aqui ela
+       tem referente: solta no rodapé era só slogan */
+    gloss: 'não precisa saber fazer. precisa só querer que aconteça.',
+  },
+  {
+    chave: 'comentar',
+    verbo: 'comentar numa ideia',
+    /* "de X em diante" é o que a API faz: comentário vale a partir da
+       publicação e segue valendo depois, só arquivada barra */
+    antes: 'acontece de',
+    estado: statusLabel.IN_DISCUSSION,
+    depois: 'em diante',
+    vivo: true,
+  },
+  {
+    chave: 'inscrever',
+    verbo: 'se inscrever pra construir',
+    antes: 'vira',
+    estado: statusLabel.IN_BUILDING,
+    depois: null,
+    vivo: false,
+  },
+];
 ---
 
 <Layout
@@ -68,75 +183,120 @@ const linkCriar = pediramVolta
   <div class="palco">
     <Nav />
 
-    <div class="form-estreito">
-      <header class="cabecalho-pagina">
-        <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-          entrar
-        </span>
-        <h1>Continue de onde <span class="serif">parou</span>.</h1>
-        <p class="sub">
-          {pediramVolta
-            ? 'Essa página pede sessão. Entre e você volta pra ela.'
-            : 'Email e senha. A sessão fica de pé por 30 dias neste navegador.'}
-        </p>
-      </header>
+    <div class="entrada-dupla">
+      {/* ---- coluna que se opera ---- */}
+      <div class="lado-forma">
+        <header class="cabecalho-pagina">
+          <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+            entrar
+          </span>
+          <h1>Continue de onde <span class="serif">parou</span>.</h1>
+          <p class="sub">
+            {pediramVolta
+              ? 'Entre e você cai direto de volta onde estava.'
+              : 'Email e senha. A sessão fica de pé por 30 dias neste navegador.'}
+          </p>
+        </header>
 
-      <form method="POST" action={acao}>
-        {/* o erro só existe depois de um POST, que recarrega a página
-            inteira — leitor de tela não anuncia live region que já veio
-            pronta, então o foco vai pro texto do erro em vez do campo */}
-        {erro && (
-          <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>
-            {erro}
+        <form method="POST" action={acao}>
+          {/* o erro só existe depois de um POST, que recarrega a página
+              inteira — leitor de tela não anuncia live region que já veio
+              pronta, então o foco vai pro texto do erro em vez do campo */}
+          {erro && (
+            <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>
+              {erro}
+            </p>
+          )}
+
+          <div class={erroDeCampo ? 'campo com-erro' : 'campo'}>
+            <label class="rotulo" for="email">email</label>
+            <input
+              class="entrada"
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              required
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              aria-invalid={erroDeCampo ? 'true' : undefined}
+              aria-describedby={erro ? 'erro-form' : undefined}
+              autofocus={!erro}
+            />
+          </div>
+
+          <div class={erroDeCampo ? 'campo com-erro' : 'campo'}>
+            <label class="rotulo" for="senha">senha</label>
+            <input
+              class="entrada"
+              id="senha"
+              name="senha"
+              type="password"
+              required
+              autocomplete="current-password"
+              aria-invalid={erroDeCampo ? 'true' : undefined}
+              aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
+            />
+            <span class="ajuda" id="ajuda-senha">
+              Esqueceu? Por enquanto não há recuperação automática — escreva pra
+              quem mantém o Idearium.
+            </span>
+          </div>
+
+          <div class="acoes-form">
+            <button class="botao" type="submit">entrar</button>
+            <span class="separador"></span>
+            <a class="botao leve" href={linkCriar}>criar conta</a>
+          </div>
+        </form>
+      </div>
+
+      {/* ---- coluna que acompanha: a consequência do ato ---- */}
+      <aside class="consequencia" aria-label="o que a sessão muda">
+        {pediramVolta && (
+          <div class="veio-de">
+            <p class="rotulo-mono">o que te trouxe</p>
+            {destino.caminho
+              ? <p class="frase">Você ia para <span class="mono caminho">{destino.caminho}</span>.</p>
+              : <p class="frase">{destino.frase}</p>}
+            {rfcDestino && <CartaoIdeia rfc={rfcDestino} />}
+            <hr class="divisor" />
+          </div>
+        )}
+
+        <p class="rotulo-mono">
+          {pediramVolta ? 'e o que mais a sessão destrava' : 'a conta não é portão'}
+        </p>
+        {!pediramVolta && (
+          <p class="frase">
+            O Idearium inteiro se lê sem conta. O que a sessão abre são três atos:
           </p>
         )}
 
-        <div class={erroDeCampo ? 'campo com-erro' : 'campo'}>
-          <label class="rotulo" for="email">email</label>
-          <input
-            class="entrada"
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            required
-            autocomplete="email"
-            autocapitalize="none"
-            spellcheck="false"
-            aria-invalid={erroDeCampo ? 'true' : undefined}
-            aria-describedby={erro ? 'erro-form' : undefined}
-            autofocus={!erro}
-          />
-        </div>
+        <ul class="atos">
+          {atos.map((a) => (
+            <li class="ato" data-trouxe={destino.marca.includes(a.chave) ? 'sim' : undefined}>
+              <span class="verbo">{a.verbo}</span>
+              <span class="vira">
+                {a.antes}
+                {a.vivo
+                  ? <span class="chip pequeno vivo"><span class="ponto"></span>{a.estado}</span>
+                  : <span class="chip pequeno">{a.estado}</span>}
+                {a.depois && <span>{a.depois}</span>}
+              </span>
+              {a.gloss && <span class="gloss serif">{a.gloss}</span>}
+            </li>
+          ))}
+        </ul>
 
-        <div class={erroDeCampo ? 'campo com-erro' : 'campo'}>
-          <label class="rotulo" for="senha">senha</label>
-          <input
-            class="entrada"
-            id="senha"
-            name="senha"
-            type="password"
-            required
-            autocomplete="current-password"
-            aria-invalid={erroDeCampo ? 'true' : undefined}
-            aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
-          />
-          <span class="ajuda" id="ajuda-senha">
-            Esqueceu? Por enquanto não há recuperação automática — escreva pra
-            quem mantém o Idearium.
-          </span>
+        {/* o objeto que este formulário fabrica é a sessão, e o único
+            campo dela que a pessoa escreve é o email */}
+        <div class="sessao">
+          <p class="linha mono">entra como <span class="valor" id="eco-email">{email || 'seu email'}</span></p>
+          <p class="nota">No site você aparece pelo seu @, nunca pelo email.</p>
         </div>
-
-        <div class="acoes-form">
-          <button class="botao" type="submit">entrar</button>
-          <span class="separador"></span>
-          <a class="botao leve" href={linkCriar}>criar conta</a>
-        </div>
-      </form>
-
-      <p class="ancora serif">
-        não precisa saber fazer. precisa só querer que aconteça.
-      </p>
+      </aside>
     </div>
 
     <Rodape />
@@ -144,12 +304,165 @@ const linkCriar = pediramVolta
 </Layout>
 
 <style>
-  /* frase âncora do produto: fecha a tela em voz baixa, não é botão
-     nem aviso, então não cabe em nenhuma classe pronta */
-  .ancora {
-    margin: 40px 0 0;
-    text-align: center;
-    font-size: 16px;
+  /* Duas colunas: o formulário é o que se opera, a consequência
+     acompanha. Em tela estreita ela desce, e nunca some — no celular
+     continua sendo a explicação. */
+  .entrada-dupla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 316px;
+    gap: 46px;
+    align-items: start;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .entrada-dupla { grid-template-columns: 1fr; gap: 30px; max-width: 520px; }
+  }
+  .lado-forma { max-width: 480px; }
+
+  /* alinha o topo da coluna com o rótulo "entrar" do cabeçalho */
+  .consequencia { padding-top: 30px; }
+  @media (max-width: 900px) { .consequencia { padding-top: 0; } }
+
+  .rotulo-mono {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--t-35);
+    margin: 0 0 10px;
+  }
+  .consequencia .frase { margin: 0 0 14px; font-size: 13.5px; color: var(--t-65); }
+  .caminho { font-size: 11px; color: var(--t-90); overflow-wrap: anywhere; }
+
+  .divisor { border: 0; height: 1px; background: var(--t-07); margin: 22px 0 20px; }
+
+  /* Cada ato leva a um estado. A régua fina à esquerda é o que separa um
+     do outro — no idioma da casa, sem ícone novo. */
+  .atos { list-style: none; margin: 0; padding: 0; display: grid; gap: 15px; }
+  .ato {
+    display: grid;
+    gap: 5px;
+    padding-left: 13px;
+    border-left: 2px solid var(--t-07);
+  }
+  .ato .verbo { font-size: 13.5px; color: var(--t-50); }
+  .ato .vira {
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
     color: var(--t-35);
   }
+  .ato .gloss { font-size: 14px; color: var(--t-50); margin-top: 1px; }
+
+  /* o ato que trouxe a pessoa fica na tinta cheia; os outros continuam
+     legíveis, só mais baixos */
+  .ato[data-trouxe] { border-left-color: var(--t-75); }
+  .ato[data-trouxe] .verbo { color: var(--t-100); font-weight: 450; }
+
+  .sessao { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--t-07); }
+  .sessao .linha {
+    margin: 0;
+    font-size: 11px;
+    color: var(--t-35);
+    overflow-wrap: anywhere;
+  }
+  /* Departure Mono só tem 400: aqui a ênfase é a tinta, não o peso */
+  .sessao .valor { color: var(--t-90); display: inline-block; }
+  .sessao .nota { margin: 7px 0 0; font-size: 12.5px; color: var(--t-50); }
+
+  /* ---- micro-animações, uma por peça ---- */
+
+  /* os atos acendem de cima pra baixo, na ordem do ciclo */
+  @keyframes ato-acende {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .consequencia.acesa .ato { animation: ato-acende 440ms var(--ease) both; }
+  .consequencia.acesa .ato:nth-child(1) { animation-delay: 120ms; }
+  .consequencia.acesa .ato:nth-child(2) { animation-delay: 210ms; }
+  .consequencia.acesa .ato:nth-child(3) { animation-delay: 300ms; }
+
+  /* o eco do email assenta quando passa de vazio a escrito */
+  @keyframes eco-assenta {
+    from { opacity: 0; transform: translateY(3px); filter: blur(2px); }
+    to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  .sessao .valor.trocou { animation: eco-assenta 240ms var(--ease) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .consequencia.acesa .ato,
+    .sessao .valor.trocou { animation: none; }
+  }
 </style>
+
+<script>
+  /* ---------- entrada por IntersectionObserver ----------
+     o cartão real da RFC nasce com .vem (opacity 0); sem isto ele nunca
+     apareceria nesta página */
+  function ligarEntrada() {
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('veio');
+        olho.unobserve(e.target);
+      }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el) => olho.observe(el));
+  }
+
+  /* ---------- os atos acendem quando a coluna entra em vista ----------
+     A classe só liga a animação; sem JS a lista aparece inteira, porque
+     é ela que explica a tela. */
+  function ligarAtos() {
+    const bloco = document.querySelector('.consequencia');
+    if (!bloco) return;
+
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('acesa');
+        olho.unobserve(e.target);
+      }
+    }, { threshold: 0.2 });
+
+    olho.observe(bloco);
+  }
+
+  /* ---------- eco do email na sessão ----------
+     Nada de derivar inicial ou @ do email: no Idearium a identidade
+     pública é o @username, que só existe depois do login. Ecoar o email
+     como chave e dizer que ele não aparece em público é o que é verdade. */
+  function ligarEcoDoEmail() {
+    const campo = document.getElementById('email') as HTMLInputElement | null;
+    const eco = document.getElementById('eco-email');
+    if (!campo || !eco) return;
+
+    let vazioAntes = campo.value.trim() === '';
+
+    campo.addEventListener('input', () => {
+      const valor = campo.value.trim();
+      eco.textContent = valor || 'seu email';
+
+      /* animar a cada tecla tremeria a linha inteira; só a virada entre
+         vazio e escrito é estado novo */
+      const vazioAgora = valor === '';
+      if (vazioAgora === vazioAntes) return;
+      vazioAntes = vazioAgora;
+      eco.classList.remove('trocou');
+      void eco.offsetWidth;               // reflow: sem isso a animação não reinicia
+      eco.classList.add('trocou');
+    });
+  }
+
+  /* Só `astro:page-load`: com o ClientRouter ativo ele já dispara na
+     carga inicial E em cada navegação. */
+  document.addEventListener('astro:page-load', () => {
+    ligarEntrada();
+    ligarAtos();
+    ligarEcoDoEmail();
+  });
+</script>

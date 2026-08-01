@@ -1,0 +1,145 @@
+---
+/* ================================================================
+   CartaoMao.astro — uma pessoa na lista de mãos
+   ================================================================
+   O mesmo objeto em três lugares: a grade de /builders, a prévia ao
+   vivo de /perfil e a vitrine de /criar-conta. É um componente só, e
+   não três marcações parecidas, porque prévia que diverge do
+   resultado mente — e mentir é pior que não ter prévia.
+
+   O que o cartão não mostra é decisão, não esquecimento: nada de
+   contagem de ideias, de inscrições ou de tempo de casa (VISAO §9).
+   Lista de gente vira ranking sozinha se a gente deixar; aqui só cabe
+   o que a própria pessoa escreveu sobre si.
+
+   `headline` e `topics` são texto escrito por gente. Astro escapa
+   interpolação, e o JS da prévia só usa textContent — em nenhum dos
+   dois caminhos isso vira HTML.
+   ================================================================ */
+import { pastelDe } from '../../lib/pseudonimo';
+
+interface Props {
+  username: string;
+  headline?: string | null;
+  topics?: string[];
+  isOpenToWork?: boolean;
+  /** com link o cartão navega (a grade); sem link ele é objeto (a prévia) */
+  href?: string;
+  /** entra animado junto com a grade */
+  entrada?: boolean;
+  /** na prévia, o que ainda não foi escrito aparece como convite */
+  previa?: boolean;
+}
+
+const {
+  username,
+  headline = null,
+  topics = [],
+  isOpenToWork = true,
+  href,
+  entrada = false,
+  previa = false,
+} = Astro.props;
+
+/* A cor da inicial vem do @username, não de sorteio: precisa ser a
+   mesma na prévia e na grade, e a mesma amanhã. Pastel é superfície;
+   a inicial em cima continua sendo a tinta. */
+const pastel = pastelDe(username);
+
+const VAZIO_HEADLINE = 'uma linha sobre você aparece aqui';
+
+const Marca = href ? 'a' : 'div';
+---
+
+<Marca
+  class:list={[
+    'builder-card',
+    entrada && 'vem',
+    previa && 'previa',
+    previa && !isOpenToWork && 'fora',
+  ]}
+  href={href}
+  data-cartao-mao
+>
+  <span class="topo">
+    <span class="inicial-mao" style={`background: var(--color-${pastel})`} aria-hidden="true">
+      {username.slice(0, 2).toUpperCase()}
+    </span>
+    <span class="nome">@{username}</span>
+  </span>
+
+  {(headline || previa) && (
+    <p
+      class:list={['headline', !headline && 'vazia']}
+      data-headline
+      data-vazio={previa ? VAZIO_HEADLINE : undefined}
+    >{headline || VAZIO_HEADLINE}</p>
+  )}
+
+  <div class="chips" style="margin-bottom: 0" data-chips>
+    <span class:list={['chip', 'vivo', !isOpenToWork && 'escondido']} data-disponivel>
+      <span class="ponto"></span>disponível pra construir
+    </span>
+    {topics.map((t) => <span class="chip pequeno" data-tema>{t}</span>)}
+    {/* Sempre no papel quando é prévia, escondido por classe: quem
+        apaga o campo inteiro precisa ver o convite voltar, e o JS só
+        alterna a classe — nó que não existe não volta. */}
+    {previa && (
+      <span
+        class:list={['chip', 'pequeno', 'fantasma', topics.length > 0 && 'escondido']}
+        data-fantasma>seus temas viram etiquetas</span>
+    )}
+  </div>
+</Marca>
+
+{/* Global de propósito, e todo prefixado por `.builder-card`: a prévia
+    de /perfil cria chips por JS, e nó criado em JS não carrega o
+    atributo de escopo do Astro. Regra escopada só pintaria metade. */}
+<style is:global>
+  .builder-card .topo { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+  .builder-card .topo .nome { margin: 0; }
+  .builder-card .inicial-mao {
+    width: 30px; height: 30px; flex-shrink: 0;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--t-90);
+  }
+
+  /* placeholder no idioma do produto, não esqueleto cinza: antes de
+     digitar o cartão já ensina o formato */
+  .builder-card .headline.vazia { color: var(--t-35); }
+  .builder-card .chip.fantasma {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--t-12);
+    color: var(--t-35);
+  }
+  .builder-card .chip.escondido { display: none; }
+
+  /* a prévia é objeto, não navegação: sem link, sem afordância de link */
+  .builder-card.previa { transition: opacity 260ms var(--ease), background 260ms var(--ease); }
+  .builder-card.previa:hover { transform: none; box-shadow: var(--sombra); }
+  /* desmarcar disponibilidade tira a pessoa de /builders. O cartão
+     apaga em vez de só perder o chip, porque é isso que acontece. */
+  .builder-card.previa.fora { opacity: 0.45; background: var(--rebaixo); box-shadow: none; }
+
+  /* --- a peça animada: o chip --- */
+  @keyframes chip-mao-nasce {
+    from { opacity: 0; transform: translateY(4px) scale(0.94); }
+    to   { opacity: 1; transform: none; }
+  }
+  .builder-card .chip.nasce { animation: chip-mao-nasce 320ms var(--ease) both; }
+
+  /* Sem JS a grade inteira sumiria: `.vem` nasce em opacity 0 no
+     global.css e quem devolve é o observador. O padrão aqui é visível,
+     e quem esconde é a classe posta pelo próprio JS. */
+  .builder-card.vem { opacity: 1; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html.com-js .builder-card.vem { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .builder-card .chip.nasce { animation: none; }
+  }
+</style>

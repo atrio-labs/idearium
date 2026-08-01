@@ -10,11 +10,22 @@
    número da RFC é permanente — e um número permanente não pode
    nascer de um clique acidental. Por isso a tela repete isso três
    vezes: no subtítulo, no bloco lateral e no rótulo do botão.
+
+   Desenho: a coluna estreita mostra a CONSEQUÊNCIA DO ATO enquanto
+   ele acontece. O ato é fabricar uma RFC; a consequência é o cartão
+   que ela vira. Ele se monta ao lado com o material real do sistema
+   — a mesma Materia do átrio, o mesmo markup do CartaoIdeia — e o
+   chip fica travado em `rascunho`, porque criar não publica. Ver o
+   objeto nascendo ensina o formato sem uma linha de texto a mais,
+   que é o problema pedagógico do produto (VISAO §7).
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
+/* O mesmo componente do átrio, da listagem e da tela de edição, sem
+   adaptação: a prévia precisa ser o objeto que vai existir. */
+import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import { listarLabs, apiIndisponivel, nomeCurtoDoLab, type Rfc } from '../../lib/api';
 import { comSessao, exigirSessao } from '../../lib/sessao';
 
@@ -144,6 +155,60 @@ if (Astro.request.method === 'POST') {
 
 const descreve = (campo: string) =>
   [`ajuda-${campo}`, erros[campo] && `erro-${campo}`].filter(Boolean).join(' ');
+
+/* ================================================================
+   O cartão que está sendo fabricado
+   ================================================================
+   É o CartaoIdeia de verdade, com `comoLink={false}` porque a RFC
+   ainda não tem endereço. Prévia que reimplementa o cartão diverge
+   dele na primeira mudança do componente — e aqui a divergência
+   apareceria em segundos: salvar redireciona pra tela de edição, que
+   mostra o mesmo objeto pelo mesmo componente.
+
+   O que alimenta o componente é o rascunho como ele vai voltar da
+   API, montado com o que já se sabe: sem número (então o código sai
+   'rascunho' pela codigoRfc, igual à tela seguinte), em DRAFT, e com
+   a versão 1 que o POST cria junto — daí o `v0.1` no pé.
+   ================================================================ */
+const VAZIO = {
+  titulo: 'Sua ideia aparece aqui',
+  resumo: 'E o resumo dela aqui — uma frase que diga o que está em jogo.',
+  lab:    'escolha o laboratório',
+};
+
+const labEscolhido = labs.find((l) => l.id === valores.labId) ?? null;
+
+/* A capa é desenhada a partir do id e do número da RFC, e nenhum dos
+   dois existe antes de salvar. Uma identidade provisória sorteada uma
+   vez deixa o desenho parado enquanto se escreve: fazê-lo reagir ao
+   título ensinaria uma causalidade que o sistema não tem. */
+const idProvisorio = Math.random().toString(36).slice(2);
+
+const agora = new Date().toISOString();
+const rascunhoProvisorio = {
+  id: idProvisorio,
+  number: null,
+  slug: '',
+  title: valores.title.trim() || VAZIO.titulo,
+  summary: valores.summary.trim() || VAZIO.resumo,
+  locale: 'pt-BR',
+  status: 'DRAFT' as const,
+  publishedAt: null,
+  createdAt: agora,
+  updatedAt: agora,
+  author: { id: '', username: usuario!.username, fullName: null, avatarUrl: null },
+  _count: { versions: 1 },
+  lab: labEscolhido
+    ? { id: labEscolhido.id, slug: labEscolhido.slug, name: labEscolhido.name, glyph: labEscolhido.glyph }
+    : { id: '', slug: '', name: VAZIO.lab, glyph: '' },
+};
+
+/* O que passa de 280 continua visível e riscado, mas o riscado aqui
+   não quer dizer "cortado do cartão": passar do limite impede o
+   salvamento, então nenhum cartão truncado chega a existir. É o que a
+   medida abaixo do cartão diz com todas as letras. */
+const resumoPrevia = valores.summary.trim();
+const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
 ---
 
 <Layout
@@ -243,8 +308,16 @@ const descreve = (campo: string) =>
                     aria-invalid={erros.labId ? 'true' : undefined}
                   >
                     <option value="">escolha um laboratório</option>
+                    {/* slug e nome curto viajam no <option> porque é o
+                        cartão ao lado que precisa deles: o value é o id,
+                        e id não pinta capa nem escreve chip */}
                     {labs.map((l) => (
-                      <option value={l.id} selected={valores.labId === l.id}>
+                      <option
+                        value={l.id}
+                        selected={valores.labId === l.id}
+                        data-slug={l.slug}
+                        data-nome={nomeCurtoDoLab(l.name)}
+                      >
                         {l.glyph} {nomeCurtoDoLab(l.name)}
                       </option>
                     ))}
@@ -307,11 +380,47 @@ const descreve = (campo: string) =>
           </div>
 
           <aside class="lado-rfc">
+            {/* O estado da prévia mora no invólucro, e não dentro do
+                cartão: os nós de lá são do CartaoIdeia e esta tela não
+                os cria — só os reescreve. */}
+            <section
+              class="previa-nova"
+              data-lab={labEscolhido ? 'sim' : 'nao'}
+              data-titulo={valores.title.trim() ? 'cheio' : 'vazio'}
+              data-resumo={resumoPrevia ? 'cheio' : 'vazio'}
+              data-cabe={resumoSobra ? 'nao' : 'sim'}
+              data-vazio-titulo={VAZIO.titulo}
+              data-vazio-resumo={VAZIO.resumo}
+              data-vazio-lab={VAZIO.lab}
+              data-max={LIMITE.resumo.max}
+            >
+              <p class="rotulo-previa">o que você está fabricando</p>
+
+              <CartaoIdeia rfc={rascunhoProvisorio} comoLink={false} />
+
+              <p
+                class:list={['medida', resumoSobra && 'fora']}
+                id="previa-medida"
+                aria-hidden="true"
+              >{resumoSobra
+                ? `${resumoPrevia.length}/${LIMITE.resumo.max} · ${resumoSobra.length} a mais do que cabe; não dá pra salvar assim`
+                : `${resumoPrevia.length}/${LIMITE.resumo.max}`}</p>
+
+              <p class="nota-previa">
+                O chip fica em <b>rascunho</b> e o cartão não tem número: ele só
+                é atribuído na publicação, e esta tela não publica. A capa é
+                desenhada a partir da identidade e do número da ideia, então
+                este desenho é provisório — o laboratório é a única parte dela
+                que você escolhe aqui.
+              </p>
+            </section>
+
             <div class="bloco">
               <p class="titulo-bloco">salvar não publica</p>
               <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
-                O que você salvar aqui vira rascunho: não aparece em nenhuma
-                listagem, ninguém além de você abre, e ainda não tem número.
+                Por isso o chip do cartão está travado em <b>rascunho</b>: o que
+                você salvar aqui não aparece em nenhuma listagem, ninguém além
+                de você abre, e ainda não tem número.
               </p>
               <div class="linha"><span>ao salvar</span><b>rascunho</b></div>
               <div class="linha"><span>ao publicar</span><b>em discussão</b></div>
@@ -369,6 +478,128 @@ const descreve = (campo: string) =>
   .contador { font-size: 10.5px; color: var(--t-35); font-weight: 400; }
   /* fora do intervalo pesa mais, sem cor gritante — como o resto da folha */
   .contador.fora { color: var(--t-90); font-weight: 460; }
+
+  /* ênfase por incremento fracionário: <b> nativo pularia pra 700 */
+  .bloco p b { font-weight: 460; color: var(--t-90); }
+
+  /* a coluna deixou de grudar: com o cartão ela passa da altura da
+     janela, e aí sticky esconderia o fim dela pra sempre */
+  .lado-rfc { position: static; }
+</style>
+
+{/* Global de propósito, e todo prefixado por uma classe que só existe
+    nesta tela: os nós da prévia vêm do CartaoIdeia.astro, e regra
+    escopada não entra em componente importado. */}
+<style is:global>
+  /* ================================================================
+     A PRÉVIA — o cartão sendo fabricado
+     ================================================================
+     Ocupa a coluna de 300px porque é a largura que o cartão tem de
+     verdade na grade do átrio: o que aparece aqui já está no tamanho
+     do que vai existir. E fica na coluna estreita porque o formulário
+     é o que se opera — o objeto acompanha, não disputa.
+     ================================================================ */
+
+  .previa-nova { display: grid; gap: 10px; }
+
+  .previa-nova .rotulo-previa {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--t-35);
+    margin: 0;
+    padding-left: 4px;
+  }
+
+  /* o cartão nasce em opacity 0 esperando o observador do átrio, que
+     aqui não existe: a prévia é o que precisa estar visível primeiro */
+  .previa-nova .ideia { opacity: 1; margin-bottom: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .previa-nova .ideia { animation: cartao-sobe 620ms var(--ease) both; }
+  }
+  /* este cartão não é link; o lift de hover prometeria um clique */
+  .previa-nova .ideia:hover { transform: none; box-shadow: var(--sombra); }
+
+  /* enquanto não há laboratório não há pastel, e sem pastel o dither
+     seria desenhado em preto sobre preto — a capa espera, dizendo o
+     que a acende, em vez de virar retângulo cinza sem explicação */
+  .previa-nova[data-lab="nao"] .capa { background: var(--rebaixo); }
+  .previa-nova[data-lab="nao"] .capa canvas { opacity: 0; }
+  .previa-nova[data-lab="nao"] .capa::after {
+    content: "a capa acende quando você escolher o laboratório";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 0 22px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+    color: var(--t-35);
+  }
+  .previa-nova[data-lab="sim"] .capa canvas {
+    animation: previa-capa-acende 560ms var(--ease) both;
+  }
+  /* Sem slug o CartaoIdeia escreve `background: var(--color-)`, que é
+     inválido e apaga o fundo do chip. O !important é o preço de não
+     reimplementar o componente: só uma declaração importante vence
+     uma inline, e o chip vazio precisa do fundo neutro da folha. */
+  .previa-nova[data-lab="nao"] .chip.pastel { background: var(--t-07) !important; }
+
+  /* Placeholder no idioma do produto, nunca esqueleto cinza: é a
+     primeira coisa que a pessoa vê e já ensina o formato. O estado
+     mora no invólucro pra valer já no HTML servido — classe posta por
+     JS acenderia o texto forte antes de apagar. */
+  .previa-nova[data-titulo="vazio"] .ideia h3,
+  .previa-nova[data-resumo="vazio"] .ideia .miolo > p { color: var(--t-35); }
+
+  /* mesmo idioma da errata do átrio: o que sai não some, fica riscado.
+     Aqui o riscado quer dizer "isto impede o salvamento" — nenhum
+     cartão com resumo truncado chega a existir. */
+  .previa-nova .excedente {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    color: var(--t-35);
+  }
+  /* o objeto inteiro fica marcado, não só o número: é ele que está
+     recusado enquanto o resumo não couber */
+  .previa-nova[data-cabe="nao"] .ideia {
+    box-shadow: var(--sombra), 0 0 0 1px var(--t-35);
+  }
+
+  /* a medida fica FORA da moldura: contador dentro do cartão seria uma
+     peça que o objeto real nunca tem */
+  .previa-nova .medida {
+    margin: 0;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+    color: var(--t-35);
+  }
+  .previa-nova .medida.fora { color: var(--t-90); font-weight: 460; }
+
+  .previa-nova .nota-previa {
+    margin: 0;
+    padding: 0 4px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--t-50);
+  }
+  .previa-nova .nota-previa b { font-weight: 460; color: var(--t-90); }
+
+  @keyframes previa-capa-acende {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .previa-nova[data-lab="sim"] .capa canvas { animation: none; opacity: 1; }
+  }
 </style>
 
 <script>
@@ -397,5 +628,97 @@ const descreve = (campo: string) =>
     }
   }
 
-  document.addEventListener('astro:page-load', ligarContadores);
+  /* ---------- o cartão sendo fabricado ----------
+     Tudo aqui é vitrine: nenhum destes nós entra no POST. O que muda
+     é só o que a pessoa já digitou, refletido no objeto que a ideia
+     vai virar. */
+  function ligarPrevia() {
+    const previa = document.querySelector<HTMLElement>('.previa-nova');
+    if (!previa) return;                  // sem laboratório cadastrado não há formulário
+
+    const titulo = document.getElementById('title') as HTMLInputElement | null;
+    const resumo = document.getElementById('summary') as HTMLTextAreaElement | null;
+    const seletor = document.getElementById('labId') as HTMLSelectElement | null;
+
+    /* Os nós vêm do CartaoIdeia.astro, então a busca é pelo markup dele
+       de propósito: o dia em que o componente mudar, a prévia muda
+       junto ou quebra na cara — nunca mente em silêncio. */
+    const tela = previa.querySelector<HTMLCanvasElement>('.capa canvas');
+    const alvoTitulo = previa.querySelector<HTMLElement>('.ideia h3');
+    const alvoResumo = previa.querySelector<HTMLElement>('.ideia .miolo > p');
+    const chipLab = previa.querySelector<HTMLElement>('.ideia .chip.pastel');
+    const medida = previa.querySelector<HTMLElement>('.medida');
+    if (!titulo || !resumo || !seletor || !tela ||
+        !alvoTitulo || !alvoResumo || !chipLab || !medida) return;
+
+    const max = Number(previa.dataset.max);
+
+    /* A Materia repinta no `resize` e não expõe outro gancho. Pedir a
+       repintura por um evento sintético custa esse desvio, mas o
+       desenho continua saindo do componente de verdade — reescrever o
+       dither aqui é que faria a prévia divergir do átrio com o tempo. */
+    const pedirRepintura = () => window.dispatchEvent(new Event('resize'));
+
+    const aplicarTitulo = () => {
+      const t = titulo.value.trim();
+      alvoTitulo.textContent = t || previa.dataset.vazioTitulo!;
+      previa.dataset.titulo = t ? 'cheio' : 'vazio';
+    };
+
+    const aplicarResumo = () => {
+      const r = resumo.value.trim();
+      const sobra = r.length - max;
+
+      alvoResumo.textContent = '';
+      previa.dataset.resumo = r ? 'cheio' : 'vazio';
+      if (!r) {
+        alvoResumo.textContent = previa.dataset.vazioResumo!;
+      } else {
+        alvoResumo.append(r.slice(0, max));
+        if (sobra > 0) {
+          const excedente = document.createElement('span');
+          excedente.className = 'excedente';
+          excedente.textContent = r.slice(max);
+          alvoResumo.append(excedente);
+        }
+      }
+
+      /* o excedente não é cortado do cartão: ele impede o cartão. A API
+         recusa resumo acima do limite, então prometer truncamento aqui
+         seria ensinar uma consequência que o sistema não produz. */
+      previa.dataset.cabe = sobra > 0 ? 'nao' : 'sim';
+      medida.textContent = sobra > 0
+        ? `${r.length}/${max} · ${sobra} a mais do que cabe; não dá pra salvar assim`
+        : `${r.length}/${max}`;
+      medida.classList.toggle('fora', sobra > 0);
+    };
+
+    const aplicarLab = () => {
+      const opcao = seletor.selectedOptions[0];
+      const slug = opcao?.dataset.slug ?? '';
+
+      chipLab.textContent = slug ? (opcao!.dataset.nome ?? '') : previa.dataset.vazioLab!;
+      /* string vazia REMOVE a declaração inline; deixar `var(--color-)`
+         apagaria o fundo do chip por cima da folha */
+      chipLab.style.background = slug ? `var(--color-${slug})` : '';
+
+      previa.dataset.lab = slug ? 'sim' : 'nao';
+      if (!slug) return;                  // sem pastel o dither não teria fundo
+      tela.dataset.lab = slug;
+      pedirRepintura();
+    };
+
+    titulo.addEventListener('input', aplicarTitulo);
+    resumo.addEventListener('input', aplicarResumo);
+    seletor.addEventListener('change', aplicarLab);
+
+    aplicarTitulo();
+    aplicarResumo();
+    aplicarLab();
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    ligarContadores();
+    ligarPrevia();
+  });
 </script>

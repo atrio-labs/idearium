@@ -9,11 +9,30 @@
    errar. A validação nativa do browser repete as mesmas regras, mas
    quem decide é a API: ela responde as mensagens já traduzidas
    (nestjs-i18n) e é a única que sabe se o nome já está tomado.
+
+   ----------------------------------------------------------------
+   A VITRINE
+   ----------------------------------------------------------------
+   O ato desta tela é escolher um pseudônimo, e a consequência é
+   pública: o @username é a única identidade que o Idearium exibe
+   (VISAO §5.3). Então a coluna da direita mostra o nome sendo
+   fabricado nas três formas que ele assume no sistema — assinatura
+   na discussão, círculo de duas iniciais, linha na lista de mãos.
+   Três vistas do mesmo nome, atualizando juntas, ensinam que o
+   identificador é público sem uma frase dizendo isso.
+
+   A terceira peça é o CartaoMao.astro que /builders renderiza, e não
+   uma cópia parecida — do mesmo jeito que a prévia de /perfil. As
+   duas primeiras repetem as classes reais de /rfcs/[slug], que ainda
+   não são componente. Vitrine que diverge do resultado mente, e
+   mentir é pior do que não ter vitrine.
    ================================================================ */
 import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
+import CartaoMao from '../components/astro/CartaoMao.astro';
 import { criarConta, destinoSeguro } from '../lib/sessao';
+import { lerPseudonimo } from '../lib/pseudonimo';
 
 const voltar = destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin);
 const pediramVolta = voltar !== '/';
@@ -52,6 +71,10 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+/* A vitrine já sai pronta do servidor: sem JS ela continua coerente, e
+   quem voltou de um POST recusado vê o nome que tinha digitado. */
+const vitrine = lerPseudonimo(username);
+
 const acao = pediramVolta
   ? `/criar-conta?voltar=${encodeURIComponent(voltar)}`
   : '/criar-conta';
@@ -67,107 +90,165 @@ const linkEntrar = pediramVolta
   <div class="palco">
     <Nav />
 
-    <div class="form-estreito">
+    <div class="bancada">
       <header class="cabecalho-pagina">
         <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
           criar conta
         </span>
         <h1>Comece pelo <span class="serif">pseudônimo</span>.</h1>
         <p class="sub">
-          O @username é como você aparece em toda parte: nas ideias que
-          escrever, na discussão, na lista de quem está construindo. Nome real
-          é opcional aqui e continua opcional depois.
+          O @username é a única coisa que pedimos. Nome real é opcional aqui e
+          continua opcional depois.
         </p>
       </header>
 
-      <form method="POST" action={acao}>
-        {/* o erro só existe depois de um POST, que recarrega a página
-            inteira — leitor de tela não anuncia live region que já veio
-            pronta, então o foco vai pro texto do erro em vez do campo */}
-        {erro && (
-          <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>
-            {erro}
+      <div class="coluna-form">
+        <form method="POST" action={acao}>
+          {/* o erro só existe depois de um POST, que recarrega a página
+              inteira — leitor de tela não anuncia live region que já veio
+              pronta, então o foco vai pro texto do erro em vez do campo */}
+          {erro && (
+            <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>
+              {erro}
+            </p>
+          )}
+
+          <div class="campo">
+            <label class="rotulo" for="username">nome de usuário</label>
+            <input
+              class="entrada mono"
+              id="username"
+              name="username"
+              type="text"
+              value={username}
+              placeholder="@voce"
+              required
+              minlength="3"
+              maxlength="30"
+              pattern={FORMATO_USERNAME}
+              title="3 a 30 caracteres: letras, dígitos, ponto, hífen ou sublinhado. Começa e termina com letra ou dígito. Maiúscula vira minúscula."
+              autocomplete="username"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
+              aria-describedby={erro ? 'ajuda-username erro-form' : 'ajuda-username'}
+              autofocus={!erro}
+            />
+            <span class="ajuda" id="ajuda-username">
+              De 3 a 30 caracteres: letras, dígitos, ponto, hífen e sublinhado.
+              Começa e termina com letra ou dígito. Maiúscula vira minúscula. É
+              público e não muda depois.
+            </span>
+          </div>
+
+          <div class="campo">
+            <label class="rotulo" for="email">email</label>
+            <input
+              class="entrada"
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              required
+              maxlength="254"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              aria-describedby={erro ? 'ajuda-email erro-form' : 'ajuda-email'}
+            />
+            <span class="ajuda" id="ajuda-email">
+              Serve pra entrar. Não aparece no seu perfil nem pra quem lê o que
+              você escreve.
+            </span>
+          </div>
+
+          <div class="campo">
+            <label class="rotulo" for="senha">senha</label>
+            <input
+              class="entrada"
+              id="senha"
+              name="senha"
+              type="password"
+              required
+              minlength="10"
+              maxlength="200"
+              autocomplete="new-password"
+              aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
+            />
+            <span class="ajuda" id="ajuda-senha">
+              No mínimo 10 caracteres. Comprimento vale mais que símbolo
+              obrigatório, então uma frase serve.
+            </span>
+          </div>
+
+          <div class="acoes-form">
+            <button class="botao" type="submit">criar conta</button>
+            <span class="separador"></span>
+            <a class="botao leve" href={linkEntrar}>já tenho conta</a>
+          </div>
+        </form>
+
+        <p class="nota">
+          Ninguém precisa saber quem você é pra levar sua ideia a sério.
+        </p>
+      </div>
+
+      {/* aria-hidden porque leitor de tela receberia o mesmo @ três vezes a
+          cada tecla, e tudo que a vitrine ensina já está escrito em
+          #ajuda-username. É explicação visual, não conteúdo novo. */}
+      <aside class="vitrine" id="vitrine" data-estado={vitrine.estado} aria-hidden="true">
+        {/* <header> e não <div>: assim os três .peca continuam sendo os
+            únicos <div> da coluna, e o escalonamento da animação de
+            entrada não depende de contar irmãos de outro tipo */}
+        <header class="cabeca-vitrine">
+          <p class="rotulo-vitrine">o que esse nome vira</p>
+          {/* o recado fica aqui em cima, na altura do campo: é onde o olho
+              está quando o nome é recusado */}
+          <p class="recado" id="vitrine-recado">{vitrine.recado}</p>
+        </header>
+
+        {/* 1. assinatura na discussão — markup de /rfcs/[slug]:
+            círculo do lab, o @ como link, e o "quando" que
+            haQuantoTempo devolve pra um comentário recém-publicado.
+            O @ é <a> sem href de propósito: herda o repouso do link
+            de global.css sem virar navegação nem parada de tabulação. */}
+        <div class="peca">
+          <div class="comentario">
+            <div class="cabeca">
+              <span class="inicial" style="background: var(--color-cidades)" aria-hidden="true">{vitrine.iniciais}</span>
+              <a class="alvo-nome">@{vitrine.nome}</a>
+              <span class="quando">hoje</span>
+            </div>
+            <p>Isso acontece na minha rua toda chuva forte. Sei descrever o problema, não sei construir.</p>
+          </div>
+          <p class="legenda">assinando um comentário na discussão</p>
+        </div>
+
+        {/* 2. o círculo de duas iniciais — markup do bloco "construindo" */}
+        <div class="peca">
+          <div class="bloco">
+            <p class="titulo-bloco">construindo</p>
+            <div class="lista-pessoas">
+              <span class="pessoa">
+                <span class="inicial" style="background: var(--color-cidades)">{vitrine.iniciais}</span>
+                <span class="alvo-nome">@{vitrine.nome}</span>
+              </span>
+            </div>
+          </div>
+          <p class="legenda">na lista de quem constrói uma ideia. o pastel é o do lab dela</p>
+        </div>
+
+        {/* 3. a linha na lista de mãos — o componente de /builders em
+            pessoa, no mesmo modo `previa` que /perfil usa. Cópia à mão
+            divergiria do cartão de verdade na primeira mudança dele. */}
+        <div class="peca">
+          <CartaoMao previa username={vitrine.nome} />
+          <p class="legenda">
+            em /builders, se um dia você marcar que topa construir. lá o pastel
+            do círculo sai do próprio nome, e não do lab
           </p>
-        )}
-
-        <div class="campo">
-          <label class="rotulo" for="username">nome de usuário</label>
-          <input
-            class="entrada mono"
-            id="username"
-            name="username"
-            type="text"
-            value={username}
-            required
-            minlength="3"
-            maxlength="30"
-            pattern={FORMATO_USERNAME}
-            title="3 a 30 caracteres: letras, dígitos, ponto, hífen ou sublinhado. Começa e termina com letra ou dígito. Maiúscula vira minúscula."
-            autocomplete="username"
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck="false"
-            aria-describedby={erro ? 'ajuda-username erro-form' : 'ajuda-username'}
-            autofocus={!erro}
-          />
-          <span class="ajuda" id="ajuda-username">
-            De 3 a 30 caracteres: letras, dígitos, ponto, hífen e sublinhado.
-            Começa e termina com letra ou dígito. Maiúscula vira minúscula. É
-            público e não muda depois.
-          </span>
         </div>
-
-        <div class="campo">
-          <label class="rotulo" for="email">email</label>
-          <input
-            class="entrada"
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            required
-            maxlength="254"
-            autocomplete="email"
-            autocapitalize="none"
-            spellcheck="false"
-            aria-describedby={erro ? 'ajuda-email erro-form' : 'ajuda-email'}
-          />
-          <span class="ajuda" id="ajuda-email">
-            Serve pra entrar. Não aparece no seu perfil nem pra quem lê o que
-            você escreve.
-          </span>
-        </div>
-
-        <div class="campo">
-          <label class="rotulo" for="senha">senha</label>
-          <input
-            class="entrada"
-            id="senha"
-            name="senha"
-            type="password"
-            required
-            minlength="10"
-            maxlength="200"
-            autocomplete="new-password"
-            aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
-          />
-          <span class="ajuda" id="ajuda-senha">
-            No mínimo 10 caracteres. Comprimento vale mais que símbolo
-            obrigatório, então uma frase serve.
-          </span>
-        </div>
-
-        <div class="acoes-form">
-          <button class="botao" type="submit">criar conta</button>
-          <span class="separador"></span>
-          <a class="botao leve" href={linkEntrar}>já tenho conta</a>
-        </div>
-      </form>
-
-      <p class="nota">
-        Nome real, bio e foto ficam no perfil, depois — e são todos opcionais.
-        Ninguém precisa saber quem você é pra levar sua ideia a sério.
-      </p>
+      </aside>
     </div>
 
     <Rodape />
@@ -175,6 +256,27 @@ const linkEntrar = pediramVolta
 </Layout>
 
 <style>
+  /* ----------------------------------------------------------------
+     BANCADA — formulário à esquerda, consequência à direita
+     ----------------------------------------------------------------
+     A vitrine é a coluna estreita de propósito: o formulário é o que
+     a pessoa opera, a vitrine acompanha. Em tela estreita ela desce
+     pra baixo do formulário e continua ali — no celular ela é a única
+     explicação que sobra. */
+  .bancada {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 0 40px;
+    align-items: start;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .bancada .cabecalho-pagina { grid-column: 1 / -1; }
+
+  @media (max-width: 880px) {
+    .bancada { grid-template-columns: minmax(0, 460px); justify-content: center; }
+  }
+
   /* nota de rodapé do formulário: é sobre a tela inteira, não sobre um
      campo, então não cabe em .ajuda */
   .nota {
@@ -183,4 +285,194 @@ const linkEntrar = pediramVolta
     line-height: 1.6;
     color: var(--t-50);
   }
+
+  /* ----------------------------------------------------------------
+     VITRINE
+     ----------------------------------------------------------------
+     Sem fundo e sem sombra própria: quem flutua são as peças, que já
+     trazem a superfície delas de global.css. A explicação é plana,
+     como a abertura do átrio. */
+  .vitrine {
+    display: grid;
+    gap: 26px;
+    position: sticky;
+    top: 86px;
+  }
+  @media (max-width: 880px) {
+    .vitrine {
+      position: static;
+      margin-top: 38px;
+      padding-top: 30px;
+      border-top: 1px solid var(--t-12);
+    }
+  }
+
+  .cabeca-vitrine { display: grid; gap: 9px; }
+
+  .rotulo-vitrine {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--t-35);
+  }
+
+  .legenda {
+    margin: 9px 2px 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--t-50);
+  }
+
+  /* o @ pode ter 30 caracteres em coluna de 280px. O nome do cartão
+     mora dentro do CartaoMao, e estilo de página não atravessa o
+     escopo de outro componente — daí o :global, preso à vitrine pela
+     esquerda pra não vazar pro resto do site. */
+  .alvo-nome,
+  .vitrine :global([data-cartao-mao] .nome) { overflow-wrap: anywhere; }
+
+  /* O círculo do comentário é dimensionado em /rfcs/[slug], que ainda
+     guarda essa regra no escopo da própria página. Repetida aqui até
+     o cabeçalho do comentário virar componente. */
+  .comentario .cabeca .inicial {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--t-90);
+    flex-shrink: 0;
+  }
+  /* o @ da vitrine não navega: sublinhar no hover prometeria um clique
+     que não existe, mesma escolha que o cartão faz em `.previa` */
+  .comentario .cabeca a:hover { text-decoration: none; }
+
+  /* o pastel do cartão muda a cada tecla, porque sai do nome inteiro.
+     Sem a transição a coluna pisca; com ela a cor escorre. */
+  .vitrine :global(.inicial-mao) { transition: background 220ms var(--ease); }
+
+  /* Duas linhas reservadas mesmo quando não há recado. Nome aceito não
+     precisa de comentário — as peças já respondem —, mas deixar o
+     espaço colapsar faria a coluna inteira pular a cada tecla que
+     entra ou sai do formato. */
+  .recado {
+    margin: 0;
+    min-height: 35px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--t-65);
+  }
+
+  /* Campo vazio e nome fora do formato continuam mostrando as três
+     peças. Sumir esconderia justamente a informação — o que muda é o
+     peso: exemplo e recusa ficam recuados, nome aceito fica cheio.
+
+     O recuo vai no objeto, e não no .peca inteiro, pra poupar a
+     legenda: é ela que explica o que aquela forma é, e explicação
+     apagada não serve pra nada.
+
+     O cartão já transiciona a opacidade sozinho, no `.previa` do
+     CartaoMao, e é ele também que tira a afordância de link. */
+  .comentario,
+  .bloco { transition: opacity 240ms var(--ease); }
+
+  .vitrine[data-estado="vazio"] .comentario,
+  .vitrine[data-estado="vazio"] .bloco,
+  .vitrine[data-estado="vazio"] :global(.builder-card) { opacity: 0.5; }
+  .vitrine[data-estado="vazio"] .alvo-nome,
+  .vitrine[data-estado="vazio"] :global([data-cartao-mao] .nome) { color: var(--t-35); }
+
+  .vitrine[data-estado="invalido"] .comentario,
+  .vitrine[data-estado="invalido"] .bloco,
+  .vitrine[data-estado="invalido"] :global(.builder-card) { opacity: 0.42; }
+
+  /* ----------------------------------------------------------------
+     ANIMAÇÕES — uma por peça, nomeada, como no global.css
+     ---------------------------------------------------------------- */
+
+  /* A vitrine se monta de cima pra baixo quando a tela abre. Só
+     transform, nunca opacidade: animação parada — aba em segundo
+     plano, timeline congelada — deixaria a coluna inteira invisível,
+     e ela é a explicação da tela. Fora de lugar por 16px é recuperável;
+     apagada não é. Mesmo cuidado que a grade de /builders toma. */
+  @keyframes vitrine-monta {
+    from { transform: translateY(16px); }
+    to   { transform: translateY(0); }
+  }
+  /* os três .peca são os únicos <div> da coluna, então nth-of-type
+     conta 1, 2, 3 sem depender da posição do rótulo e do recado */
+  .peca { animation: vitrine-monta 560ms var(--ease) both; }
+  .peca:nth-of-type(1) { animation-delay: 120ms; }
+  .peca:nth-of-type(2) { animation-delay: 210ms; }
+  .peca:nth-of-type(3) { animation-delay: 300ms; }
+
+  /* o círculo só se vira quando as duas letras mudam de fato, e não a
+     cada tecla: a terceira letra em diante não altera a inicial */
+  @keyframes inicial-vira {
+    from { transform: scale(0.8); filter: blur(2px); }
+    to   { transform: scale(1); filter: blur(0); }
+  }
+  .inicial.trocou,
+  .vitrine :global(.inicial-mao.trocou) { animation: inicial-vira 280ms var(--ease) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .peca { animation: none; }
+    .inicial.trocou,
+    .vitrine :global(.inicial-mao.trocou) { animation: none; }
+    .vitrine :global(.inicial-mao) { transition: none; }
+  }
 </style>
+
+<script>
+  import { lerPseudonimo, pastelDe } from '../lib/pseudonimo';
+
+  /* A vitrine acompanha o campo em tempo real, sem salvar nada: a
+     consequência do ato aparece enquanto o ato acontece. Mesmas funções
+     que o servidor usou pra desenhar o estado inicial — e que o
+     CartaoMao usa pra escolher o pastel —, então as três vistas nunca
+     discordam entre si nem do resultado. */
+  function ligarVitrine() {
+    const campo = document.getElementById('username') as HTMLInputElement | null;
+    const vitrine = document.getElementById('vitrine');
+    if (!campo || !vitrine) return;
+
+    /* o cartão de mão é componente: o nome dele é `.nome`, não `.alvo-nome` */
+    const nomes = vitrine.querySelectorAll<HTMLElement>('.alvo-nome, [data-cartao-mao] .nome');
+    const circulos = vitrine.querySelectorAll<HTMLElement>('.inicial, .inicial-mao');
+    const circuloMao = vitrine.querySelector<HTMLElement>('.inicial-mao');
+    const recado = document.getElementById('vitrine-recado');
+
+    /* o círculo só se vira quando as duas letras mudam de fato: da
+       terceira em diante a inicial é a mesma, e virar à toa cansa */
+    const virar = (no: HTMLElement, iniciais: string) => {
+      if (no.textContent?.trim() === iniciais) return;
+      no.textContent = iniciais;
+      no.classList.remove('trocou');
+      void no.offsetWidth;                   // reflow: sem isso a animação não reinicia
+      no.classList.add('trocou');
+    };
+
+    const desenhar = () => {
+      const lida = lerPseudonimo(campo.value);
+
+      vitrine.dataset.estado = lida.estado;
+      for (const n of nomes) n.textContent = '@' + lida.nome;
+      if (recado) recado.textContent = lida.recado;
+      for (const c of circulos) virar(c, lida.iniciais);
+
+      /* na lista de mãos a cor sai do nome inteiro, então ela muda a
+         cada tecla, e não só quando as duas letras mudam */
+      if (circuloMao) circuloMao.style.background = `var(--color-${pastelDe(lida.nome)})`;
+    };
+
+    campo.addEventListener('input', desenhar);
+    /* uma vez na carga: o browser pode restaurar o valor do campo numa
+       volta de histórico sem disparar `input` */
+    desenhar();
+  }
+
+  document.addEventListener('astro:page-load', ligarVitrine);
+</script>

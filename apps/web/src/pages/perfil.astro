@@ -21,6 +21,7 @@ import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import Vazio from '../components/astro/Vazio.astro';
+import CartaoMao from '../components/astro/CartaoMao.astro';
 import type { Perfil } from '../lib/api';
 import { comSessao, exigirSessao } from '../lib/sessao';
 
@@ -134,16 +135,29 @@ if (Astro.request.method === 'POST') {
    já é /perfil?salvo=… — ler o parâmetro num POST faria o envio que
    falhou mostrar erro e "salvo" ao mesmo tempo. */
 const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.get('salvo');
+
+/* A prévia parte do mesmo texto do campo, cortada pelo mesmo limite
+   que o envio aplica: cartão com 12 etiquetas prometeria um salvamento
+   que a validação recusa. Depois daqui quem mexe nela é o JS. */
+const temasPrevia = builder.topics
+  .split(',')
+  .map((t) => t.trim())
+  .filter(Boolean)
+  .slice(0, LIMITE_TEMAS);
 ---
 
 <Layout title="Idearium · Seu perfil" description="Edite seus dados e o que você sabe fazer.">
   <div class="palco">
     <Nav />
 
-    <div class="form-estreito">
-      {eu ? (
-        <>
-          <header class="cabecalho-pagina">
+    {/* Marca o documento antes do conteúdo: a entrada animada só pode
+        esconder o formulário e a prévia se houver JS depois pra
+        devolvê-los. Sem JS, a prévia continua lá — ela é a explicação. */}
+    <script is:inline>document.documentElement.classList.add('com-js');</script>
+
+    {eu ? (
+      <div class="oficina">
+          <header class="cabecalho-pagina cabeca">
             <a class="volta" href={`/users/${eu.username}`}>
               ver como você aparece pros outros &rarr;
             </a>
@@ -155,7 +169,7 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
           </header>
 
           {/* ---------- quem você é ---------- */}
-          <section class="bloco vem">
+          <section class="bloco vem quem">
             <p class="titulo-bloco">quem você é</p>
 
             {salvo === 'perfil' && <p class="aviso-ok" role="status">Pronto, seus dados foram salvos.</p>}
@@ -236,16 +250,16 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
           </section>
 
           {/* ---------- perfil de builder ---------- */}
-          <section class="bloco vem">
+          <section class="bloco vem oficio">
             <p class="titulo-bloco">o que você sabe fazer</p>
 
-            <p style="margin:0 0 18px; font-size:13.5px; color:var(--t-65)">
-              Isto é opcional e é o que te torna encontrável em
-              <a href="/builders" style="color:var(--t-90)">mãos</a>, a lista de quem
-              escreveu o que sabe fazer. Salvar aqui é o que coloca o @{eu.username}
-              lá — e, uma vez na lista, dá pra dizer que você não está disponível
-              agora, mas não dá pra sair dela. Sem preencher, você continua podendo
-              escrever, comentar e entrar em qualquer ideia — só não aparece nessa lista.
+            <p class="intro-oficio">
+              Isto é opcional. Preencher é o que coloca o @{eu.username} em
+              <a href="/builders">mãos</a>, a lista de quem topa construir ideia
+              dos outros. Sem preencher você continua escrevendo, comentando e
+              entrando em qualquer ideia — só não aparece lá. Depois de salvo,
+              desmarcar a disponibilidade tira você da lista; o que você escreveu
+              aqui continua no seu perfil público.
             </p>
 
             {salvo === 'builder' && <p class="aviso-ok" role="status">Pronto, salvei o que você sabe fazer.</p>}
@@ -265,8 +279,10 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
                   value={builder.headline}
                   aria-describedby="ajuda-headline"
                 />
+                {/* o cartão ao lado já mostra onde a linha cai; o rótulo
+                    só precisa dizer o que o cartão não tem como mostrar */}
                 <span class="ajuda" id="ajuda-headline">
-                  Até 140 caracteres. É o que aparece embaixo do seu nome na lista.
+                  Até 140 caracteres.
                 </span>
               </div>
 
@@ -284,9 +300,9 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
                 />
                 {erroTemas && <span class="erro-campo" id="erro-topics">{erroTemas}</span>}
                 <span class="ajuda" id="ajuda-topics">
-                  Separe por vírgula: <span class="mono">saúde, backend, pesquisa</span>.
-                  Até {LIMITE_TEMAS} temas, cada um com no máximo {LIMITE_TAMANHO_TEMA} caracteres.
-                  É por eles que alguém filtra a lista.
+                  Separe por vírgula. Até {LIMITE_TEMAS} temas, cada um com no
+                  máximo {LIMITE_TAMANHO_TEMA} caracteres. É por eles que alguém
+                  lendo a lista decide te chamar pra uma ideia.
                 </span>
               </div>
 
@@ -299,8 +315,8 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
                   <span>estou disponível pra construir agora</span>
                 </label>
                 <span class="ajuda">
-                  Desmarque quando estiver sem tempo. Seu perfil continua em mãos;
-                  o que sai é a marca de que você topa começar algo agora.
+                  Desmarque quando estiver sem tempo: você sai da lista de mãos e
+                  volta marcando de novo. O cartão ao lado mostra o que acontece.
                 </span>
               </div>
 
@@ -311,28 +327,113 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
             </form>
           </section>
 
+          {/* ---------- a consequência, enquanto o ato acontece ----------
+              Não é ilustração do formulário: é o mesmo componente que a
+              grade de /builders renderiza, com o texto que está sendo
+              digitado agora. Se divergir, o culpado é o CartaoMao. */}
+          <aside class="vitrine vem" id="vitrine">
+            <p class="mono rotulo-vitrine">em mãos você aparece assim</p>
+
+            <CartaoMao
+              previa
+              username={eu.username}
+              headline={builder.headline}
+              topics={temasPrevia}
+              isOpenToWork={builder.isOpenToWork}
+            />
+
+            <p class="nota-vitrine" id="nota-fora" hidden={builder.isOpenToWork}>
+              Com a disponibilidade desmarcada você não aparece na lista.
+            </p>
+            {/* A nota anuncia recusa, e não corte: passando do limite o
+                envio volta com erro e nada é gravado. Dizer "só os
+                primeiros cabem" ensinaria um truncamento que não existe,
+                e prévia que promete o que o sistema não faz mente. */}
+            <p class="nota-vitrine" id="nota-excesso" hidden>
+              Com mais de {LIMITE_TEMAS} temas não dá pra salvar — tire os que sobram.
+            </p>
+            <p class="nota-vitrine">
+              {bp
+                ? <>Salvar atualiza o que já está em <a href="/builders">mãos</a>.</>
+                : <>Você ainda não está em <a href="/builders">mãos</a>. Salvar coloca você lá.</>}
+            </p>
+          </aside>
+
           <div class="conta">
             <a href={`/users/${eu.username}`}>seu perfil público</a>
             <a href="/sair">sair</a>
           </div>
-        </>
-      ) : (
+      </div>
+    ) : (
+      <div class="form-estreito">
         <Vazio
           falha
           titulo="Não consegui carregar seu perfil"
           texto="A API não respondeu. Seus dados continuam lá; tente de novo em instantes."
         />
-      )}
-    </div>
+      </div>
+    )}
 
     <Rodape />
   </div>
 </Layout>
 
 <style>
-  /* .bloco nasceu dentro de um grid com gap (a coluna da RFC), então
-     não tem margem própria; empilhado, precisa de respiro */
-  .bloco { margin-bottom: 18px; }
+  /* ----------------------------------------------------------------
+     A bancada: o formulário à esquerda, a consequência à direita.
+     A coluna do cartão é estreita e nunca é a primeira coisa lida —
+     quem opera é o formulário. As posições são explícitas porque a
+     vitrine acompanha o bloco de builder, não a página inteira:
+     ficar ao lado do bloco errado seria explicar a coisa errada.
+     ---------------------------------------------------------------- */
+  .oficina {
+    max-width: 880px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 296px;
+    gap: 18px;
+    align-items: start;
+  }
+  .cabeca  { grid-column: 1 / -1; grid-row: 1; }
+  .quem    { grid-column: 1; grid-row: 2; }
+  .oficio  { grid-column: 1; grid-row: 3; }
+  .vitrine { grid-column: 2; grid-row: 3; position: sticky; top: 86px; }
+  .conta   { grid-column: 1 / -1; grid-row: 4; }
+
+  /* Em tela estreita a vitrine desce pra logo abaixo do formulário que
+     ela explica, e não some: no celular ela é a explicação. */
+  @media (max-width: 900px) {
+    .oficina { grid-template-columns: minmax(0, 1fr); }
+    .cabeca, .quem, .oficio, .vitrine, .conta { grid-column: 1; grid-row: auto; }
+    .vitrine { position: static; }
+  }
+
+  /* `.vem` nasce em opacity 0 no global.css e quem devolve é o
+     observador. Aqui o padrão é visível e quem esconde é a classe
+     posta pelo próprio JS. */
+  .oficina .vem { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    html.com-js .oficina .vem { opacity: 0; }
+  }
+
+  .rotulo-vitrine {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--t-35);
+    margin: 0 0 10px;
+    padding-left: 2px;
+  }
+  .nota-vitrine {
+    margin: 10px 2px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--t-50);
+  }
+  .nota-vitrine a { color: var(--t-90); }
+  #nota-fora, #nota-excesso { color: var(--t-75); }
+
+  .intro-oficio { margin: 0 0 18px; font-size: 13.5px; color: var(--t-65); }
+  .intro-oficio a { color: var(--t-90); }
 
   /* linha de links de conta: discreta de propósito, e fora do rodapé
      do site — sair é ação da pessoa, não navegação institucional */
@@ -349,7 +450,9 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
 </style>
 
 <script>
-  document.addEventListener('astro:page-load', () => {
+  const LIMITE_TEMAS = 10;
+
+  function ligarEntrada() {
     const olho = new IntersectionObserver((es) => {
       for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
     }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
@@ -357,5 +460,88 @@ const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.ge
       el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
       olho.observe(el);
     });
+  }
+
+  /* ---------- a prévia ao vivo ----------
+     Nada aqui salva nada: o cartão só reflete o que os campos têm
+     agora. Tudo entra por textContent — headline e tema são texto de
+     gente, e innerHTML aqui seria injeção com a própria mão. */
+  function ligarPrevia() {
+    const vitrine = document.getElementById('vitrine');
+    const campoHeadline = document.querySelector<HTMLInputElement>('#headline');
+    const campoTemas = document.querySelector<HTMLInputElement>('#topics');
+    const campoDisponivel = document.querySelector<HTMLInputElement>('input[name="isOpenToWork"]');
+    if (!vitrine || !campoHeadline || !campoTemas || !campoDisponivel) return;
+
+    const cartao = vitrine.querySelector<HTMLElement>('[data-cartao-mao]');
+    const alvoHeadline = vitrine.querySelector<HTMLElement>('[data-headline]');
+    const listaChips = vitrine.querySelector<HTMLElement>('[data-chips]');
+    const chipDisponivel = vitrine.querySelector<HTMLElement>('[data-disponivel]');
+    const notaFora = document.getElementById('nota-fora');
+    const notaExcesso = document.getElementById('nota-excesso');
+    if (!cartao || !alvoHeadline || !listaChips || !chipDisponivel || !notaFora || !notaExcesso) return;
+
+    /* reinicia a animação: sem o reflow o chip que volta entra parado */
+    function nascer(chip: HTMLElement) {
+      chip.classList.remove('nasce');
+      void chip.offsetWidth;
+      chip.classList.add('nasce');
+    }
+
+    /* Reaproveita os chips que já estão certos e só cria os que
+       faltam. Reconstruir a lista inteira faria todos piscarem a cada
+       tecla, e o que a pessoa precisa ver é a vírgula virando etiqueta. */
+    function sincronizarTemas(temas: string[]) {
+      const fantasma = listaChips!.querySelector<HTMLElement>('[data-fantasma]');
+      const atuais = Array.from(listaChips!.querySelectorAll<HTMLElement>('[data-tema]'));
+
+      for (let i = temas.length; i < atuais.length; i++) atuais[i].remove();
+
+      temas.forEach((tema, i) => {
+        const existente = atuais[i];
+        if (existente) {
+          if (existente.textContent !== tema) existente.textContent = tema;
+          return;
+        }
+        const chip = document.createElement('span');
+        chip.className = 'chip pequeno';
+        chip.dataset.tema = '';
+        chip.textContent = tema;
+        listaChips!.insertBefore(chip, fantasma);
+        nascer(chip);
+      });
+
+      if (fantasma) fantasma.classList.toggle('escondido', temas.length > 0);
+    }
+
+    function pintar() {
+      const linha = campoHeadline!.value.trim();
+      alvoHeadline!.textContent = linha || alvoHeadline!.dataset.vazio || '';
+      alvoHeadline!.classList.toggle('vazia', linha === '');
+
+      const temas = campoTemas!.value.split(',').map((t) => t.trim()).filter(Boolean);
+      sincronizarTemas(temas.slice(0, LIMITE_TEMAS));
+      notaExcesso!.hidden = temas.length <= LIMITE_TEMAS;
+
+      const disponivel = campoDisponivel!.checked;
+      const estavaEscondido = chipDisponivel!.classList.contains('escondido');
+      chipDisponivel!.classList.toggle('escondido', !disponivel);
+      if (disponivel && estavaEscondido) nascer(chipDisponivel!);
+      cartao!.classList.toggle('fora', !disponivel);
+      notaFora!.hidden = disponivel;
+    }
+
+    campoHeadline.addEventListener('input', pintar);
+    campoTemas.addEventListener('input', pintar);
+    campoDisponivel.addEventListener('change', pintar);
+
+    /* o browser restaura valor de campo ao voltar pra página; sem esta
+       primeira pintura o cartão mostraria o estado do servidor */
+    pintar();
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    ligarEntrada();
+    ligarPrevia();
   });
 </script>

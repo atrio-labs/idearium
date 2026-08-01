@@ -24,7 +24,8 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { LIMITE_API, type Autor, type Pagina } from '../../lib/api';
+import CartaoMao from '../../components/astro/CartaoMao.astro';
+import { LIMITE_API, obterPerfil, type Autor, type Pagina } from '../../lib/api';
 
 interface Builder {
   user: Autor;
@@ -74,6 +75,23 @@ const maos = await listarMaos();
 /* Só dá pra afirmar um número quando a varredura terminou inteira.
    Lista cortada no meio com "N pessoas" em cima vira número errado. */
 const contagemConfiavel = !semRede && !truncada;
+
+/* Convite pra preencher o próprio: é a outra metade de /perfil, onde
+   o cartão se monta enquanto se digita. Some pra quem já está na
+   lista — pra essa pessoa o convite seria ruído. */
+const usuario = Astro.locals?.usuario ?? null;
+const jaEstaNaLista = usuario != null && maos.some((m) => m.user.username === usuario.username);
+
+/* Faltar na lista tem duas causas diferentes, e o convite só serve pra
+   uma. Quem escreveu o cartão e só desmarcou a disponibilidade some
+   desta consulta (ela filtra por isOpenToWork), e receberia um "escreva
+   uma linha sobre você" pedindo o que já está escrito. A sessão não
+   carrega o builderProfile, então a separação custa uma leitura do
+   próprio perfil público — e só nesse caso. */
+const soPausado =
+  usuario != null && !jaEstaNaLista
+    ? (await obterPerfil(usuario.username))?.builderProfile != null
+    : false;
 ---
 
 <Layout
@@ -84,14 +102,13 @@ const contagemConfiavel = !semRede && !truncada;
     <Nav atual="builders" />
 
     <header class="cabecalho-pagina">
-      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        mãos disponíveis
-      </span>
+      <span class="mono rotulo-lista">mãos disponíveis</span>
       <h1>Quem topa <span class="serif">construir</span>.</h1>
       <p class="sub">
-        Não é diretório de freelancer nem marketplace: ninguém aqui cobra e
-        ninguém contrata. São pessoas que escreveram o que sabem fazer e topam
-        construir de graça. O contato acontece na discussão de uma ideia.
+        Ninguém aqui cobra e ninguém contrata: não é marketplace nem diretório
+        de freelancer. São pessoas que escreveram o que sabem fazer e topam
+        construir ideia dos outros de graça. O contato acontece em público, na
+        discussão de uma ideia — não há mensagem privada, proposta nem preço.
       </p>
     </header>
 
@@ -103,12 +120,17 @@ const contagemConfiavel = !semRede && !truncada;
     )}
 
     {maos.length > 0 && (
-      <p class="contagem">
-        {contagemConfiavel && (
-          <>{maos.length} {maos.length === 1 ? 'pessoa' : 'pessoas'} · </>
-        )}
-        quem atualizou o perfil por último aparece primeiro
-      </p>
+      <div class="linha-lista">
+        <p class="contagem">
+          {/* uma string só: entre duas interpolações o espaço se perde */}
+          {contagemConfiavel && `${maos.length} ${maos.length === 1 ? 'pessoa' : 'pessoas'} · `}
+          quem atualizou o perfil por último aparece primeiro
+        </p>
+        {/* A regra dita em voz alta pra ninguém ler posição como mérito */}
+        <p class="contagem regra">
+          sem contagem por pessoa, sem ordem por atividade
+        </p>
+      </div>
     )}
 
     {/* Marca o documento antes de a grade existir: a entrada animada só
@@ -118,20 +140,34 @@ const contagemConfiavel = !semRede && !truncada;
     {maos.length > 0 ? (
       <div class="grade-builders">
         {maos.map((m) => (
-          <a class="builder-card vem" href={`/users/${m.user.username}`}>
-            <span class="nome">@{m.user.username}</span>
-            {m.headline && <p class="headline">{m.headline}</p>}
-
-            {(m.isOpenToWork || m.topics.length > 0) && (
-              <div class="chips" style="margin-bottom:0">
-                {m.isOpenToWork && (
-                  <span class="chip vivo"><span class="ponto"></span>disponível pra construir</span>
-                )}
-                {m.topics.map((t) => <span class="chip pequeno">{t}</span>)}
-              </div>
-            )}
-          </a>
+          <CartaoMao
+            entrada
+            username={m.user.username}
+            headline={m.headline}
+            topics={m.topics}
+            isOpenToWork={m.isOpenToWork}
+            href={`/users/${m.user.username}`}
+          />
         ))}
+
+        {/* O vão da lista: o cartão que falta é o de quem está olhando.
+            Em /perfil ele se monta enquanto a pessoa escreve — ou volta
+            inteiro, se o que faltou foi só marcar a disponibilidade. */}
+        {!jaEstaNaLista && (
+          <a class="builder-card slot" href="/perfil">
+            <span class="mono marca-slot">
+              {soPausado ? 'o seu está guardado' : 'o seu entra aqui'}
+            </span>
+            <p class="frase">
+              {soPausado
+                ? 'Você escreveu o seu cartão e está fora da lista agora. Marcar a disponibilidade em perfil traz ele de volta, do jeito que ficou.'
+                : 'Uma linha sobre o que você sabe fazer e os temas que te puxam. Você vê o cartão se montando enquanto escreve.'}
+            </p>
+            <span class="chip pequeno oco">
+              {soPausado ? 'voltar pra lista em perfil' : 'preencher em perfil'} &rarr;
+            </span>
+          </a>
+        )}
       </div>
     ) : (
       <Vazio
@@ -150,15 +186,59 @@ const contagemConfiavel = !semRede && !truncada;
 </Layout>
 
 <style>
-  /* `.vem` nasce em opacity 0 no global.css e só reaparece quando o
-     IntersectionObserver marca `.veio`. Sem JS a grade inteira sumiria,
-     com a linha de contagem logo acima jurando que há gente. Aqui o
-     padrão é visível e quem esconde é a classe posta pelo próprio JS. */
-  .builder-card.vem { opacity: 1; }
+  /* A defesa do `.vem` sem JS mora no próprio CartaoMao.astro: a regra
+     precisa alcançar o cartão, que agora é componente. */
 
-  @media (prefers-reduced-motion: no-preference) {
-    html.com-js .builder-card.vem { opacity: 0; }
+  .rotulo-lista {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--t-35);
   }
+
+  /* o rodapé encostava na última fileira de cartões */
+  .grade-builders { margin-bottom: 18px; }
+
+  .linha-lista {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+  .linha-lista .contagem { padding-bottom: 14px; margin: 0; }
+  .linha-lista .regra { color: var(--t-50); }
+
+  /* o vão: mesma geometria do cartão, sem a matéria do cartão */
+  .slot {
+    background: transparent;
+    box-shadow: none;
+    outline: 1px dashed var(--t-12);
+    outline-offset: -1px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 11px;
+    justify-content: center;
+    min-height: 148px;
+  }
+  .slot:hover {
+    background: var(--cartao);
+    outline-color: transparent;
+    box-shadow: var(--sombra);
+  }
+  .marca-slot {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--t-50);
+  }
+  .slot .frase { margin: 0; font-size: 13.5px; color: var(--t-65); }
+  .slot .oco {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--t-12);
+    color: var(--t-65);
+  }
+  .slot:hover .oco { background: var(--t-07); box-shadow: none; color: var(--t-90); }
 </style>
 
 <script>

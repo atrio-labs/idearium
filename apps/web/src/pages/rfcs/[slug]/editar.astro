@@ -22,6 +22,9 @@ import Layout from '../../../layouts/Layout.astro';
 import Nav from '../../../components/astro/Nav.astro';
 import Rodape from '../../../components/astro/Rodape.astro';
 import Vazio from '../../../components/astro/Vazio.astro';
+/* O mesmo componente da listagem e do átrio, sem adaptação: a prévia
+   precisa ser o objeto que vai existir, não uma imitação dele. */
+import CartaoIdeia from '../../../components/astro/CartaoIdeia.astro';
 import {
   statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
   type Rfc, type Tag,
@@ -220,6 +223,16 @@ const arquivada = ideia?.status === 'ARCHIVED';
    um rascunho arquivado não é DRAFT e mesmo assim nunca foi publicado. */
 const publicada = ideia != null && ideia.number != null;
 
+/* A versão que nasce se o corpo for salvo diferente. Não é chute: a
+   API numera a versão pela contagem, e é essa conta que a mensagem de
+   "salvo" já usa depois do PATCH. */
+const proximaVersao = (ideia?._count.versions ?? 0) + 1;
+
+/* O número é atribuído pela sequence do Postgres no publish, então
+   nem esta tela sabe qual será. A vaga em branco é a única forma
+   honesta de mostrar o formato sem inventar um número. */
+const CODIGO_VAGO = 'RFC-____';
+
 const descreve = (campo: string) =>
   [`ajuda-${campo}`, erros[campo] && `erro-${campo}`].filter(Boolean).join(' ');
 ---
@@ -258,7 +271,7 @@ const descreve = (campo: string) =>
           <h1>Editando <span class="serif">{ideia.title}</span></h1>
           <p class="sub">
             {rascunho
-              ? 'Ainda é rascunho: só você enxerga, e ela ainda não tem número. Publicar é a decisão do bloco ao lado.'
+              ? 'Ainda é rascunho: só você enxerga, e ela ainda não tem número. O cartão ao lado é o que o resto do mundo vai ver quando você publicar.'
               : publicada
                 ? 'Já está publicada e tem número permanente. Toda mudança no corpo entra no histórico, à vista de quem lê.'
                 : 'Foi arquivada antes de ser publicada, então nunca recebeu número. O texto continua aqui e continua editável.'}
@@ -366,22 +379,52 @@ const descreve = (campo: string) =>
           </div>
 
           <aside class="lado-rfc">
+            {/* ---- ato 2: publicar. O objeto público, montando ---- */}
+            <div
+              class="previa-cartao"
+              data-quando="agora"
+              data-estado-agora={statusLabel[ideia.status]}
+              data-estado-depois={statusLabel.IN_DISCUSSION}
+              data-codigo-agora={codigoRfc(ideia.number)}
+              data-codigo-depois={CODIGO_VAGO}
+            >
+              <p class="rotulo-previa">o cartão público desta ideia</p>
+
+              <CartaoIdeia rfc={ideia} />
+
+              {rascunho && (
+                <div class="troca-quando" role="group" aria-label="o cartão, antes e depois de publicar">
+                  <button class="filtro" type="button" data-quando="agora" aria-pressed="true">agora</button>
+                  <button class="filtro" type="button" data-quando="depois" aria-pressed="false">depois de publicar</button>
+                </div>
+              )}
+
+              <p class="nota-previa">
+                Título e resumo acompanham o formulário enquanto você escreve.
+                {rascunho
+                  ? ' O chip e o número só mudam quando você publicar — e a capa é desenhada a partir do número, então ela nasce junto com ele.'
+                  : publicada
+                    ? ' O número já é permanente e não acompanha nada.'
+                    : ' Ela nunca recebeu número, então o cartão mostra "rascunho" no lugar dele.'}
+              </p>
+            </div>
+
             {rascunho ? (
               <div class="bloco">
                 <p class="titulo-bloco">publicar</p>
-                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                <p class="texto-bloco">
                   Publicar tira a ideia da gaveta: ela entra nas listagens, abre
-                  para discussão e para quem quiser construir.
+                  para discussão e para quem quiser construir. É este botão que
+                  troca o chip do cartão acima.
                 </p>
-                <div class="linha"><span>agora</span><b>rascunho</b></div>
-                <div class="linha"><span>depois</span><b>em discussão</b></div>
-                <p style="margin:12px 0 16px; font-size:12.5px; color:var(--t-50)">
-                  Nesse momento ela recebe o número permanente, e o número não
-                  volta atrás: publicar não tem desfazer.
+                <p class="texto-bloco fraco">
+                  No mesmo instante o banco atribui o número, em sequência. Nem
+                  esta tela sabe qual será — por isso a vaga aparece em branco.
+                  Depois de atribuído ele nunca muda, e publicar não tem desfazer.
                 </p>
                 <form method="post">
                   <input type="hidden" name="acao" value="publicar" />
-                  <button class="botao" type="submit">publicar</button>
+                  <button class="botao" type="submit" data-botao-publicar>publicar</button>
                 </form>
               </div>
             ) : publicada ? (
@@ -389,7 +432,7 @@ const descreve = (campo: string) =>
                 <p class="titulo-bloco">já publicada</p>
                 <div class="linha"><span>número</span><b>{codigoRfc(ideia.number)}</b></div>
                 <div class="linha"><span>publicada</span><b>{haQuantoTempo(ideia.publishedAt)}</b></div>
-                <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                <p class="texto-bloco fraco" style="margin-top:12px">
                   O número é permanente. Ele identifica a ideia mesmo depois de
                   o título mudar.
                 </p>
@@ -397,18 +440,61 @@ const descreve = (campo: string) =>
             ) : (
               <div class="bloco">
                 <p class="titulo-bloco">nunca publicada</p>
-                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                <p class="texto-bloco">
                   Ela foi arquivada enquanto ainda era rascunho: não recebeu
                   número e não passou por nenhuma listagem.
                 </p>
                 <div class="linha"><span>número</span><b>nenhum</b></div>
                 <div class="linha"><span>arquivada</span><b>{haQuantoTempo(ideia.archivedAt)}</b></div>
-                <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                <p class="texto-bloco fraco" style="margin-top:12px">
                   Publicar exige rascunho, e ela deixou de ser um ao ser
                   arquivada. Hoje não existe caminho de volta.
                 </p>
               </div>
             )}
+
+            {/* ---- ato 1: editar o corpo. A errata que vai nascer ----
+                O corpo salvo vai como JSON porque é texto longo e com
+                quebras de linha: atributo data-* teria que escapar tudo
+                e ainda assim chegaria colado. */}
+            <div class="bloco" id="errata-viva" data-estado="igual">
+              <p class="titulo-bloco">a errata que nasce</p>
+
+              <div class="linha"><span>versões hoje</span><b>{ideia._count.versions}</b></div>
+              <div class="linha"><span>última mudança</span><b>{haQuantoTempo(ideia.updatedAt)}</b></div>
+
+              <p class="texto-bloco so-igual" style="margin-top:12px">
+                O corpo está igual ao que já foi salvo. Salvar agora não cria
+                versão nova, e nada aparece no histórico.
+              </p>
+
+              <p class="texto-bloco so-acrescido" style="margin-top:12px">
+                O corpo mudou, mas nenhum trecho foi trocado: o que você fez foi
+                acrescentar ou cortar. A <b>v0.{proximaVersao}</b> nasce do mesmo
+                jeito, e o texto anterior continua no histórico.
+              </p>
+
+              <div class="errata" data-aberta="sim">
+                <button class="gatilho" type="button" aria-expanded="true">
+                  <span class="chevron"></span> errata · o trecho que você trocou
+                </button>
+                <div class="fole"><div><div class="corpo">
+                  <span class="riscado"></span>
+                  <span class="para"></span>
+                  <span class="data">vai nascer como v0.{proximaVersao} quando você salvar</span>
+                </div></div></div>
+              </div>
+
+              <p class="texto-bloco fraco" style="margin-top:14px">
+                Errata é isto: o trecho antigo continua legível, riscado, com a
+                correção ao lado e datada. Editar não sobrescreve — nada se perde.
+                Só o corpo cria versão; título e resumo mudam em silêncio.
+              </p>
+
+              <script type="application/json" id="corpo-salvo" is:inline set:html={
+                JSON.stringify(ideia.body).replace(/</g, '\\u003c')
+              }></script>
+            </div>
 
             <div class="bloco">
               <p class="titulo-bloco">tags</p>
@@ -455,37 +541,32 @@ const descreve = (campo: string) =>
               )}
             </div>
 
-            <div class="bloco">
-              <p class="titulo-bloco">histórico</p>
-              <div class="linha"><span>versões</span><b>{ideia._count.versions}</b></div>
-              <div class="linha"><span>última mudança</span><b>{haQuantoTempo(ideia.updatedAt)}</b></div>
-              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                Mudar o corpo cria uma versão nova em vez de sobrescrever a
-                anterior. Nada é apagado — o histórico é o que deixa a ideia
-                evoluir sem apagar de onde ela veio.
-              </p>
-            </div>
-
+            {/* Arquivar é a ação mais fria da tela e a única sem volta
+                hoje: fica por último e sem o cartão branco, pra não
+                disputar peso com publicar. */}
             {arquivada ? (
-              <div class="bloco">
+              <div class="bloco discreto">
                 <p class="titulo-bloco">arquivada</p>
-                <p style="margin:0; font-size:13px; color:var(--t-65)">
-                  Foi arquivada {haQuantoTempo(ideia.archivedAt)}. O texto, a discussão
-                  e as versões continuam onde estavam. Tirar do arquivo ainda não
-                  existe: nenhuma tela e nenhuma rota devolvem a ideia ao estado
-                  anterior.
+                <p class="texto-bloco">
+                  Foi arquivada {haQuantoTempo(ideia.archivedAt)}. Nada foi deletado: o
+                  texto continua legível no endereço dela, com a discussão, as
+                  inscrições e todas as versões. Tirar do arquivo ainda não
+                  existe — nenhuma tela e nenhuma rota devolvem a ideia ao
+                  estado anterior.
                 </p>
               </div>
             ) : rascunho ? null : (
-              <div class="bloco">
+              <div class="bloco discreto">
                 <p class="titulo-bloco">arquivar</p>
-                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
-                  Arquivar diz que a ideia esfriou. Ela sai das listagens, mas
-                  nada é deletado: texto, discussão, inscrições e versões
-                  continuam de pé.
+                <p class="texto-bloco">
+                  Arquivar diz que a ideia esfriou, e só isso. <b>Não deleta.</b> Ela
+                  sai das listagens, mas continua legível no endereço dela, com o
+                  texto, a discussão, as inscrições e todas as versões de pé.
                 </p>
-                <p style="margin:0 0 14px; font-size:12.5px; color:var(--t-50)">
-                  Não há desfazer hoje. Quando arquivar, a ideia fica arquivada.
+                <p class="texto-bloco fraco">
+                  Voltar do arquivo é previsto no desenho do produto, mas ainda não
+                  existe tela nem rota que desarquive. Hoje, quando arquivar, fica
+                  arquivada.
                 </p>
                 <form method="post">
                   <input type="hidden" name="acao" value="arquivar" />
@@ -494,7 +575,7 @@ const descreve = (campo: string) =>
                     <span class="caixa" aria-hidden="true">
                       <svg viewBox="0 0 12 12"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
                     </span>
-                    <span style="font-size:13px">entendo que a ideia sai das listagens e que não há desfazer</span>
+                    <span style="font-size:13px">entendo que a ideia sai das listagens e que hoje não há como desarquivar</span>
                   </label>
                   <button class="botao perigo" type="submit">arquivar</button>
                 </form>
@@ -529,6 +610,90 @@ const descreve = (campo: string) =>
   .contador.fora { color: var(--t-90); font-weight: 460; }
 </style>
 
+{/* Global de propósito, e todo prefixado por classe que só existe nesta
+    tela: o cartão da prévia é o CartaoIdeia.astro, e regra escopada não
+    entra em componente importado nem em nó criado por JS. */}
+<style is:global>
+  /* ---------------- a prévia: o objeto público ---------------- */
+  .previa-cartao { display: grid; gap: 12px; }
+  .previa-cartao .rotulo-previa {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--t-35);
+    margin: 0;
+  }
+  /* o cartão nasce em opacity 0 esperando o observador do átrio, que
+     aqui não existe: a prévia é o que precisa estar visível primeiro */
+  .previa-cartao .ideia { opacity: 1; margin-bottom: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .previa-cartao .ideia { animation: cartao-sobe 620ms var(--ease) both; }
+  }
+
+  /* placeholder no idioma do produto, não esqueleto cinza: campo
+     esvaziado continua ensinando o que vai naquele lugar */
+  .previa-cartao .ideia h3.vago,
+  .previa-cartao .ideia p.vago { color: var(--t-35); }
+
+  .previa-cartao .troca-quando { display: flex; gap: 6px; flex-wrap: wrap; }
+  .previa-cartao .nota-previa { margin: 0; font-size: 12.5px; color: var(--t-50); }
+
+  /* --- a capa é a única peça que não dá pra mostrar ---
+     A semente do dither inclui o número, então o desenho de agora não é
+     o de depois de publicar. Trocar por outro desenho seria inventar;
+     esconder seria fingir que a capa não muda. Ela esmaece e diz. */
+  .previa-cartao .capa .nota-capa { display: none; }
+  .previa-cartao .capa canvas { transition: opacity 300ms var(--ease); }
+  .previa-cartao[data-quando="depois"] .capa canvas { opacity: 0.2; }
+  .previa-cartao[data-quando="depois"] .capa .nota-capa {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    inset: 0;
+    padding: 0 18px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--t-50);
+  }
+
+  /* --- a peça animada: a vaga do número abrindo e fechando --- */
+  @keyframes codigo-vaga {
+    from { opacity: 0; letter-spacing: 0.22em; }
+    to   { opacity: 1; letter-spacing: 0.02em; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .previa-cartao .codigo.trocou { animation: codigo-vaga 300ms var(--ease) both; }
+  }
+
+  /* ---------------- blocos da coluna ---------------- */
+  .lado-rfc .texto-bloco { margin: 0 0 14px; font-size: 13.5px; color: var(--t-75); }
+  .lado-rfc .texto-bloco:last-child { margin-bottom: 0; }
+  .lado-rfc .texto-bloco b { font-weight: 460; color: var(--t-100); }
+  .lado-rfc .texto-bloco.fraco { font-size: 12.5px; color: var(--t-50); }
+  .lado-rfc .texto-bloco.fraco b { color: var(--t-75); }
+
+  /* arquivar não é um cartão: é o rodapé frio da coluna */
+  .lado-rfc .bloco.discreto {
+    background: transparent;
+    box-shadow: none;
+    border: 1px solid var(--t-07);
+    padding: 18px 20px 20px;
+  }
+
+  /* ---------------- a errata que nasce ---------------- */
+  #errata-viva:not([data-estado="igual"])     .so-igual     { display: none; }
+  #errata-viva:not([data-estado="acrescido"]) .so-acrescido { display: none; }
+  #errata-viva:not([data-estado="trocado"])   .errata       { display: none; }
+
+  /* parágrafo longo não pode esticar a coluna inteira: o trecho rola
+     dentro do fole, que continua sendo quem abre e fecha */
+  #errata-viva .errata .corpo { max-height: 230px; overflow-y: auto; }
+</style>
+
 <script>
   function ligarContadores() {
     const marcadores = document.querySelectorAll<HTMLElement>('[data-contador]');
@@ -553,5 +718,190 @@ const descreve = (campo: string) =>
     }
   }
 
-  document.addEventListener('astro:page-load', ligarContadores);
+  const semMovimento = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* O texto na tela atrasa a intenção em uma fase inteira, então quem
+     manda é o alvo, não o textContent. Sem isso, entrar e sair do botão
+     antes dos 150ms deixa um timeout órfão escrever o rótulo do estado
+     que a pessoa desistiu de ver, ao lado de um código que já voltou —
+     um par que nem o banco nem a API sabem produzir. */
+  let alvoDoRotulo: string | null = null;
+  let trocaPendente: ReturnType<typeof setTimeout> | undefined;
+
+  /* Troca de rótulo em três fases, a mesma do chip do átrio: sai por
+     cima desfocado, o texto muda fora de vista, entra por baixo. */
+  function trocarRotulo(no: HTMLElement, texto: string) {
+    if (alvoDoRotulo === texto) return;
+    alvoDoRotulo = texto;
+    clearTimeout(trocaPendente);
+
+    if (semMovimento()) { no.textContent = texto; return; }
+
+    const dur = parseInt(getComputedStyle(no).getPropertyValue('--swap-dur')) || 150;
+    no.classList.add('saindo');
+    trocaPendente = setTimeout(() => {
+      no.textContent = texto;
+      no.classList.remove('saindo');
+      no.classList.add('entrando-de-baixo');
+      void no.offsetWidth;                    // reflow: sem isso o salto anima
+      no.classList.remove('entrando-de-baixo');
+    }, dur);
+  }
+
+  /* ---------- a prévia: o cartão público se montando ----------
+     Os nós vêm do CartaoIdeia.astro, então a busca é pelo markup dele
+     de propósito: prévia que reimplementa o cartão mente na hora em
+     que o componente mudar. */
+  function ligarPrevia() {
+    const previa = document.querySelector<HTMLElement>('.previa-cartao');
+    const titulo = previa?.querySelector<HTMLElement>('.ideia h3');
+    const resumo = previa?.querySelector<HTMLElement>('.ideia .miolo > p');
+    const campoTitulo = document.getElementById('title') as HTMLInputElement | null;
+    const campoResumo = document.getElementById('summary') as HTMLTextAreaElement | null;
+    if (!previa || !titulo || !resumo || !campoTitulo || !campoResumo) return;
+
+    const espelhar = () => {
+      const t = campoTitulo.value.trim();
+      const r = campoResumo.value.trim();
+      titulo.textContent = t || 'sua ideia aparece aqui';
+      titulo.classList.toggle('vago', !t);
+      resumo.textContent = r || 'e o resumo, aqui — é por ele que alguém escolhe entrar';
+      resumo.classList.toggle('vago', !r);
+    };
+    campoTitulo.addEventListener('input', espelhar);
+    campoResumo.addEventListener('input', espelhar);
+    espelhar();
+
+    /* Só rascunho tem "depois": publicada e arquivada não trocam mais
+       de chip, e um botão que não muda nada seria enfeite. */
+    const botoes = Array.from(previa.querySelectorAll<HTMLButtonElement>('.troca-quando button'));
+    const chip = previa.querySelector<HTMLElement>('.chip.pequeno');
+    const codigo = previa.querySelector<HTMLElement>('.codigo');
+    if (!botoes.length || !chip || !codigo) return;
+
+    /* o rótulo do chip precisa de um nó só pra ele: é ele que sai e
+       entra na troca, sem levar o ponto junto */
+    const rotulo = document.createElement('span');
+    rotulo.className = 'rotulo-estado';
+    rotulo.textContent = (chip.textContent ?? '').trim();
+    chip.textContent = '';
+    chip.append(rotulo);
+    /* o nó é outro a cada navegação: alvo herdado da página anterior
+       engoliria a primeira troca desta */
+    alvoDoRotulo = rotulo.textContent;
+
+    /* A capa é desenhada a partir de uma semente que inclui o número, e
+       o número só existe depois do publish: no estado "depois" ela é a
+       única peça do cartão que ainda não pode ser a verdadeira. Dizer
+       isso em cima da imagem é o mesmo idioma da vaga em branco. */
+    const capa = previa.querySelector<HTMLElement>('.capa');
+    if (capa) {
+      const notaCapa = document.createElement('span');
+      notaCapa.className = 'nota-capa';
+      notaCapa.textContent = 'a capa nasce com o número';
+      capa.append(notaCapa);
+    }
+
+    const d = previa.dataset;
+    let fixado = 'agora';
+
+    const mostrar = (quando: string) => {
+      if (previa.dataset.quando === quando) return;
+      previa.dataset.quando = quando;
+      const depois = quando === 'depois';
+
+      trocarRotulo(rotulo, depois ? d.estadoDepois! : d.estadoAgora!);
+      codigo.textContent = depois ? d.codigoDepois! : d.codigoAgora!;
+      codigo.classList.remove('trocou');
+      void codigo.offsetWidth;
+      codigo.classList.add('trocou');
+
+      /* o ponto que respira só existe em "em discussão": criar e
+         remover é mais honesto que escondê-lo com CSS */
+      chip.classList.toggle('vivo', depois);
+      chip.querySelector('.ponto')?.remove();
+      if (depois) {
+        const ponto = document.createElement('span');
+        ponto.className = 'ponto';
+        chip.prepend(ponto);
+      }
+    };
+
+    for (const b of botoes) {
+      b.addEventListener('click', () => {
+        fixado = b.dataset.quando!;
+        mostrar(fixado);
+        for (const o of botoes) o.setAttribute('aria-pressed', String(o === b));
+      });
+    }
+
+    /* alcançar o botão de publicar já é o começo do ato: o cartão
+       mostra a consequência antes do clique, e volta se você desistir */
+    const publicar = document.querySelector<HTMLElement>('[data-botao-publicar]');
+    if (publicar) {
+      publicar.addEventListener('pointerenter', () => mostrar('depois'));
+      publicar.addEventListener('focus', () => mostrar('depois'));
+      publicar.addEventListener('pointerleave', () => mostrar(fixado));
+      publicar.addEventListener('blur', () => mostrar(fixado));
+    }
+  }
+
+  /* ---------- a errata que vai nascer ----------
+     Mesma leitura do átrio: o primeiro parágrafo que existe nos dois
+     textos e mudou. Parágrafo acrescentado ou cortado não é errata —
+     não há trecho antigo pra riscar. */
+  function acharErrata(antes: string, agora: string) {
+    const pa = antes.split('\n');
+    const pb = agora.split('\n');
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const a = (pa[i] ?? '').trim();
+      const b = (pb[i] ?? '').trim();
+      if (a && b && a !== b) return { de: a, para: b };
+    }
+    return null;
+  }
+
+  function ligarErrataViva() {
+    const bloco = document.getElementById('errata-viva');
+    const salvo = document.getElementById('corpo-salvo');
+    const campo = document.getElementById('body') as HTMLTextAreaElement | null;
+    const riscado = bloco?.querySelector<HTMLElement>('.riscado');
+    const para = bloco?.querySelector<HTMLElement>('.para');
+    if (!bloco || !salvo || !campo || !riscado || !para) return;
+
+    /* o corpo salvo, e não o valor inicial do campo: depois de um POST
+       recusado o campo já traz o texto novo, e comparar com ele mesmo
+       diria que nada mudou */
+    const original = (JSON.parse(salvo.textContent ?? '""') as string).trim();
+
+    const atualizar = () => {
+      const agora = campo.value.trim();       // é o que o servidor compara
+      if (agora === original) { bloco.dataset.estado = 'igual'; return; }
+
+      const e = acharErrata(original, agora);
+      if (!e) { bloco.dataset.estado = 'acrescido'; return; }
+
+      riscado.textContent = e.de;
+      para.textContent = e.para;
+      bloco.dataset.estado = 'trocado';
+    };
+
+    campo.addEventListener('input', atualizar);
+    atualizar();
+
+    /* o fole 0fr → 1fr, igual ao do átrio */
+    const errata = bloco.querySelector<HTMLElement>('.errata');
+    const gatilho = errata?.querySelector<HTMLButtonElement>('.gatilho');
+    gatilho?.addEventListener('click', () => {
+      const abrindo = errata!.dataset.aberta !== 'sim';
+      errata!.dataset.aberta = abrindo ? 'sim' : 'nao';
+      gatilho.setAttribute('aria-expanded', String(abrindo));
+    });
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    ligarContadores();
+    ligarPrevia();
+    ligarErrataViva();
+  });
 </script>

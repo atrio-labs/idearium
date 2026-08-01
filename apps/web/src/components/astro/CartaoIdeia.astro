@@ -20,16 +20,21 @@ interface Props {
   ocultarLab?: boolean;
   /** atributos data-* pro filtro client-side de /rfcs */
   filtravel?: boolean;
+  /** Prévia de uma RFC que ainda não existe: sem endereço, o cartão não
+   *  pode ser link. É o que permite /rfcs/nova mostrar o objeto de
+   *  verdade em vez de repetir este markup e divergir dele depois. */
+  comoLink?: boolean;
 }
 
-const { rfc, ocultarLab = false, filtravel = false } = Astro.props;
+const { rfc, ocultarLab = false, filtravel = false, comoLink = true } = Astro.props;
 const m = materiaDaRfc(rfc);
 const versoes = rfc._count?.versions;
+const Moldura = comoLink ? 'a' : 'article';
 ---
 
-<a
+<Moldura
   class="cartao ideia vem"
-  href={`/rfcs/${rfc.slug}`}
+  href={comoLink ? `/rfcs/${rfc.slug}` : undefined}
   data-lab={filtravel ? rfc.lab.slug : undefined}
   data-status={filtravel ? rfc.status : undefined}
 >
@@ -51,7 +56,10 @@ const versoes = rfc._count?.versions;
       {rfc.status === 'IN_DISCUSSION'
         ? <span class="chip pequeno vivo"><span class="ponto"></span>{statusLabel[rfc.status]}</span>
         : <span class="chip pequeno">{statusLabel[rfc.status]}</span>}
-      <span class="codigo">{codigoRfc(rfc.number)}</span>
+      {/* Sem número o código diria "rascunho", que é exatamente o que o
+          chip ao lado já diz. Duas vezes a mesma palavra em dois pesos
+          lê como erro, então o código só aparece quando existe. */}
+      {rfc.number != null && <span class="codigo">{codigoRfc(rfc.number)}</span>}
     </div>
     <h3>{rfc.title}</h3>
     <p>{rfc.summary}</p>
@@ -65,4 +73,4 @@ const versoes = rfc._count?.versions;
       <span>{haQuantoTempo(rfc.publishedAt ?? rfc.createdAt)}</span>
     </div>
   </div>
-</a>
+</Moldura>

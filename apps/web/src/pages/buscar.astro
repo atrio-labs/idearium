@@ -9,6 +9,16 @@
    O formulário é GET puro. Sem JavaScript, escrever e apertar "buscar"
    funciona igual; com JavaScript, trocar um filtro reenvia sozinho.
 
+   ----------------------------------------------------------------
+   DESENHO: a tela mostra a consequência do ato
+   ----------------------------------------------------------------
+   O ato aqui é consultar, e a consequência é COMO A CONSULTA FOI
+   ENTENDIDA. Por isso a coluna estreita ao lado do campo não é ajuda
+   nem dica: é a consulta montada como o índice vai recebê-la —
+   as palavras que ela exige, o dicionário, o recorte, o acento.
+   Ela se remonta a cada tecla, e continua abaixo do campo na tela
+   estreita, porque no celular ela é a explicação inteira.
+
    Os dois limites da busca aparecem NA TELA, não só neste comentário:
    ela distingue acento e lê um idioma por vez. O segundo é decisão de
    backend documentada (ROADMAP_BACKEND §2.5, "Cross-language search"):
@@ -22,9 +32,14 @@ import Rodape from '../components/astro/Rodape.astro';
 import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
 import Vazio from '../components/astro/Vazio.astro';
 import {
-  listarLabs, nomeCurtoDoLab,
+  listarLabs, listarRfcs, nomeCurtoDoLab,
   type Autor, type LabResumo, type Pagina, type RfcStatus,
 } from '../lib/api';
+import {
+  fraseDaExigencia, lerConsulta, notaDeAcento, notaDoRadical,
+  palavrasDaConsulta, semAcento, type Idioma,
+} from '../lib/leitura-busca';
+import { nivelDeUso } from '../lib/peso-tag';
 
 /* A api.ts ainda não expõe /search — ela é de outro agente e está sendo
    editada em paralelo. Até lá a chamada mora aqui, com o mesmo contrato
@@ -50,6 +65,7 @@ interface TagResumo {
   id: string;
   slug: string;
   name: string;
+  usageCount: number;
 }
 
 async function pedir<T>(
@@ -73,15 +89,15 @@ async function pedir<T>(
 /* Teto do SearchQueryDto. Pedir mais devolve 400, não uma lista maior. */
 const LIMITE_BUSCA = 50;
 
-const IDIOMAS = [
+const IDIOMAS: { valor: Idioma; texto: string }[] = [
   { valor: 'pt-BR', texto: 'português' },
   { valor: 'en', texto: 'inglês' },
-] as const;
+];
 
 const params = Astro.url.searchParams;
 const termo = (params.get('q') ?? '').trim();
 const labPedido = params.get('lab') ?? '';
-const idioma = params.get('locale') === 'en' ? 'en' : 'pt-BR';
+const idioma: Idioma = params.get('locale') === 'en' ? 'en' : 'pt-BR';
 
 /* A API exige 2 caracteres. Vale avisar no campo em vez de mandar a
    consulta e traduzir um 400 depois. */
@@ -103,6 +119,12 @@ let caiu = false;
 let recusada = false;
 let populares: TagResumo[] = [];
 
+const enderecoDaBusca = (q: string) => {
+  const p = new URLSearchParams({ q, locale: idioma });
+  if (labEscolhido) p.set('lab', labEscolhido);
+  return `/buscar?${p}`;
+};
+
 if (buscou) {
   const p = new URLSearchParams({ q: termo, locale: idioma, limit: String(LIMITE_BUSCA) });
   if (labEscolhido) p.set('lab', labEscolhido);
@@ -119,6 +141,59 @@ if (buscou) {
   caiu = r.caiu;
 }
 
+/* A lista vem ordenada por uso, então a primeira é a mais usada do
+   acervo inteiro — o mesmo topo que /tags usa pra calcular o peso. */
+const maiorUso = populares[0]?.usageCount ?? 0;
+
+/* ---- a palavra acentuada que existe de verdade ----
+   "talvez falte acento" obriga a pessoa a adivinhar qual palavra e
+   qual acento. Aqui a palavra vem do acervo: procuro nos títulos e
+   resumos publicados uma que, sem acento, é exatamente a que foi
+   digitada; reescrevo o termo; e só ofereço depois que a busca
+   reescrita devolveu resultado. O que a tela promete, ela entrega.
+
+   Custa duas chamadas, e só no caminho em que a busca rodou e não
+   achou nada — que é justamente onde a pessoa está travada. */
+async function acharTermoAcentuado(): Promise<{ termo: string; total: number } | null> {
+  const acervo = await listarRfcs({ limit: 100, sort: 'recent', locale: idioma });
+  if (acervo.data.length === 0) return null;
+
+  const vocabulario = new Map<string, string>();   // sem acento → como está escrita
+  for (const rfc of acervo.data) {
+    for (const palavra of palavrasDaConsulta(`${rfc.title} ${rfc.summary}`)) {
+      const chave = semAcento(palavra);
+      if (chave === palavra.toLowerCase()) continue;   // não tem acento a oferecer
+      if (!vocabulario.has(chave)) vocabulario.set(chave, palavra.toLowerCase());
+    }
+  }
+
+  let trocou = false;
+  /* Divide preservando os separadores pra devolver o termo com a
+     pontuação e os espaços que a pessoa escreveu. */
+  const reescrito = termo
+    .split(/([^\p{L}\p{N}]+)/u)
+    .map((pedaco) => {
+      const acentuada = vocabulario.get(semAcento(pedaco));
+      if (!acentuada || acentuada === pedaco.toLowerCase()) return pedaco;
+      trocou = true;
+      return acentuada;
+    })
+    .join('');
+
+  if (!trocou) return null;
+
+  const p = new URLSearchParams({ q: reescrito, locale: idioma, limit: '1' });
+  if (labEscolhido) p.set('lab', labEscolhido);
+  const prova = await pedir<Pagina<Achado>>(`/search?${p}`);
+  const quantas = prova.dado?.meta.total ?? 0;
+  return quantas > 0 ? { termo: reescrito, total: quantas } : null;
+}
+
+const sugestao =
+  buscou && !caiu && !recusada && achados.length === 0
+    ? await acharTermoAcentuado()
+    : null;
+
 /* /search não traz createdAt nem updatedAt (o SELECT do FTS não os
    busca). CartaoIdeia só lê `publishedAt ?? createdAt`, então repito
    publishedAt em vez de inventar uma data que não veio. */
@@ -128,9 +203,16 @@ const paraCartao = (a: Achado) => ({
   updatedAt: a.publishedAt ?? '',
 });
 
-const temAcento = /[áàâãéêíóôõúüç]/i.test(termo);
 const nomeDoLab = labs.find((l) => l.slug === labEscolhido);
 const filtrando = Boolean(labEscolhido) || idioma !== 'pt-BR';
+
+/* A leitura da consulta, montada aqui pra quem chega pelo link ou está
+   sem JavaScript. O mesmo cálculo roda no navegador a cada tecla. */
+const consulta = lerConsulta(termo, idioma);
+const nota = notaDeAcento(termo, idioma);
+const radical = notaDoRadical(idioma);
+const nomeDoIdioma = IDIOMAS.find((i) => i.valor === idioma)!.texto;
+const recorte = nomeDoLab ? nomeCurtoDoLab(nomeDoLab.name) : 'todos os laboratórios';
 
 /* O campo fala da consulta, o vazio fala do resultado. Sem essa separação
    uma consulta recusada aparecia como "nada encontrado", e a pessoa
@@ -141,21 +223,13 @@ const erroNoCampo = curtoDemais
     ? 'A busca recusou esta consulta. Ela aceita até 200 caracteres no termo.'
     : null;
 
-const tituloVazio = caiu
-  ? 'O servidor não respondeu'
-  : recusada
-    ? 'A consulta não foi aceita'
-    : `Nada encontrado para "${termo}"`;
-
-const textoVazio = caiu
-  ? 'Assim que a API voltar, o resultado aparece aqui.'
-  : recusada
-    ? 'A busca não chegou a rodar. Encurte o termo e tente de novo.'
-    : temAcento
-      ? filtrando
-        ? 'Talvez o recorte esteja apertado. Tente sem escolher laboratório, ou no outro idioma.'
-        : 'Tente uma palavra mais geral, ou o termo que a pessoa usaria para descrever o problema.'
-      : 'Se a palavra leva acento, escreva com ele: a busca trata "remedio" e "remédio" como palavras diferentes. Também vale afrouxar o laboratório ou trocar o idioma.';
+/* Com sugestão verificada, o texto do vazio sai de cena: a oferta
+   concreta logo abaixo diz mais do que qualquer conselho. */
+const textoVazio = sugestao
+  ? 'A consulta rodou inteira e nenhuma ideia casou com ela.'
+  : filtrando
+    ? 'Talvez o recorte esteja apertado. Tente sem escolher laboratório, ou no outro idioma.'
+    : 'Tente uma palavra mais geral, ou o termo que a pessoa usaria para descrever o problema.';
 ---
 
 <Layout
@@ -171,9 +245,7 @@ const textoVazio = caiu
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
     <header class="cabecalho-pagina">
-      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        busca
-      </span>
+      <span class="mono rotulo-pagina">busca</span>
       <h1>Procure pelo <span class="serif">problema</span>.</h1>
       <p class="sub">
         A busca lê o título, o resumo e o corpo das ideias já publicadas.
@@ -181,63 +253,129 @@ const textoVazio = caiu
       </p>
     </header>
 
-    <form class="forma-busca" method="get" action="/buscar" role="search">
-      <div class:list={['campo', erroNoCampo && 'com-erro']}>
-        <label class="rotulo" for="q">o que você procura</label>
-        <div class="caixa-busca">
-          <input
-            class="entrada"
-            id="q"
-            name="q"
-            type="search"
-            value={termo}
-            placeholder="alagamento, merenda, transporte"
-            maxlength="200"
-            autocomplete="off"
-            aria-describedby={erroNoCampo ? 'erro-q nota-busca' : 'nota-busca'}
-          />
-          <button class="botao" type="submit">buscar</button>
+    {/* O formulário é o que se opera; a leitura acompanha, em coluna
+        estreita. Abaixo de 920px ela desce, mas não some. */}
+    <div class="oficina">
+      <form class="forma-busca" method="get" action="/buscar" role="search">
+        <div class:list={['campo', erroNoCampo && 'com-erro']}>
+          <label class="rotulo" for="q">o que você procura</label>
+          <div class="caixa-busca">
+            <input
+              class="entrada"
+              id="q"
+              name="q"
+              type="search"
+              value={termo}
+              placeholder="alagamento, merenda, transporte"
+              maxlength="200"
+              autocomplete="off"
+              aria-describedby={erroNoCampo ? 'erro-q nota-acento' : 'nota-acento'}
+            />
+            <button class="botao" type="submit">buscar</button>
+          </div>
+          {erroNoCampo && (
+            <span class="erro-campo" id="erro-q">{erroNoCampo}</span>
+          )}
         </div>
-        {erroNoCampo && (
-          <span class="erro-campo" id="erro-q">{erroNoCampo}</span>
-        )}
-        <p class="ajuda" id="nota-busca">
-          A busca distingue acento: <b>remedio</b> não encontra <b>remédio</b>.
-          E lê um idioma por vez — português e inglês não se cruzam.
+
+        <div class="filtros">
+          <div class="grupo" role="group" aria-labelledby="rotulo-lab">
+            <span class="rotulo" id="rotulo-lab">laboratório</span>
+            <label class="opcao">
+              <input type="radio" name="lab" value="" checked={labEscolhido === ''}
+                data-leitura="todos os laboratórios" />
+              <span class="filtro">todos</span>
+            </label>
+            {labs.map((l) => (
+              <label class="opcao">
+                <input type="radio" name="lab" value={l.slug} checked={labEscolhido === l.slug}
+                  data-leitura={nomeCurtoDoLab(l.name)} />
+                <span class="filtro">
+                  <span class="swatch" style={`background: var(--color-${l.slug})`}></span>
+                  {nomeCurtoDoLab(l.name)}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div class="filtros" style="padding-top:0">
+          <div class="grupo" role="group" aria-labelledby="rotulo-idioma">
+            <span class="rotulo" id="rotulo-idioma">idioma</span>
+            {IDIOMAS.map((i) => (
+              <label class="opcao">
+                <input type="radio" name="locale" value={i.valor} checked={idioma === i.valor}
+                  data-leitura={i.texto} />
+                <span class="filtro">{i.texto}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </form>
+
+      {/* A consulta como o índice a recebe. Não tem aria-live de
+          propósito: relida a cada tecla, ela viraria ruído para quem
+          ouve. Quem depende do leitor de tela recebe a nota de acento
+          pelo aria-describedby do campo, uma vez, no foco. */}
+      <aside class="bloco leitura">
+        <p class="titulo-bloco">como a busca lê</p>
+
+        {/* Só o que vira exigência entra na fila. A palavra comum não
+            some da tela: ela desce pra linha de descarte logo abaixo,
+            com o nome dela, porque sumir sem explicação faria a pessoa
+            achar que a tela não a viu. */}
+        <div class="consulta-lida">
+          <div class="lexemas" id="lexemas" data-vazio={consulta.exigidas.length ? 'nao' : 'sim'}>
+            {consulta.exigidas.length > 0
+              ? consulta.exigidas.map((p, i) => (
+                  <>
+                    {i > 0 && <span class="junta">e</span>}
+                    <span class="lexema novo" style={`--i:${i}`}>{p}</span>
+                  </>
+                ))
+              : (
+                  <span class="lexema fantasma">
+                    {consulta.descartadas.length > 0
+                      ? 'nada sobrou'
+                      : 'sua palavra aparece aqui'}
+                  </span>
+                )}
+          </div>
+
+          <p class="exige" id="exige">{fraseDaExigencia(consulta)}</p>
+
+          <p class="descartadas" id="descartadas" hidden={consulta.descartadas.length === 0}>
+            <span class="rotulo-linha">descartadas</span>
+            <span class="fora" id="fora">
+              {consulta.descartadas.map((p) => (
+                <span class="lexema comum">{p}</span>
+              ))}
+            </span>
+          </p>
+        </div>
+
+        <div class="linha">
+          <span class="rotulo-linha">dicionário</span>
+          <b id="leitura-idioma">{nomeDoIdioma}</b>
+        </div>
+        <div class="linha">
+          <span class="rotulo-linha">recorte</span>
+          <b id="leitura-lab">{recorte}</b>
+        </div>
+        <div class="linha">
+          <span class="rotulo-linha">peso</span>
+          <b>título › resumo › corpo</b>
+        </div>
+
+        <p class="nota-acento" id="nota-acento">
+          {nota.map((t) => (t.forte ? <b>{t.t}</b> : t.t))}
         </p>
-      </div>
 
-      <div class="filtros">
-        <div class="grupo" role="group" aria-labelledby="rotulo-lab">
-          <span class="rotulo" id="rotulo-lab">laboratório</span>
-          <label class="opcao">
-            <input type="radio" name="lab" value="" checked={labEscolhido === ''} />
-            <span class="filtro">todos</span>
-          </label>
-          {labs.map((l) => (
-            <label class="opcao">
-              <input type="radio" name="lab" value={l.slug} checked={labEscolhido === l.slug} />
-              <span class="filtro">
-                <span class="swatch" style={`background: var(--color-${l.slug})`}></span>
-                {nomeCurtoDoLab(l.name)}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div class="filtros" style="padding-top:0">
-        <div class="grupo" role="group" aria-labelledby="rotulo-idioma">
-          <span class="rotulo" id="rotulo-idioma">idioma</span>
-          {IDIOMAS.map((i) => (
-            <label class="opcao">
-              <input type="radio" name="locale" value={i.valor} checked={idioma === i.valor} />
-              <span class="filtro">{i.texto}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </form>
+        <p class="nota-radical" id="nota-radical">
+          {radical.map((t) => (t.forte ? <b>{t.t}</b> : t.t))}
+        </p>
+      </aside>
+    </div>
 
     {caiu && (
       <p class="aviso-api">
@@ -247,7 +385,7 @@ const textoVazio = caiu
     )}
 
     {!buscou ? (
-      <div class="convite vem">
+      <div class="cartao convite vem">
         <p class="titulo-bloco">por onde começar</p>
         <p class="texto-convite">
           Escreva uma palavra do problema, não o nome de um projeto. Quem
@@ -255,15 +393,19 @@ const textoVazio = caiu
         </p>
         {populares.length > 0 ? (
           <>
-            {/* sem contagem: o número que /tags devolve inclui rascunho e
-                arquivada, então prometeria ideias que a tag não entrega */}
+            {/* sem número: o usageCount que /tags devolve inclui rascunho e
+                arquivada, então prometeria ideias que a tag não entrega. O
+                uso aparece como peso, que é comparação e não promessa —
+                mesmo cálculo de /tags, pra tag não mudar de peso entre as
+                duas telas. */}
             <div class="nuvem-tags">
               {populares.map((t) => (
-                <a class="tag" href={`/tags/${t.slug}`}>{t.name}</a>
+                <a class="tag" href={`/tags/${t.slug}`}
+                  data-peso={nivelDeUso(t.usageCount, maiorUso)}>{t.name}</a>
               ))}
             </div>
             <p class="saida">
-              <a href="/tags">ver todas as tags</a>
+              as mais usadas primeiro · <a href="/tags">ver todas as tags</a>
             </p>
           </>
         ) : (
@@ -279,22 +421,48 @@ const textoVazio = caiu
       <>
         <p class="contagem">
           {total} {total === 1 ? 'ideia encontrada' : 'ideias encontradas'}
-          {nomeDoLab && `em ${nomeCurtoDoLab(nomeDoLab.name)}`}
-          {idioma === 'en' && 'em inglês'}
-          {total > achados.length && `· mostrando as ${achados.length} mais próximas`}
+          {nomeDoLab && ` em ${nomeCurtoDoLab(nomeDoLab.name)}`}
+          {idioma === 'en' && ' em inglês'}
+          {total > achados.length && ` · mostrando ${achados.length}`}
+          {' · mais próximas da consulta primeiro, não mais recentes'}
         </p>
         <div class="grade">
           {achados.map((a) => <CartaoIdeia rfc={paraCartao(a)} />)}
         </div>
       </>
-    ) : (
+    ) : caiu || recusada ? (
       <Vazio
         falha={caiu}
-        titulo={tituloVazio}
-        texto={textoVazio}
-        acaoHref={caiu ? undefined : '/rfcs'}
-        acaoTexto={caiu ? undefined : 'ver todas as ideias'}
+        titulo={caiu ? 'O servidor não respondeu' : 'A consulta não foi aceita'}
+        texto={caiu
+          ? 'Assim que a API voltar, o resultado aparece aqui.'
+          : 'A busca não chegou a rodar. Encurte o termo e tente de novo.'}
       />
+    ) : (
+      /* Vazio.astro não recebe filho, e este caso precisa carregar a
+         oferta com a palavra do acervo. Mesmas classes, então continua
+         sendo o mesmo objeto na tela. */
+      <div class="vazio sem-achado vem">
+        <p class="mono rotulo">a busca rodou e voltou vazia</p>
+        <h3>Nada encontrado para <span class="mono termo">{termo}</span></h3>
+        <p class="texto">{textoVazio}</p>
+
+        {sugestao && (
+          <a class="oferta" href={enderecoDaBusca(sugestao.termo)}>
+            <span class="mono r">esta palavra existe no acervo, com acento</span>
+            <span class="troca">
+              <span class="de">{termo.toLowerCase()}</span>
+              <span class="seta" aria-hidden="true">→</span>
+              <span class="para">{sugestao.termo}</span>
+            </span>
+            <span class="mono conta">
+              {sugestao.total} {sugestao.total === 1 ? 'ideia' : 'ideias'} — buscar assim
+            </span>
+          </a>
+        )}
+
+        <a class="botao leve" href="/rfcs">ver todas as ideias</a>
+      </div>
     )}
 
     <Rodape />
@@ -302,9 +470,27 @@ const textoVazio = caiu
 </Layout>
 
 <style>
-  .forma-busca { margin-bottom: 6px; }
-  .forma-busca .campo { max-width: 620px; }
-  .forma-busca .ajuda b { font-weight: 460; color: var(--t-75); }
+  .rotulo-pagina {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--t-35);
+  }
+
+  /* o campo opera, a leitura acompanha: coluna estreita e sem sombra
+     mais alta que a do resultado */
+  .oficina {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 292px;
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 920px) {
+    .oficina { grid-template-columns: 1fr; }
+  }
+
+  .forma-busca .campo { max-width: 620px; margin-bottom: 20px; }
 
   /* Pílula de filtro como radio: sem JavaScript o formulário continua
      aplicável pelo botão "buscar", que é o requisito de link
@@ -318,20 +504,297 @@ const textoVazio = caiu
   }
   .opcao input:focus-visible + .filtro { outline: 2px solid var(--t-75); outline-offset: 3px; }
 
-  .convite {
-    background: var(--cartao);
-    border-radius: var(--r-fora);
-    box-shadow: var(--sombra);
-    padding: 26px 28px 28px;
+  /* --- a consulta montada ---
+     Superfície rebaixada e sem sombra, como a trilha do átrio: o que
+     flutua é o resultado, e a leitura acompanha o campo. Um cartão
+     branco aqui competiria com as ideias logo abaixo. */
+  .leitura {
+    padding: 18px 20px 20px;
+    background: var(--rebaixo);
+    box-shadow: none;
   }
+
+  .lexemas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    min-height: 24px;
+    margin-bottom: 9px;
+  }
+  .lexema {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: var(--r-pilula);
+    background: var(--cartao);
+    color: var(--t-100);
+    white-space: nowrap;
+  }
+  .lexema.fantasma {
+    background: transparent;
+    border: 1px dashed var(--t-12);
+    padding: 3px 9px;
+    color: var(--t-35);
+  }
+  /* a palavra descartada tem a forma da exigida e o corpo esvaziado:
+     é a mesma peça, sem peso nenhum no índice */
+  .lexema.comum {
+    background: transparent;
+    border: 1px solid var(--t-07);
+    padding: 3px 9px;
+    color: var(--t-35);
+  }
+  .junta { font-size: 11px; color: var(--t-35); }
+
+  /* o que a consulta virou fica num bloco só, e o corte vem depois
+     dele: a linha de descarte entra e sai conforme a pessoa escreve, e
+     um corte preso nela apareceria e sumiria junto */
+  .consulta-lida {
+    margin-bottom: 15px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--t-07);
+  }
+
+  .exige { margin: 0; font-size: 12.5px; color: var(--t-50); }
+  .lexemas[data-vazio="sim"] + .exige { color: var(--t-35); }
+
+  .descartadas {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 11px 0 0;
+  }
+  .descartadas[hidden] { display: none; }
+  .descartadas .fora { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .leitura .linha { padding: 4px 0; font-size: 12.5px; }
+  .leitura .rotulo-linha {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--t-35);
+    flex-shrink: 0;
+  }
+  .leitura .linha b { text-align: right; }
+
+  .nota-acento {
+    margin: 15px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--t-07);
+    font-size: 12.5px;
+    color: var(--t-65);
+  }
+  .nota-acento b {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--t-100);
+  }
+  .nota-radical { margin: 10px 0 0; font-size: 12.5px; color: var(--t-50); }
+  .nota-radical b {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--t-75);
+    margin: 0 1px;
+  }
+
+  /* --- convite: primeira visita --- */
+  .convite { padding: 26px 28px 28px; }
   .texto-convite { margin: 0 0 20px; color: var(--t-65); max-width: 52ch; font-size: 14.5px; }
-  .saida { margin: 16px 0 0; font-size: 13px; }
+  .saida { margin: 16px 0 0; font-size: 13px; color: var(--t-35); }
   .saida a { color: var(--t-50); text-decoration: none; }
   .saida a:hover { color: var(--t-90); }
+
+  /* peso da tag = uso, igual em /tags. Vem de tinta e superfície, com
+     um único passo de tamanho: nuvem de tag dos anos 2000 deixa a
+     palavra ilegível pra dizer pouco, e a mono só fecha a grade em
+     corpo inteiro. Duplicado da outra tela porque a global.css é
+     território compartilhado. */
+  .tag[data-peso="3"] { background: var(--t-12); color: var(--t-100); font-size: 12px; }
+  .tag[data-peso="2"] { background: var(--t-07); color: var(--t-90); }
+  .tag[data-peso="1"] {
+    background: transparent;
+    border: 1px solid var(--t-07);
+    padding: 3px 9px;
+    color: var(--t-65);
+  }
+  .tag[data-peso="0"] {
+    background: transparent;
+    border: 1px dashed var(--t-12);
+    padding: 3px 9px;
+    color: var(--t-35);
+  }
+  /* O seletor de atributo, escopado pelo Astro, pesa mais que o
+     `.tag:hover` da global.css e apagaria o hover de toda tag com peso
+     — a nuvem inteira deixaria de se comportar como link. O hover volta
+     na mesma altura, depois dos pesos, e invertido: sob o ponteiro a
+     palavra para de dizer quanto é usada e passa a dizer que se clica. */
+  .tag[data-peso]:hover {
+    background: var(--t-100);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  /* --- não achou --- */
+  .sem-achado .termo { font-size: 18px; color: var(--t-90); }
+  .sem-achado .texto { margin-bottom: 20px; }
+
+  /* a oferta é o objeto: a troca de palavra e o que ela devolve */
+  .oferta {
+    display: flex;
+    width: fit-content;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    margin: 0 auto 22px;
+    padding: 16px 26px 18px;
+    border-radius: var(--r-dentro);
+    background: var(--rebaixo);
+    text-decoration: none;
+    color: inherit;
+    transition: background 220ms var(--ease), transform 220ms var(--ease);
+  }
+  .oferta:hover { background: var(--t-07); transform: translateY(-2px); }
+  .oferta .r { font-size: 10px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--t-35); }
+  .oferta .troca {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .oferta .de { color: var(--t-35); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .oferta .seta { color: var(--t-35); }
+  .oferta .para {
+    color: var(--t-100);
+    background: var(--color-saude);
+    padding: 3px 10px;
+    border-radius: var(--r-pilula);
+  }
+  .oferta .conta { font-size: 11px; color: var(--t-65); }
+
+  /* uma animação, nomeada: a palavra assenta no lugar dela.
+     Só a palavra recém-nascida anima. Animar todas a cada tecla faria
+     a leitura inteira piscar enquanto a pessoa escreve, que é o
+     contrário de acompanhar. */
+  @keyframes lexema-assenta {
+    from { opacity: 0; transform: translateY(3px); filter: blur(2px); }
+    to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  .lexema.novo {
+    animation: lexema-assenta 260ms var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lexema.novo { animation: none; }
+    .oferta:hover { transform: none; }
+  }
 </style>
 
 <script>
+  import {
+    fraseDaExigencia, lerConsulta, notaDeAcento, notaDoRadical,
+    type Idioma, type Trecho,
+  } from '../lib/leitura-busca';
+
   document.addEventListener('astro:page-load', () => {
+    const forma = document.querySelector<HTMLFormElement>('.forma-busca');
+
+    /* ---------- a leitura se remonta a cada tecla ----------
+       Mesmas funções que o servidor usou pra montar o HTML inicial,
+       importadas do mesmo módulo. Se divergissem, a leitura mentiria
+       enquanto a pessoa digita e só acertaria depois de enviar. */
+    function ligarLeitura() {
+      const campo = document.querySelector<HTMLInputElement>('#q');
+      const caixa = document.querySelector<HTMLElement>('#lexemas');
+      const exige = document.querySelector<HTMLElement>('#exige');
+      const descartadas = document.querySelector<HTMLElement>('#descartadas');
+      const fora = document.querySelector<HTMLElement>('#fora');
+      const nota = document.querySelector<HTMLElement>('#nota-acento');
+      const radical = document.querySelector<HTMLElement>('#nota-radical');
+      if (!campo || !caixa || !exige || !descartadas || !fora || !nota || !radical) return;
+
+      /* O dicionário escolhido decide quais palavras são descartadas e
+         quais exemplos as notas usam, então a leitura precisa do rádio
+         marcado agora, não do que veio na querystring. */
+      const idiomaAtual = (): Idioma =>
+        forma?.querySelector<HTMLInputElement>('input[name="locale"]:checked')?.value === 'en'
+          ? 'en'
+          : 'pt-BR';
+
+      const emTrechos = (trechos: Trecho[]) =>
+        trechos.map((trecho) => {
+          if (!trecho.forte) return document.createTextNode(trecho.t);
+          const forte = document.createElement('b');
+          forte.textContent = trecho.t;
+          return forte;
+        });
+
+      const pilula = (classe: string, texto: string) => {
+        const span = document.createElement('span');
+        span.className = classe;
+        span.textContent = texto;
+        return span;
+      };
+
+      /* Quantas palavras já estavam na tela. Só o que passa desta conta
+         nasce com a classe que anima. */
+      let quantasAntes = lerConsulta(campo.value, idiomaAtual()).exigidas.length;
+
+      const remontar = () => {
+        const idioma = idiomaAtual();
+        const consulta = lerConsulta(campo.value, idioma);
+
+        caixa.dataset.vazio = consulta.exigidas.length ? 'nao' : 'sim';
+        caixa.replaceChildren(
+          ...(consulta.exigidas.length
+            ? consulta.exigidas.flatMap((p, i) => {
+                const lexema = pilula(i >= quantasAntes ? 'lexema novo' : 'lexema', p);
+                lexema.style.setProperty('--i', '0');
+                if (i === 0) return [lexema];
+                return [pilula('junta', 'e'), lexema];
+              })
+            : [pilula(
+                'lexema fantasma',
+                consulta.descartadas.length ? 'nada sobrou' : 'sua palavra aparece aqui',
+              )]),
+        );
+        quantasAntes = consulta.exigidas.length;
+
+        exige.textContent = fraseDaExigencia(consulta);
+
+        descartadas.hidden = consulta.descartadas.length === 0;
+        fora.replaceChildren(...consulta.descartadas.map((p) => pilula('lexema comum', p)));
+
+        nota.replaceChildren(...emTrechos(notaDeAcento(campo.value, idioma)));
+        radical.replaceChildren(...emTrechos(notaDoRadical(idioma)));
+      };
+
+      campo.addEventListener('input', remontar);
+
+      /* O rádio recarrega a página no clique, mas a seta do teclado só
+         marca a opção. Sem isto, quem percorre os labs pelo teclado
+         veria a leitura falando do recorte anterior. */
+      if (forma) {
+        for (const radio of forma.querySelectorAll<HTMLInputElement>('.opcao input')) {
+          radio.addEventListener('change', () => {
+            const alvo = radio.name === 'locale' ? '#leitura-idioma' : '#leitura-lab';
+            const destino = document.querySelector<HTMLElement>(alvo);
+            if (destino && radio.dataset.leitura) destino.textContent = radio.dataset.leitura;
+            /* Trocar de dicionário troca o que é palavra comum e os
+               exemplos das notas. Sem remontar, a coluna descreveria o
+               índice anterior. */
+            if (radio.name === 'locale') remontar();
+          });
+        }
+      }
+    }
+
     /* Trocar o laboratório ou o idioma reenvia na hora. É melhoria
        progressiva: sem isso o botão "buscar" faz o mesmo.
 
@@ -340,7 +803,6 @@ const textoVazio = caiu
        a página a cada tecla e jogaria o foco pro topo — quem navega por
        teclado nunca chegaria no sexto lab. `detail` vem 0 no clique
        sintético do teclado; nesse caminho o "buscar" é quem envia. */
-    const forma = document.querySelector<HTMLFormElement>('.forma-busca');
     if (forma) {
       for (const radio of forma.querySelectorAll<HTMLInputElement>('.opcao input')) {
         radio.addEventListener('click', (e) => {
@@ -348,6 +810,8 @@ const textoVazio = caiu
         });
       }
     }
+
+    ligarLeitura();
 
     const olho = new IntersectionObserver((es) => {
       for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }

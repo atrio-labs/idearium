@@ -6,17 +6,35 @@
    nasce no momento em que alguém escreve POST /rfcs/:id/tags. Uma
    lista congelada em build ficaria desatualizada no primeiro uso.
 
-   A tag aparece sem número. O `usageCount` que /tags devolve conta toda
-   RFC ligada à tag, inclusive rascunho e arquivada, enquanto /tags/:slug
-   só lista as públicas: o número prometeria ideias que o link não
-   entrega. Enquanto as duas contas não vierem da mesma condição, é mais
-   honesto não exibir nenhuma. A ordem da lista continua sendo por uso.
+   ----------------------------------------------------------------
+   DESENHO: a tela mostra a consequência do ato
+   ----------------------------------------------------------------
+   O ato é navegar por vocabulário. A consequência é que este
+   vocabulário não foi decidido por ninguém: ele é o resíduo do que as
+   pessoas escreveram. A tela precisa deixar isso legível, e o jeito
+   de mostrar em vez de afirmar é o PESO — quanto mais ideias a tag
+   marca, mais tinta ela tem. O que se lê não é uma lista alfabética
+   de rótulos aprovados: é uma superfície irregular, e a irregularidade
+   é o uso.
+
+   O peso vem de tinta e superfície, com um único passo de tamanho.
+   Nuvem de tag dos anos 2000 aumentava a fonte até a palavra virar
+   ilustração ilegível, e a mono só fecha a grade em corpo inteiro.
+
+   A tag continua aparecendo SEM NÚMERO. O `usageCount` que /tags
+   devolve conta toda RFC ligada à tag, inclusive rascunho e
+   arquivada, enquanto /tags/:slug só lista as públicas: o número
+   prometeria ideias que o link não entrega. Peso é comparação, não
+   promessa — por isso ele pode usar a mesma contagem que o número não
+   pode. A conta honrada aparece em /tags/:slug, onde as duas
+   contagens existem lado a lado e podem ser reconciliadas.
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import type { Pagina } from '../../lib/api';
+import { nivelDeUso } from '../../lib/peso-tag';
 
 /* A api.ts ainda não expõe /tags — ela é de outro agente e está sendo
    editada em paralelo. Até lá a chamada mora aqui, com o mesmo
@@ -54,6 +72,12 @@ try {
 } catch {
   caiu = true;
 }
+
+/* A lista chega ordenada por uso decrescente, então a primeira é o
+   topo da escala. O peso é relativo a ela: o acervo é novo e "marca
+   duas ideias" é o máximo que existe hoje. */
+const maiorUso = tags[0]?.usageCount ?? 0;
+const temOrfas = tags.some((t) => t.usageCount === 0);
 ---
 
 <Layout
@@ -68,9 +92,7 @@ try {
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
     <header class="cabecalho-pagina">
-      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        tags
-      </span>
+      <span class="mono rotulo-pagina">tags</span>
       <h1>Recortes que <span class="serif">atravessam</span> os labs.</h1>
       <p class="sub">
         Uma tag junta ideias de laboratórios diferentes que tratam da mesma
@@ -89,15 +111,36 @@ try {
       <>
         <p class="contagem">
           {total} {total === 1 ? 'tag' : 'tags'}
-          {total > tags.length && `· mostrando as ${tags.length} mais usadas`}
+          {total > tags.length && ` · mostrando as ${tags.length} mais usadas`}
         </p>
 
         <div class="cartao painel-tags vem">
+          <p class="origem">
+            Ninguém escolheu esta lista. Cada palavra entrou junto com uma
+            ideia, escrita por quem a propôs.
+          </p>
+
           <div class="nuvem-tags">
-            {tags.map((t) => (
-              <a class="tag" href={`/tags/${t.slug}`}>{t.name}</a>
+            {tags.map((t, i) => (
+              <a
+                class="tag"
+                href={`/tags/${t.slug}`}
+                data-peso={nivelDeUso(t.usageCount, maiorUso)}
+                style={`--i:${Math.min(i, 24)}`}
+              >{t.name}</a>
             ))}
           </div>
+
+          {/* A tinta mede o que o servidor conta, e o servidor conta
+              rascunho e arquivada. Dizer isso aqui é mais barato que
+              deixar a pessoa descobrir clicando numa palavra escura e
+              caindo numa página vazia. */}
+          <p class="escala">
+            Da mais usada para a menos usada. A tinta mede quantas ideias
+            usam a palavra, contando também rascunho e arquivada — que não
+            abrem na página da tag.
+            {temOrfas && ' As de contorno pontilhado não são usadas por ideia nenhuma.'}
+          </p>
         </div>
       </>
     ) : (
@@ -117,8 +160,82 @@ try {
 </Layout>
 
 <style>
-  .painel-tags { padding: 24px 26px 26px; }
-  .painel-tags .nuvem-tags { gap: 8px; }
+  .rotulo-pagina {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--t-35);
+  }
+
+  .painel-tags { padding: 22px 26px 24px; }
+
+  .origem {
+    margin: 0 0 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--t-07);
+    font-size: 13.5px;
+    color: var(--t-65);
+    max-width: 54ch;
+  }
+
+  /* linha de base maior: com pesos diferentes na mesma linha, o gap
+     apertado faz a palavra pesada parecer colada na leve */
+  .painel-tags .nuvem-tags { gap: 8px; align-items: center; }
+
+  .escala {
+    margin: 20px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--t-07);
+    font-size: 12.5px;
+    color: var(--t-35);
+    max-width: 60ch;
+  }
+
+  /* peso da tag = uso. Vem de tinta e superfície, com um único passo
+     de tamanho: a mono só fecha a grade do pixel em corpo inteiro, e
+     palavra ampliada até virar desenho deixa de ser navegável.
+     O mesmo bloco existe em /buscar, onde as tags reaparecem — a
+     global.css é território compartilhado e não recebe CSS de tela. */
+  .tag[data-peso="3"] { background: var(--t-12); color: var(--t-100); font-size: 12px; }
+  .tag[data-peso="2"] { background: var(--t-07); color: var(--t-90); }
+  .tag[data-peso="1"] {
+    background: transparent;
+    border: 1px solid var(--t-07);
+    padding: 3px 9px;
+    color: var(--t-65);
+  }
+  .tag[data-peso="0"] {
+    background: transparent;
+    border: 1px dashed var(--t-12);
+    padding: 3px 9px;
+    color: var(--t-35);
+  }
+  /* O seletor de atributo, escopado pelo Astro, pesa mais que o
+     `.tag:hover` da global.css e apagaria o hover de toda tag com peso
+     — a nuvem inteira deixaria de se comportar como link. O hover volta
+     na mesma altura, depois dos pesos, e invertido: sob o ponteiro a
+     palavra para de dizer quanto é usada e passa a dizer que se clica. */
+  .tag[data-peso]:hover {
+    background: var(--t-100);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  /* uma animação, nomeada: o vocabulário aparece na ordem em que é
+     usado, da mais pesada para a mais leve. É a única coisa na tela
+     que diz "isto emergiu" em vez de escrever. */
+  @keyframes tag-emerge {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .painel-tags.veio .tag {
+    animation: tag-emerge 380ms var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 22ms + 120ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .painel-tags.veio .tag { animation: none; }
+  }
 </style>
 
 <script>

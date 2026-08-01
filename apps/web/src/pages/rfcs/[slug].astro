@@ -6,6 +6,33 @@
    ideia, esta tela é onde alguém entra pra construir, sai, e discute.
    Toda ação é POST no próprio arquivo seguido de redirect: sem API
    client-side, sem token no browser, e recarregar não repete o envio.
+
+   ----------------------------------------------------------------
+   DESENHO: a tela mostra a consequência do ato
+   ----------------------------------------------------------------
+   São três atos aqui, e nenhum deles é preenchível: são um clique e um
+   parágrafo. O que essa tela precisa dizer não é "confira antes de
+   enviar", é o que cada ato PRODUZ — e ela diz mexendo no material de
+   verdade, não numa maquete ao lado.
+
+     inscrever-se  seu círculo entra na fila real de quem constrói, e o
+                   chip da ideia se mostra prestes a virar. Confirmado,
+                   a página volta e o chip faz o swap com blur do átrio
+                   — agora com dado real, não demonstração.
+     sair          seu círculo esmaece e deixa a fila de quem constrói,
+                   e o chip volta pra "em discussão" se você for o
+                   último. A prévia PARA AQUI de propósito: a API ainda
+                   não devolve quem saiu (GET /enrollments filtra
+                   leftAt: null), então mostrar o círculo migrando pra
+                   "passaram por aqui" seria prometer o que o sistema
+                   não faz — prévia que mente é pior que prévia nenhuma.
+     comentar      o campo É o comentário: mesma classe, mesma cabeça,
+                   no fim da mesma lista. Vazio, é superfície rebaixada;
+                   com texto, firma em cartão.
+
+   Nada aqui espelha texto de terceiro pra outro nó: o comentário se
+   mostra no próprio campo. É por isso que o preview ao vivo desta tela
+   não tem nem como injetar HTML.
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
@@ -215,6 +242,40 @@ const aberta = rfc.status !== 'DRAFT' && rfc.status !== 'ARCHIVED';
    Deixar o campo na tela seria oferecer um caminho que nunca dá certo. */
 const discussaoAberta = rfc.status !== 'ARCHIVED';
 
+/* ---------------- o que cada ato vai causar ----------------
+   Esta tela mostra a consequência do ato enquanto o ato acontece, então
+   ela precisa prever o que o servidor vai decidir. O cálculo abaixo
+   espelha recomputeRfcStatus da API: só inscrição de BUILDER conta, e
+   estado terminal (publicada, arquivada) não se mexe. É o único ponto
+   da tela que depende de uma regra do backend — se ela mudar lá, a
+   previsão daqui mente. */
+const construtores = ativos.filter((i) => i.role === 'BUILDER');
+
+/* Quem saiu vem da mesma leitura de inscrições. Hoje a API filtra
+   leftAt: null e esta lista chega sempre vazia, então o bloco não
+   renderiza — e é por isso que a prévia de sair não promete migração
+   pra cá. Quando o backend devolver as encerradas, o bloco aparece
+   sozinho, sem mudar nada aqui. */
+const quemSaiu = inscricoes.filter((i) => i.leftAt != null);
+
+const podeEntrar = aberta && usuario != null && !inscrito;
+const podeSair = aberta && inscrito;
+
+/* Sair só devolve a ideia pra "em discussão" se eu for o último
+   construtor: com mais gente dentro, o chip nem pisca. */
+const souUltimoConstrutor =
+  usuario != null && construtores.length === 1 && construtores[0].user.id === usuario.id;
+
+const estadoPrevisto = podeEntrar && rfc.status === 'IN_DISCUSSION'
+  ? 'IN_BUILDING'
+  : podeSair && rfc.status === 'IN_BUILDING' && souUltimoConstrutor
+    ? 'IN_DISCUSSION'
+    : null;
+
+/* A cara de alguém na tela são duas letras do @ — é o que o VISAO §5.3
+   permite mostrar de uma identidade pseudônima. */
+const iniciais = (nome: string) => nome.slice(0, 2).toUpperCase();
+
 /* Editar acontece no lugar do texto, e o modo de edição vive na
    querystring: sem isso a tela precisaria de estado no cliente pra uma
    coisa que o servidor já sabe renderizar. */
@@ -303,7 +364,11 @@ const corpoHtml = paraHtml(rfc.body);
 ---
 
 <Layout title={`${codigoRfc(rfc.number)} · ${rfc.title}`} description={rfc.summary}>
-  <div class="palco">
+  {/* data-previa é o interruptor da vitrine: o botão de participação o
+      liga, e daqui pra baixo cada peça que vai mudar se mostra mudando.
+      Fica no palco porque o chip está no cabeçalho e os círculos na
+      coluna lateral — precisa de um ancestral comum aos dois. */}
+  <div class="palco" id="palco" data-previa="nao">
     <Nav atual="rfcs" />
 
     <header class="cabecalho-pagina">
@@ -316,9 +381,22 @@ const corpoHtml = paraHtml(rfc.body);
         >
           <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeCurtoDoLab(rfc.lab.name)}
         </a>
-        {rfc.status === 'IN_DISCUSSION'
-          ? <span class="chip vivo"><span class="ponto"></span>{statusLabel[rfc.status]}</span>
-          : <span class="chip">{statusLabel[rfc.status]}</span>}
+        {/* O chip é o mesmo objeto antes e depois do ato: o ponto vive
+            sempre no markup e só aparece em "em discussão", pra troca de
+            estado não precisar criar nem destruir nó. */}
+        <span
+          class:list={['chip', rfc.status === 'IN_DISCUSSION' && 'vivo']}
+          id="chip-estado"
+          data-estado={rfc.status}
+        >
+          <span class="ponto"></span><span class="rotulo-estado">{statusLabel[rfc.status]}</span>
+        </span>
+        {estadoPrevisto && (
+          <span class="virando" id="chip-virando" aria-hidden="true">
+            <span class="seta">&rarr;</span>
+            <span class="chip">{statusLabel[estadoPrevisto]}</span>
+          </span>
+        )}
         <span class="codigo">{codigoRfc(rfc.number)}</span>
       </div>
       <h1>{rfc.title}</h1>
@@ -371,6 +449,9 @@ const corpoHtml = paraHtml(rfc.body);
             return (
               <div class:list={['comentario', c.isDeleted && 'removido']} id={`c-${c.id}`}>
                 <div class="cabeca">
+                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`} aria-hidden="true">
+                    {iniciais(c.author.username)}
+                  </span>
                   <a href={`/users/${c.author.username}`}>@{c.author.username}</a>
                   <span class="quando">{haQuantoTempo(c.createdAt)}</span>
                   {c.isEdited && <span class="quando">· editado</span>}
@@ -440,31 +521,50 @@ const corpoHtml = paraHtml(rfc.body);
               Ideia arquivada: a discussão fica pra leitura e não recebe comentário novo.
             </p>
           ) : usuario ? (
-            <form class="novo-comentario" method="post">
+            /* O campo de escrever É o comentário: mesma classe, mesma
+               cabeça, mesmo corpo, no fim da mesma lista. Enquanto está
+               vazio ele é uma superfície rebaixada; ao receber texto,
+               firma em cartão. Não há nó espelho copiando o que você
+               digita — logo não há como o preview divergir do resultado,
+               nem como texto de terceiro virar HTML. */
+            <form
+              class:list={['comentario', 'novo-comentario', 'nascendo', erroNovoComentario && 'com-erro']}
+              id="comentario-nascendo"
+              method="post"
+              data-escrito="nao"
+            >
               <input type="hidden" name="acao" value="comentar" />
+              <div class="cabeca">
+                <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`} aria-hidden="true">
+                  {iniciais(usuario.username)}
+                </span>
+                <span class="quem">@{usuario.username}</span>
+                {/* "hoje" é o que haQuantoTempo devolve pra um comentário
+                    recém-publicado: a prévia diz a data que vai aparecer. */}
+                <span class="quando">hoje</span>
+              </div>
               {erroNovoComentario && (
                 <p class="aviso-erro" role="alert" id="erro-novo-comentario">{erroNovoComentario}</p>
               )}
-              <div class:list={['campo', erroNovoComentario && 'com-erro']} style="margin-bottom:0">
-                <label class="rotulo" for="novo-comentario">escrever na discussão</label>
-                <textarea
-                  class="entrada"
-                  id="novo-comentario"
-                  name="corpo"
-                  required
-                  maxlength="5000"
-                  placeholder="o que ainda falta pra isso sair do papel?"
-                  aria-describedby={erroNovoComentario
-                    ? 'erro-novo-comentario ajuda-novo-comentario'
-                    : 'ajuda-novo-comentario'}
-                  aria-invalid={erroNovoComentario ? 'true' : undefined}
-                >{textoNovoFalha ?? ''}</textarea>
+              <label class="so-leitor" for="novo-comentario">escrever na discussão</label>
+              <textarea
+                class="entrada corpo-nascendo"
+                id="novo-comentario"
+                name="corpo"
+                rows="3"
+                required
+                maxlength="5000"
+                placeholder="o que ainda falta pra isso sair do papel?"
+                aria-describedby={erroNovoComentario
+                  ? 'erro-novo-comentario ajuda-novo-comentario'
+                  : 'ajuda-novo-comentario'}
+                aria-invalid={erroNovoComentario ? 'true' : undefined}
+              >{textoNovoFalha ?? ''}</textarea>
+              <div class="pe-nascendo">
                 <span class="ajuda" id="ajuda-novo-comentario">
                   Comentário é público e fica no histórico. Editar marca "editado";
                   remover deixa "[removido]" no lugar do texto.
                 </span>
-              </div>
-              <div class="acoes-edicao">
                 <button class="botao" type="submit">comentar</button>
               </div>
             </form>
@@ -500,18 +600,18 @@ const corpoHtml = paraHtml(rfc.body);
           ) : !usuario ? (
             <a class="botao" href={paraEntrar}>quero construir</a>
           ) : inscrito ? (
-            <form method="post">
+            <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="sair-da-ideia" />
-              <button class="botao perigo" type="submit">sair desta ideia</button>
+              <button class="botao perigo" type="submit" data-previa-de="sair">sair desta ideia</button>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
                 Sair tira seu nome de quem está construindo, e a discussão que você
                 escreveu continua onde está. Voltar depois é entrar de novo.
               </p>
             </form>
           ) : (
-            <form method="post">
+            <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="entrar-na-ideia" />
-              <button class="botao" type="submit">quero construir</button>
+              <button class="botao" type="submit" data-previa-de="entrar">quero construir</button>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
                 Sem aprovação e sem contrato. Sair depois também é um clique.
               </p>
@@ -519,14 +619,51 @@ const corpoHtml = paraHtml(rfc.body);
           )}
         </div>
 
-        {ativos.length > 0 && (
+        {(ativos.length > 0 || (podeEntrar && usuario)) && (
           <div class="bloco vem">
             <p class="titulo-bloco">construindo</p>
             <div class="lista-pessoas">
-              {ativos.map((i, n) => (
+              {ativos.map((i) => (
+                <a
+                  class:list={['pessoa', usuario?.id === i.user.id && 'sou-eu']}
+                  href={`/users/${i.user.username}`}
+                >
+                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                    {iniciais(i.user.username)}
+                  </span>
+                  @{i.user.username}
+                </a>
+              ))}
+              {/* A fila de quem constrói já mostra você no fim dela. Fica
+                  esmaecida enquanto é hipótese e firma quando o botão é
+                  apontado — no celular, onde não há hover, ela continua
+                  sendo a explicação do que o botão faz. */}
+              {podeEntrar && usuario && (
+                <span class="pessoa fantasma">
+                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                    {iniciais(usuario.username)}
+                  </span>
+                  @{usuario.username}
+                  <em class="nota">você, se entrar</em>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Só dado real: quem de fato saiu. Não há fantasma "você, se
+            sair" aqui porque a API não devolve inscrição encerrada — e
+            uma prévia que promete um bloco que nunca vai receber você
+            ensina errado. A consequência que a tela pode mostrar de
+            verdade é a de cima: seu círculo deixando a fila. */}
+        {quemSaiu.length > 0 && (
+          <div class="bloco vem">
+            <p class="titulo-bloco">passaram por aqui</p>
+            <div class="lista-pessoas">
+              {quemSaiu.map((i) => (
                 <a class="pessoa" href={`/users/${i.user.username}`}>
                   <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
-                    {i.user.username.slice(0, 2).toUpperCase()}
+                    {iniciais(i.user.username)}
                   </span>
                   @{i.user.username}
                 </a>
@@ -534,11 +671,6 @@ const corpoHtml = paraHtml(rfc.body);
             </div>
           </div>
         )}
-
-        {/* Não existe bloco "passaram por aqui": GET /rfcs/:id/enrollments
-            devolve só inscrição ativa (leftAt: null), então a lista de quem
-            saiu não chega até aqui. Prometer na microcopy o que a tela não
-            mostra é pior do que não prometer. */}
 
         <div class="bloco vem">
           <p class="titulo-bloco">histórico</p>
@@ -604,6 +736,169 @@ const corpoHtml = paraHtml(rfc.body);
     padding: 6px 0 2px;
   }
   .convite a { color: var(--t-90); margin-left: 6px; }
+
+  /* ================================================================
+     A CONSEQUÊNCIA DO ATO
+     ================================================================
+     Três atos nesta tela — entrar, sair, comentar — e cada um mostra
+     o que produz enquanto está sendo feito, no material de verdade:
+     o círculo entra na fila real, o chip real vira, o comentário é
+     escrito já com a forma que vai ter na thread.
+     ================================================================ */
+
+  /* --- o chip prestes a virar ---
+     Só existe quando o ato de fato muda o estado da ideia, e aí fica
+     sempre visível: apontar o botão é reforço, não é a única forma de
+     ver. Ficar escondido atrás de hover tirava metade da prévia de
+     quem usa toque, que é onde o botão de submit só recebe foco junto
+     com o envio. */
+  .virando {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    opacity: 0.55;
+    transition: opacity 200ms var(--ease);
+  }
+  .palco[data-previa="entrar"] .virando,
+  .palco[data-previa="sair"] .virando { opacity: 1; }
+  .virando .seta { font-size: 12px; color: var(--t-35); }
+  /* vazado: é o estado que ainda não é, não pode competir com o que é */
+  .virando .chip {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--t-12);
+    color: var(--t-50);
+  }
+
+  /* o ponto vive sempre no markup: a troca de estado move texto, não nó */
+  #chip-estado .ponto { display: none; }
+  #chip-estado.vivo .ponto { display: block; }
+
+  /* --- o círculo que ainda não é ---
+     Você já aparece na lista, esmaecido, antes de clicar. O contorno
+     tracejado é o que separa hipótese de fato sem precisar de legenda. */
+  @keyframes fantasma-firma {
+    from { opacity: 0.38; transform: translateY(-7px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pessoa.fantasma {
+    opacity: 0.38;
+    transition: opacity 260ms var(--ease);
+    /* @ comprido não pode espremer a nota nem vazar da coluna: quando
+       não cabe na linha, a nota desce */
+    flex-wrap: wrap;
+  }
+  .pessoa.fantasma .inicial { box-shadow: inset 0 0 0 1.5px var(--t-35); }
+  .pessoa.fantasma .nota {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-style: normal;
+    letter-spacing: 0.02em;
+    color: var(--t-35);
+    white-space: nowrap;
+  }
+  .palco[data-previa="entrar"] .pessoa.fantasma {
+    animation: fantasma-firma 320ms var(--ease) both;
+  }
+
+  /* saindo: seu círculo desce e esmaece até quase nada — é a fila
+     perdendo você, que é exatamente o que a API faz. Não há destino
+     desenhado porque não há destino publicado. */
+  .pessoa.sou-eu { transition: opacity 260ms var(--ease), transform 260ms var(--ease); }
+  .palco[data-previa="sair"] .pessoa.sou-eu {
+    opacity: 0.18;
+    transform: translateY(7px);
+  }
+
+  /* --- o comentário nascendo ---
+     Mesma caixa do .comentario, um passo antes de existir. */
+  .comentario .cabeca .inicial {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--t-90);
+    flex-shrink: 0;
+  }
+  .comentario.removido .cabeca .inicial { opacity: 0.4; }
+
+  @keyframes cara-aparece {
+    from { opacity: 0; transform: scale(0.84); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .nascendo {
+    background: var(--rebaixo);
+    box-shadow: none;
+    transition: background 260ms var(--ease), box-shadow 260ms var(--ease);
+  }
+  .nascendo .cabeca { opacity: 0.45; transition: opacity 260ms var(--ease); }
+  .nascendo .quem { color: var(--t-90); font-weight: 450; }
+  .nascendo:focus-within,
+  .nascendo[data-escrito="sim"] { background: var(--cartao); box-shadow: var(--sombra); }
+  .nascendo:focus-within .cabeca,
+  .nascendo[data-escrito="sim"] .cabeca { opacity: 1; }
+  /* o anel é o foco: o campo por dentro não tem moldura própria */
+  .nascendo:focus-within { box-shadow: 0 0 0 1.5px var(--t-35), var(--sombra); }
+  .nascendo.com-erro { box-shadow: 0 0 0 1.5px var(--t-75), var(--sombra); }
+  .nascendo[data-escrito="sim"] .cabeca .inicial {
+    animation: cara-aparece 320ms var(--ease) both;
+  }
+
+  /* o comentário publicado guarda as quebras de linha que você digitou.
+     Sem isto o navegador colapsa cada Enter num espaço só, e o texto
+     mudaria de forma e de altura ao sair do campo e entrar na thread —
+     a prévia estaria mentindo por uma tecla. Mora aqui, no escopo da
+     página, porque global.css é de outro agente. */
+  .comentario p { white-space: pre-wrap; }
+
+  /* o campo tem exatamente a métrica do .comentario p: o que você lê
+     enquanto escreve é o que a thread vai mostrar depois */
+  .nascendo textarea.corpo-nascendo {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    min-height: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--t-75);
+    resize: none;
+  }
+  .nascendo textarea.corpo-nascendo:hover,
+  .nascendo textarea.corpo-nascendo:focus { background: transparent; border-color: transparent; }
+
+  .pe-nascendo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 13px;
+    border-top: 1px solid var(--t-07);
+  }
+  .pe-nascendo .ajuda { flex: 1; min-width: 190px; font-size: 12px; color: var(--t-50); }
+
+  /* o rótulo do campo continua existindo pra quem navega por leitor de
+     tela; na tela quem nomeia o campo é a cabeça do comentário */
+  .so-leitor {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .palco[data-previa="entrar"] .pessoa.fantasma,
+    .nascendo[data-escrito="sim"] .cabeca .inicial { animation: none; }
+    .palco[data-previa="entrar"] .pessoa.fantasma { opacity: 1; }
+  }
 </style>
 
 <script>
@@ -631,8 +926,127 @@ const corpoHtml = paraHtml(rfc.body);
     });
   }
 
+  /* ---------- a prévia do ato ----------
+     Apontar o botão liga o estado no palco; o CSS faz o resto. Só
+     vitrine: nada aqui envia, grava ou decide. */
+  function ligarPrevia() {
+    const palco = document.getElementById('palco');
+    if (!palco) return;
+    for (const botao of document.querySelectorAll<HTMLElement>('[data-previa-de]')) {
+      const qual = botao.dataset.previaDe!;
+      const liga = () => { palco.dataset.previa = qual; };
+      const desliga = () => { palco.dataset.previa = 'nao'; };
+      botao.addEventListener('mouseenter', liga);
+      botao.addEventListener('focus', liga);
+      botao.addEventListener('mouseleave', desliga);
+      botao.addEventListener('blur', desliga);
+    }
+  }
+
+  /* ---------- o chip virando de verdade ----------
+     Entrar e sair recarregam a página, então a troca de estado já vem
+     pronta do servidor e ninguém veria acontecer. O clique anota qual
+     era o estado; na volta, o chip começa no estado antigo e faz o
+     swap de três fases — o mesmo do átrio, agora com dado real.
+
+     sessionStorage e não querystring: a lógica de POST e o redirect
+     ficam intocados, e sem JS a página segue funcionando igual. */
+  const CHAVE_ESTADO = 'idearium:estado-antes';
+
+  function ligarLembrete() {
+    const chip = document.getElementById('chip-estado');
+    const rotulo = chip?.querySelector<HTMLElement>('.rotulo-estado');
+    if (!chip || !rotulo) return;
+
+    for (const form of document.querySelectorAll<HTMLFormElement>('form[data-guarda-estado]')) {
+      form.addEventListener('submit', () => {
+        try {
+          sessionStorage.setItem(CHAVE_ESTADO, JSON.stringify({
+            caminho: location.pathname,
+            estado: chip.dataset.estado,
+            rotulo: rotulo.textContent,
+          }));
+        } catch {
+          /* storage bloqueado: perde-se a animação, não o ato */
+        }
+      });
+    }
+  }
+
+  function ligarSwapDeEstado() {
+    const chip = document.getElementById('chip-estado');
+    const rotulo = chip?.querySelector<HTMLElement>('.rotulo-estado');
+    if (!chip || !rotulo) return;
+
+    let bruto: string | null = null;
+    try {
+      bruto = sessionStorage.getItem(CHAVE_ESTADO);
+      sessionStorage.removeItem(CHAVE_ESTADO);
+    } catch {
+      return;
+    }
+    if (!bruto) return;
+
+    let antes: { caminho?: string; estado?: string; rotulo?: string };
+    try {
+      antes = JSON.parse(bruto);
+    } catch {
+      return;
+    }
+
+    /* outra ideia, ou estado que não mudou: não há troca pra mostrar */
+    if (antes.caminho !== location.pathname) return;
+    if (!antes.estado || antes.estado === chip.dataset.estado) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const depois = rotulo.textContent ?? '';
+    const vivoDepois = chip.classList.contains('vivo');
+
+    rotulo.textContent = antes.rotulo ?? depois;
+    chip.classList.toggle('vivo', antes.estado === 'IN_DISCUSSION');
+
+    const dur = parseInt(getComputedStyle(rotulo).getPropertyValue('--swap-dur')) || 150;
+
+    /* meio segundo parado antes: sem essa pausa a troca acontece junto
+       com a entrada da página e não se lê como consequência do clique */
+    setTimeout(() => {
+      rotulo.classList.add('saindo');
+      setTimeout(() => {
+        rotulo.textContent = depois;
+        chip.classList.toggle('vivo', vivoDepois);
+        rotulo.classList.remove('saindo');
+        rotulo.classList.add('entrando-de-baixo');
+        void rotulo.offsetWidth;              // reflow: sem isso o salto anima
+        rotulo.classList.remove('entrando-de-baixo');
+      }, dur);
+    }, 520);
+  }
+
+  /* ---------- o comentário tomando forma ----------
+     A caixa firma quando recebe texto e cresce com ele, pra a altura
+     ser a do comentário que vai entrar na thread. O texto nunca é
+     copiado pra outro nó: quem mostra é o próprio campo. */
+  function ligarComentarioNascendo() {
+    const form = document.getElementById('comentario-nascendo');
+    const campo = document.getElementById('novo-comentario') as HTMLTextAreaElement | null;
+    if (!form || !campo) return;
+
+    const acompanhar = () => {
+      form.dataset.escrito = campo.value.trim() ? 'sim' : 'nao';
+      campo.style.height = 'auto';
+      campo.style.height = campo.scrollHeight + 'px';
+    };
+
+    campo.addEventListener('input', acompanhar);
+    acompanhar();               // envio que falhou volta com texto dentro
+  }
+
   document.addEventListener('astro:page-load', () => {
     ligarEntrada();
     ligarConfirmacao();
+    ligarPrevia();
+    ligarLembrete();
+    ligarSwapDeEstado();
+    ligarComentarioNascendo();
   });
 </script>

@@ -10,13 +10,27 @@
    devolveria 404 até o próximo build, e quem acabou de criá-la veria a
    página quebrada logo depois de publicar a ideia. Uma tela que custa
    uma consulta por acesso é preço menor que esse buraco.
+
+   ----------------------------------------------------------------
+   DESENHO: a tela mostra a consequência do ato
+   ----------------------------------------------------------------
+   A promessa de /tags é que a tag atravessa laboratórios. Esta tela é
+   onde a promessa se cumpre ou não, então o cabeçalho mostra os labs
+   que ela de fato atravessa, contados nas ideias que estão logo abaixo
+   — não uma frase dizendo que isso acontece.
+
+   É também o único lugar onde as duas contagens de tag existem juntas:
+   `tag.usageCount` conta toda RFC ligada, inclusive rascunho e
+   arquivada; `rfcs.meta.total` conta só as públicas. Em vez de esconder
+   a diferença (que é o que /tags faz, por não ter as duas), aqui ela é
+   dita: o número que falta é rascunho ou arquivada.
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import type { Autor, LabResumo, Pagina, RfcStatus } from '../../lib/api';
+import { nomeCurtoDoLab, type Autor, type LabResumo, type Pagina, type RfcStatus } from '../../lib/api';
 
 /* A api.ts ainda não expõe /tags/:slug — ela é de outro agente e está
    sendo editada em paralelo. Até lá a chamada mora aqui, com o mesmo
@@ -75,6 +89,22 @@ try {
 if (!tag && !caiu) Astro.response.status = 404;
 
 const titulo = tag?.name ?? slug;
+
+/* Os labs que a tag atravessa, contados nas ideias desta página. Se
+   houver mais ideias do que as 100 que vieram, a conta é do que está
+   à vista, e o rótulo diz isso: número que parece do acervo inteiro e
+   é de um recorte vira chute com cara de fato. */
+const atravessa = [...rfcs.reduce((mapa, r) => {
+  const antes = mapa.get(r.lab.slug);
+  mapa.set(r.lab.slug, { lab: r.lab, quantas: (antes?.quantas ?? 0) + 1 });
+  return mapa;
+}, new Map<string, { lab: LabResumo; quantas: number }>()).values()]
+  .sort((a, b) => b.quantas - a.quantas);
+
+/* A diferença entre as duas contagens tem nome: rascunho ou arquivada.
+   Só existe quando a listagem cabe inteira na página, senão eu estaria
+   subtraindo um recorte de uma soma. */
+const fora = rfcs.length === total ? Math.max(0, (tag?.usageCount ?? 0) - total) : 0;
 ---
 
 <Layout
@@ -90,12 +120,35 @@ const titulo = tag?.name ?? slug;
 
     <header class="cabecalho-pagina">
       <a class="volta" href="/tags">&larr; todas as tags</a>
-      <h1 style="margin-top:16px">{titulo}</h1>
+
+      {/* A tag aparece como a peça que ela é no resto do sistema, no
+          tamanho de quem é o assunto da página — não como um título
+          qualquer que por acaso está em mono. */}
+      <h1 class="selo-tag">{titulo}</h1>
+
       {tag && (
         <p class="sub">
           Ideias de qualquer laboratório marcadas com esta tag por quem as
           escreveu.
         </p>
+      )}
+
+      {tag && atravessa.length > 0 && (
+        <div class="atravessa">
+          <span class="mono r">
+            atravessa{total > rfcs.length && ` · nas ${rfcs.length} mais recentes`}
+          </span>
+          {atravessa.map((a, i) => (
+            <span class="chip pastel" style={`background: var(--color-${a.lab.slug}); --i:${i}`}>
+              <span class="glyph" aria-hidden="true">{a.lab.glyph}</span>
+              {nomeCurtoDoLab(a.lab.name)}
+              <span class="quantas">{a.quantas}</span>
+            </span>
+          ))}
+          {atravessa.length === 1 && (
+            <span class="por-enquanto">um laboratório só, por enquanto.</span>
+          )}
+        </div>
       )}
     </header>
 
@@ -108,8 +161,12 @@ const titulo = tag?.name ?? slug;
 
     {tag && rfcs.length > 0 && (
       <p class="contagem">
-        {total} {total === 1 ? 'ideia' : 'ideias'}
-        {total > rfcs.length && `· mostrando as ${rfcs.length} mais recentes`}
+        {total} {total === 1 ? 'ideia pública' : 'ideias públicas'}
+        {total > rfcs.length && ` · mostrando as ${rfcs.length} mais recentes`}
+        {fora > 0 && (fora === 1
+          ? ' · e mais 1 que não está pública: rascunho ou arquivada'
+          : ` · e mais ${fora} que não estão públicas: rascunhos ou arquivadas`)}
+        {' · '}<a href={`/buscar?q=${encodeURIComponent(titulo ?? '')}`}>procurar esta palavra no texto das ideias</a>
       </p>
     )}
 
@@ -146,7 +203,66 @@ const titulo = tag?.name ?? slug;
 </Layout>
 
 <style>
-  .cabecalho-pagina h1 { font-family: var(--font-mono); font-weight: 400; }
+  /* o selo é a mesma pílula da tag, no tamanho de cabeçalho. A mono só
+     fecha a grade do pixel em corpo inteiro, por isso 26px cheios e
+     não um clamp fracionário. */
+  .selo-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 26px;
+    letter-spacing: 0;
+    line-height: 1.1;
+    margin: 18px 0 14px;
+    padding: 10px 20px;
+    border-radius: var(--r-pilula);
+    background: var(--t-07);
+    color: var(--t-100);
+  }
+
+  .atravessa {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .atravessa .r {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--t-35);
+    margin-right: 3px;
+  }
+  .atravessa .glyph { color: var(--t-75); }
+  /* a contagem por lab é navegação: diz onde vale entrar */
+  .atravessa .quantas {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--t-75);
+    padding-left: 7px;
+    margin-left: 3px;
+    border-left: 1px solid var(--t-12);
+  }
+  .atravessa .por-enquanto { font-size: 12.5px; color: var(--t-35); }
+
+  .contagem a { color: var(--t-50); text-decoration: none; }
+  .contagem a:hover { color: var(--t-90); }
+
+  /* uma animação, nomeada: os labs entram em sequência, do que mais
+     usa a tag para o que menos usa */
+  @keyframes lab-atravessa {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .atravessa .chip {
+    animation: lab-atravessa 420ms var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .atravessa .chip { animation: none; }
+  }
 </style>
 
 <script>
