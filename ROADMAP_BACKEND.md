@@ -1,7 +1,7 @@
 # Idearium — Roadmap do Backend
 
 > Roadmap pragmático para Kae, backend dev solo, levar Idearium do zero ao MVP em produção.
-> Premissa: **visão consolidada em `VISAO.md`** (SSOT). Base de UI: `brainstorming-design/editorial/baseline.html`.
+> Premissa: **visão consolidada em `VISAO.md`** (SSOT). Base de UI: direção Matéria, em `brainstorming-design/atrio-v2/` e implementada em `apps/web/`.
 > O backend existe para alimentar essa interface e nada além.
 >
 > **Decisões fundadoras já resolvidas** (ver `VISAO.md` §10): visão B, login email/senha + GitHub + Google, RFCs editáveis com histórico, identidade pseudônima, pós-moderação, comentários lineares, **bilíngue pt-BR/en desde o MVP**, hospedagem gerenciada.
@@ -329,8 +329,8 @@ idearium/  (branch development)
 │       ├── *.e2e-spec.ts        ← 9 suites, 106 testes
 │       ├── helpers/             ← createTestApp, cleanDatabase, registerUser, createPublishedRfc
 │       └── setup-e2e.ts         ← roda migrations + seed antes do Jest
-├── apps/web/                    ← (não criado ainda — Gabriele faz)
-├── brainstorming-design/editorial/baseline.html      ← referência de design
+├── apps/web/                    ← frontend Astro (Gabriele) — ver ROADMAP_FRONTEND.md
+├── brainstorming-design/atrio-v2/                    ← direção de design vigente
 ├── docker-compose.yml           ← Postgres 16 local
 ├── .github/workflows/ci.yml     ← lint + build + e2e com Postgres como service
 ├── VISAO.md                     ← SSOT do projeto
@@ -815,7 +815,7 @@ GET    /admin/stats                 → contagens globais
 **Otimista:** 8 semanas com 25h/semana.
 **Pessimista:** 5–6 meses com vida fora do projeto.
 
-**Frontend:** Gabriele é responsável (já fez o mockup atual). O cronograma do backend acima é independente do frontend, mas para lançamento real é preciso alinhamento de etapas: idealmente o frontend chega às telas de auth quando o backend conclui a Etapa 1, ao feed/RFC detalhe quando conclui a Etapa 2, etc. Ver `ROADMAP_FRONTEND.md` (a criar) para o espelho.
+**Frontend:** Gabriele é responsável (já fez o mockup atual). O cronograma do backend acima é independente do frontend, mas para lançamento real é preciso alinhamento de etapas: idealmente o frontend chega às telas de auth quando o backend conclui a Etapa 1, ao feed/RFC detalhe quando conclui a Etapa 2, etc. Ver `ROADMAP_FRONTEND.md` para o espelho — as etapas F1 a F5 já estão destravadas pelo backend.
 
 Pontos de coordenação Kae ↔ Gabriele importantes:
 - Contrato OpenAPI publicado a cada etapa (API documentada antes de Gabriele consumir).

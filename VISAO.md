@@ -212,25 +212,62 @@ Realista: R$ 30k–80k em um ano se houver tração visível e relatório decent
 
 ## 12. Identidade visual e tom
 
+> Atualizado em 31.07.2026, quando a direção **Matéria** foi para o código. A
+> paleta base desta seção já estava certa desde a fundação e permanece; o que
+> muda é a tipografia de acento, a entrada de um pastel por laboratório e a
+> saída de Navy e Gold. A direção completa vive em
+> `brainstorming-design/atrio-v2/` e está implementada em
+> `apps/web/src/styles/global.css`.
+
 ### Tipografia
-- **Lora** — serifa, headlines e títulos de RFCs
-- **Inter** — sans, corpo de UI e navegação
-- **IBM Plex Mono** — monospace, metadados, identificadores (RFC-0007), nomes de usuário (`@luisa`)
+- **Inter** — sans, corpo de UI, navegação e títulos
+- **Newsreader** — serifa, em itálico, só como acento dentro de um título
+- **Departure Mono** — monospace, metadados, identificadores (RFC-0007), nomes de usuário (`@luisa`)
+
+Todas OFL ou MIT, que é requisito num projeto CC BY-SA — o repositório é
+público, e fonte *free for personal use* não cabe aqui.
+
+**Peso:** o padrão é 400, sempre. A ênfase vem de incremento fracionário (430,
+450, 470), nunca de pular para 600 ou bold.
 
 ### Paleta
+Uma tinta só, `rgb(3, 3, 2)`, com a hierarquia feita por alpha — nunca cinzas
+nomeados. É o que mantém a página coerente quando o pastel do laboratório muda
+por baixo.
+
 | Cor | Hex | Uso |
 |-----|-----|-----|
-| Cream | `#FAFAF7` | Background principal |
-| Card | `#FFFFFF` | Cartões e elementos destacados |
-| Panel | `#F5F2EB` | Áreas secundárias |
-| Ink | `#1C1C1B` | Texto principal |
-| Muted | `#6B6560` | Texto secundário, metadados |
-| Accent (Navy) | `#1E3A5F` | Links, CTAs, foco |
-| Gold | `#C8A04A` | Detalhes ornamentais, números RFC |
-| Rule | `#E5E2DB` | Bordas, divisórias |
+| Fundo | `#FCF9F7` | Background principal, off-white quente |
+| Cartão | `#FFFFFF` | Cartões e elementos destacados |
+| Rebaixo | `#F7F4F1` | Áreas secundárias, superfície interna |
+| Tinta | `rgb(3,3,2)` | Texto e traço, com alpha .90 / .75 / .65 / .50 / .35 / .12 / .07 |
+
+### Cor por laboratório
+Pastéis **dessaturados**, usados como **superfície** — nunca como texto. O texto
+em cima é sempre a tinta, então o contraste não depende da cor do laboratório.
+
+| Lab | Hex |
+|-----|-----|
+| Educação | `#E8B79B` |
+| Cidades | `#A9C6E4` |
+| Saúde | `#9BD8A9` |
+| Cultura | `#FDE99B` |
+| Tec. Cívica | `#C6BCE6` |
+| Econ. Solidária | `#E9B2B8` |
+
+### Geometria e sombra
+- Raio 24px externo, 14px interno — o externo é o interno mais o padding.
+- Sombra difusa em camadas, quase invisível. Sombra dura com deslocamento não
+  pertence a esta direção.
+
+### Movimento
+A animação é escrita **uma por peça, nomeada**, não herdada de biblioteca
+genérica. Toda animação precisa dizer algo: o estado mudou, a correção foi
+registrada, o passo foi dado. `prefers-reduced-motion` desliga tudo.
 
 ### Glyphs dos labs
-Caracteres usados como "selo" de cada laboratório:
+Caracteres usados como "selo" de cada laboratório. Convivem com a cor: o glyph é
+selo, o pastel é superfície.
 - ◈ Lab. Educação
 - ◇ Lab. Cidades
 - ✚ Lab. Saúde
@@ -254,7 +291,7 @@ Caracteres usados como "selo" de cada laboratório:
 Idearium é mantido por duas pessoas desde o início:
 
 - **Kae Brazauskas** — backend, infraestrutura, modelagem de dados, este documento e `ROADMAP_BACKEND.md`.
-- **Gabriele** — frontend, identidade visual, design da home (`brainstorming-design/editorial/baseline.html`), tom editorial e microcopy.
+- **Gabriele** — frontend, identidade visual, design da home (direção Matéria, em `brainstorming-design/atrio-v2/`), tom editorial e microcopy.
 
 Não usamos o termo *founder* por escolha — soa startup. Aqui somos **co-criadores** e **mantenedores iniciais** de um bem comum digital. As decisões de produto, identidade e governança são tomadas em conjunto.
 
@@ -305,11 +342,11 @@ Estes três pontos não mudam sem refundação do projeto.
   - `ROADMAP_BACKEND.md` — plano operacional do backend
   - `ANALISE_PROJETO.md` — análise estratégica (snapshot do momento do pivô; histórico)
   - `README.md` — apresentação pública (a atualizar conforme o projeto avança)
-  - `brainstorming-design/editorial/baseline.html` — referência de design da home
+  - `brainstorming-design/atrio-v2/` — direção de design vigente (Matéria)
 
 ### Próximos passos
 1. **Backend (Kae):** iniciar `ROADMAP_BACKEND.md` Etapa 0 (setup esqueleto).
-2. **Frontend (Gabriele):** confirmar stack final (Angular, Sveltekit, Next.js, etc) e abrir um `ROADMAP_FRONTEND.md` espelhando a estrutura do backend, com etapas alinhadas.
+2. **Frontend (Gabriele):** ✅ feito — stack é Astro 6 + React 19 + Tailwind 4, e o `ROADMAP_FRONTEND.md` existe, com as etapas F0..F6 espelhando o backend.
 3. Em conjunto, escrever as primeiras 5–10 RFCs seed (uma por lab) — material de teste e de demonstração.
 4. Atualizar `README.md` com tagline, créditos a Kae e Gabriele, e ponteiros para `VISAO.md`.
 
