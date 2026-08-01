@@ -1,0 +1,28 @@
+---
+/* ================================================================
+   Vazio.astro — estado de vazio
+   ================================================================
+   Requisito de aceite de toda listagem (ROADMAP_FRONTEND §0.3), não
+   polimento posterior. Distingue dois casos que parecem iguais na
+   tela e não são:
+
+     "não há nada aqui"        → convite pra criar
+     "não falei com a API"     → problema nosso, não da pessoa
+   ================================================================ */
+interface Props {
+  titulo: string;
+  texto?: string;
+  acaoHref?: string;
+  acaoTexto?: string;
+  /** true quando o vazio é queda do backend, não ausência de dado */
+  falha?: boolean;
+}
+const { titulo, texto, acaoHref, acaoTexto, falha = false } = Astro.props;
+---
+
+<div class:list={['vazio', falha && 'falha']}>
+  <p class="mono rotulo">{falha ? 'sem resposta do servidor' : 'nada por aqui'}</p>
+  <h3>{titulo}</h3>
+  {texto && <p class="texto">{texto}</p>}
+  {acaoHref && acaoTexto && <a class="botao" href={acaoHref}>{acaoTexto}</a>}
+</div>

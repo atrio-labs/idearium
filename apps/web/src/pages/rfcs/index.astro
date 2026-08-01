@@ -1,0 +1,205 @@
+---
+/* ================================================================
+   /rfcs — lista de ideias com filtro (F1.2)
+   ================================================================
+   A página é pré-renderizada, então o filtro é client-side: todas as
+   RFCs públicas vêm no HTML e o JS esconde as que não casam. Isso
+   mantém a página estática (bom pra indexação) e dá filtro instantâneo,
+   sem ida ao servidor.
+
+   O estado do filtro vive na querystring, então recarregar mantém o
+   filtro e o link é compartilhável — que é o critério de aceite.
+
+   Limite: com o catálogo grande isso vira HTML demais. O corte é
+   ~200 RFCs; passando disso, migrar pra SSR paginado. Anotado aqui
+   em vez de descoberto em produção.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import {
+  listarTodasRfcs, listarLabs, apiIndisponivel, statusLabel, nomeCurtoDoLab,
+  type RfcStatus,
+} from '../../lib/api';
+
+const [labs, rfcs] = await Promise.all([
+  listarLabs(),
+  listarTodasRfcs(),
+]);
+const semRede = apiIndisponivel;
+
+/* Só os estados que uma RFC pública pode ter. DRAFT não aparece em
+   listagem pública (a API já filtra), e ARCHIVED só se existir. */
+const estados: RfcStatus[] = ['IN_DISCUSSION', 'IN_BUILDING', 'PUBLISHED'];
+const estadosPresentes = estados.filter((e) => rfcs.some((r) => r.status === e));
+const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug));
+---
+
+<Layout title="Idearium · Ideias">
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    <header class="cabecalho-pagina">
+      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+        todas as ideias
+      </span>
+      <h1>Ideias abertas, <span class="serif">esperando</span>.</h1>
+      <p class="sub">
+        Cada uma é uma proposta numerada, escrita por alguém que conhece o
+        problema. Filtre por domínio ou por momento do ciclo.
+      </p>
+    </header>
+
+    {semRede && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
+        incompleta ou vazia por isso, não por falta de ideias.
+      </p>
+    )}
+
+    {rfcs.length > 0 && (
+      <div class="filtros">
+        <div class="grupo">
+          <span class="rotulo">laboratório</span>
+          <button class="filtro" type="button" data-filtro="lab" data-valor="" aria-pressed="true">todos</button>
+          {labsPresentes.map((l) => (
+            <button class="filtro" type="button" data-filtro="lab" data-valor={l.slug} aria-pressed="false">
+              <span class="swatch" style={`background: var(--color-${l.slug})`}></span>{nomeCurtoDoLab(l.name)}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {rfcs.length > 0 && (
+      <div class="filtros" style="padding-top:0">
+        <div class="grupo">
+          <span class="rotulo">momento</span>
+          <button class="filtro" type="button" data-filtro="status" data-valor="" aria-pressed="true">qualquer</button>
+          {estadosPresentes.map((e) => (
+            <button class="filtro" type="button" data-filtro="status" data-valor={e} aria-pressed="false">
+              {statusLabel[e]}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <p class="contagem" id="contagem" data-total={rfcs.length}>
+      {rfcs.length} {rfcs.length === 1 ? 'ideia' : 'ideias'}
+    </p>
+
+    {rfcs.length > 0 ? (
+      <>
+        <div class="grade" id="grade">
+          {rfcs.map((rfc) => <CartaoIdeia rfc={rfc} filtravel />)}
+        </div>
+
+        {/* aparece só quando o filtro zera o resultado */}
+        <div id="vazio-filtro" hidden>
+          <Vazio
+            titulo="Nenhuma ideia com esse recorte"
+            texto="Nenhuma ideia combina o laboratório e o momento escolhidos. Tente afrouxar um dos dois."
+          />
+        </div>
+      </>
+    ) : (
+      <Vazio
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : 'Nenhuma ideia publicada ainda'}
+        texto={semRede
+          ? 'Assim que a API voltar, a lista aparece aqui.'
+          : 'Ninguém publicou nada por enquanto. A primeira pode ser sua.'}
+        acaoHref={semRede ? undefined : '/rfcs/nova'}
+        acaoTexto={semRede ? undefined : 'escrever uma ideia'}
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<script>
+  function ligarFiltro() {
+    const grade = document.getElementById('grade');
+    if (!grade) return;
+
+    const botoes = [...document.querySelectorAll<HTMLButtonElement>('.filtro')];
+    const cartoes = [...grade.querySelectorAll<HTMLElement>('.ideia')];
+    const contagem = document.getElementById('contagem');
+    const vazio = document.getElementById('vazio-filtro');
+
+    const estado = { lab: '', status: '' };
+
+    /* a querystring é a fonte da verdade: recarregar mantém o filtro
+       e o link pode ser compartilhado */
+    const url = new URL(location.href);
+    estado.lab = url.searchParams.get('lab') ?? '';
+    estado.status = url.searchParams.get('status') ?? '';
+
+    function aplicar(gravarHistorico: boolean) {
+      let visiveis = 0;
+      for (const c of cartoes) {
+        const casaLab = !estado.lab || c.dataset.lab === estado.lab;
+        const casaStatus = !estado.status || c.dataset.status === estado.status;
+        const mostra = casaLab && casaStatus;
+        c.hidden = !mostra;
+        if (mostra) visiveis++;
+      }
+
+      for (const b of botoes) {
+        const chave = b.dataset.filtro as 'lab' | 'status';
+        b.setAttribute('aria-pressed', String((b.dataset.valor ?? '') === estado[chave]));
+      }
+
+      if (contagem) {
+        const total = Number(contagem.dataset.total ?? 0);
+        const filtrando = estado.lab || estado.status;
+        contagem.textContent = filtrando
+          ? `${visiveis} de ${total} ${total === 1 ? 'ideia' : 'ideias'}`
+          : `${total} ${total === 1 ? 'ideia' : 'ideias'}`;
+      }
+
+      if (vazio) vazio.hidden = visiveis > 0;
+      grade!.hidden = visiveis === 0;
+
+      if (gravarHistorico) {
+        const u = new URL(location.href);
+        estado.lab ? u.searchParams.set('lab', estado.lab) : u.searchParams.delete('lab');
+        estado.status ? u.searchParams.set('status', estado.status) : u.searchParams.delete('status');
+        history.replaceState(null, '', u);
+      }
+    }
+
+    for (const b of botoes) {
+      b.addEventListener('click', () => {
+        const chave = b.dataset.filtro as 'lab' | 'status';
+        estado[chave] = b.dataset.valor ?? '';
+        aplicar(true);
+      });
+    }
+
+    aplicar(false);
+  }
+
+  function ligarEntrada() {
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('veio');
+        olho.unobserve(e.target);
+      }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    ligarEntrada();
+    ligarFiltro();
+  });
+</script>

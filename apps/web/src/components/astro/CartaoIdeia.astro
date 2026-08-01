@@ -1,0 +1,68 @@
+---
+/* ================================================================
+   CartaoIdeia.astro — uma RFC na grade
+   ================================================================
+   Reusado no átrio, em /rfcs, em /labs/:slug e em /users/:username.
+   Recebe o objeto que a API devolve, sem adaptação prévia.
+   ================================================================ */
+import Materia from './Materia.astro';
+import {
+  codigoRfc, haQuantoTempo, materiaDaRfc, nomeCurtoDoLab, statusLabel,
+  type RfcResumo,
+} from '../../lib/api';
+
+interface Props {
+  /* `author` e `_count` são opcionais porque
+     GET /users/:username/enrollments devolve a RFC sem eles. */
+  rfc: Omit<RfcResumo, 'author' | '_count'> &
+    Partial<Pick<RfcResumo, 'author' | '_count'>>;
+  /** dentro de um lab o chip do lab é redundante */
+  ocultarLab?: boolean;
+  /** atributos data-* pro filtro client-side de /rfcs */
+  filtravel?: boolean;
+}
+
+const { rfc, ocultarLab = false, filtravel = false } = Astro.props;
+const m = materiaDaRfc(rfc);
+const versoes = rfc._count?.versions;
+---
+
+<a
+  class="cartao ideia vem"
+  href={`/rfcs/${rfc.slug}`}
+  data-lab={filtravel ? rfc.lab.slug : undefined}
+  data-status={filtravel ? rfc.status : undefined}
+>
+  <div class="capa">
+    <Materia
+      tipo={m.tipo}
+      lab={rfc.lab.slug}
+      semente={m.semente}
+      alt={`Campo de dados em dithering, ${codigoRfc(rfc.number)}`}
+    />
+  </div>
+  <div class="miolo">
+    <div class="chips" style="margin: 0">
+      {!ocultarLab && (
+        <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>
+          {nomeCurtoDoLab(rfc.lab.name)}
+        </span>
+      )}
+      {rfc.status === 'IN_DISCUSSION'
+        ? <span class="chip pequeno vivo"><span class="ponto"></span>{statusLabel[rfc.status]}</span>
+        : <span class="chip pequeno">{statusLabel[rfc.status]}</span>}
+      <span class="codigo">{codigoRfc(rfc.number)}</span>
+    </div>
+    <h3>{rfc.title}</h3>
+    <p>{rfc.summary}</p>
+    <div class="pe">
+      {/* sem autor (vem assim de /users/:username/enrollments) o pé fica
+          só com a data — repetir o nome do lab duplicaria o chip acima */}
+      <span>
+        {rfc.author && `@${rfc.author.username}`}
+        {rfc.author && versoes != null && ` · v0.${versoes}`}
+      </span>
+      <span>{haQuantoTempo(rfc.publishedAt ?? rfc.createdAt)}</span>
+    </div>
+  </div>
+</a>

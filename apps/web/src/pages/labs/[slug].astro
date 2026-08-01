@@ -1,0 +1,79 @@
+---
+/* /labs/:slug — um laboratório e suas ideias (F1.4) */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import { listarLabs, obterLab, listarTodasRfcs, nomeCurtoDoLab } from '../../lib/api';
+
+export async function getStaticPaths() {
+  const labs = await listarLabs();
+  return labs.map((lab) => ({ params: { slug: lab.slug } }));
+}
+
+const { slug } = Astro.params;
+const [lab, rfcs] = await Promise.all([
+  obterLab(slug!),
+  listarTodasRfcs({ lab: slug }),
+]);
+
+if (!lab) return Astro.redirect('/labs');
+
+const nome = nomeCurtoDoLab(lab.name);
+---
+
+<Layout title={`Idearium · ${nome}`} description={lab.description ?? `Ideias do laboratório de ${nome}.`}>
+  <div class="palco">
+    <Nav atual="labs" />
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href="/labs">&larr; todos os laboratórios</a>
+      <h1 style="margin-top:16px">
+        <span aria-hidden="true" style={`color: var(--color-${lab.slug})`}>{lab.glyph}</span> {nome}
+      </h1>
+      <p class="sub">
+        {lab.description ??
+          'Problemas deste domínio, propostos por quem convive com eles e abertos a quem sabe construir.'}
+      </p>
+    </header>
+
+    {/* a fita pastel é a identidade do lab, em tamanho generoso */}
+    <div
+      class="vem"
+      style={`background: var(--color-${lab.slug}); height: 90px; border-radius: var(--r-fora); margin-bottom: 22px`}
+      aria-hidden="true"
+    ></div>
+
+    <p class="contagem">
+      {rfcs.length} {rfcs.length === 1 ? 'ideia' : 'ideias'} neste laboratório
+    </p>
+
+    {rfcs.length > 0 ? (
+      <div class="grade">
+        {rfcs.map((rfc) => <CartaoIdeia rfc={rfc} ocultarLab />)}
+      </div>
+    ) : (
+      <Vazio
+        titulo={`Nenhuma ideia em ${nome} ainda`}
+        texto="Este laboratório está esperando a primeira proposta. Não precisa saber construir para escrever uma."
+        acaoHref="/rfcs/nova"
+        acaoTexto="escrever a primeira"
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

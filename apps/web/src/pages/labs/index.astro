@@ -1,0 +1,71 @@
+---
+/* /labs — os seis domínios (F1.4) */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import { listarLabs, nomeCurtoDoLab, apiIndisponivel } from '../../lib/api';
+
+const labs = await listarLabs();
+const semRede = apiIndisponivel;
+---
+
+<Layout title="Idearium · Laboratórios">
+  <div class="palco">
+    <Nav atual="labs" />
+
+    <header class="cabecalho-pagina">
+      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+        laboratórios
+      </span>
+      <h1>Seis recortes, <span class="serif">nenhum silo</span>.</h1>
+      <p class="sub">
+        Um laboratório organiza ideias por domínio de problema, não por
+        tecnologia. Uma ideia pertence a um laboratório, mas qualquer pessoa
+        transita entre todos.
+      </p>
+    </header>
+
+    {semRede && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> Os laboratórios existem, só não
+        consegui carregá-los agora.
+      </p>
+    )}
+
+    {labs.length > 0 ? (
+      <div class="labs-faixa vem" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
+        {labs.map((lab) => (
+          <a class="lab-card" href={`/labs/${lab.slug}`}>
+            <span class="fita" style={`background: var(--color-${lab.slug}); height: 78px`}></span>
+            <span class="txt">
+              <span class="nome">
+                <span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeCurtoDoLab(lab.name)}
+              </span>
+              <span class="qtd">
+                {lab.rfcsCount} {lab.rfcsCount === 1 ? 'ideia' : 'ideias'}
+              </span>
+            </span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <Vazio
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : 'Nenhum laboratório configurado'}
+        texto={semRede ? 'Tente recarregar em instantes.' : undefined}
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.vem').forEach((el) => olho.observe(el));
+  });
+</script>

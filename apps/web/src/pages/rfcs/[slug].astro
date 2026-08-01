@@ -1,0 +1,254 @@
+---
+/* ================================================================
+   /rfcs/:slug — detalhe da RFC (F1.3)
+   ================================================================
+   Uma rota por RFC pública, gerada em build. Rascunho não entra em
+   getStaticPaths: a API só mostra rascunho ao autor, e sem sessão em
+   build time não há como (nem por que) pré-renderizar isso. Rascunho
+   passa a existir na F2, junto com SSR.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Materia from '../../components/astro/Materia.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import {
+  listarTodasRfcs, avisarSeVazio, obterRfc, listarVersoes, listarInscricoes, listarComentarios,
+  listarTagsDaRfc, statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
+  materiaDaRfc,
+} from '../../lib/api';
+
+export async function getStaticPaths() {
+  const todas = await listarTodasRfcs();
+  avisarSeVazio({ onde: '/rfcs/[slug]', qtd: todas.length });
+  return todas.map((rfc) => ({ params: { slug: rfc.slug } }));
+}
+
+const { slug } = Astro.params;
+const rfc = await obterRfc(slug!);
+
+/* getStaticPaths garante que a RFC existe; isso é rede de segurança
+   pra RFC arquivada entre o build e a leitura. */
+if (!rfc) return Astro.redirect('/rfcs');
+
+const [versoes, inscricoes, comentarios, tags] = await Promise.all([
+  listarVersoes(rfc.id),
+  listarInscricoes(rfc.id),
+  listarComentarios(rfc.id),
+  listarTagsDaRfc(rfc.id),
+]);
+
+const ativos = inscricoes.filter((i) => i.leftAt == null);
+const sairam = inscricoes.filter((i) => i.leftAt != null);
+const m = materiaDaRfc(rfc);
+
+/* Markdown mínimo: a API guarda o corpo em markdown e ainda não há
+   renderer no projeto. Isto cobre o que o editor produz hoje (h2,
+   lista, parágrafo, negrito, código) e ESCAPA todo o resto.
+
+   Escapar primeiro e só então injetar tags é o que impede que o corpo
+   de uma RFC escrita por qualquer pessoa vire HTML na página. Quando
+   entrar um renderer de verdade na F4, ele precisa sanitizar também. */
+function escapar(s: string) {
+  return s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!
+  ));
+}
+
+function emLinha(s: string) {
+  return escapar(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+function paraHtml(md: string) {
+  const saida: string[] = [];
+  let lista: string[] = [];
+  let paragrafo: string[] = [];
+
+  const fechaLista = () => {
+    if (!lista.length) return;
+    saida.push('<ul>' + lista.map((i) => `<li>${emLinha(i)}</li>`).join('') + '</ul>');
+    lista = [];
+  };
+  /* Em markdown, o parágrafo termina em linha VAZIA, não em quebra de
+     linha: o corpo vem hard-wrapped em ~80 colunas. Tratar cada linha
+     como um parágrafo partia o texto em pedaços soltos. */
+  const fechaParagrafo = () => {
+    if (!paragrafo.length) return;
+    saida.push(`<p>${emLinha(paragrafo.join(' '))}</p>`);
+    paragrafo = [];
+  };
+  const fechaTudo = () => { fechaParagrafo(); fechaLista(); };
+
+  for (const linha of md.split('\n')) {
+    const t = linha.trim();
+    if (!t) { fechaTudo(); continue; }
+    if (t.startsWith('## ')) { fechaTudo(); saida.push(`<h2>${emLinha(t.slice(3))}</h2>`); continue; }
+    if (t.startsWith('# '))  { fechaTudo(); saida.push(`<h2>${emLinha(t.slice(2))}</h2>`); continue; }
+    if (t.startsWith('- '))  { fechaParagrafo(); lista.push(t.slice(2)); continue; }
+    fechaLista();
+    paragrafo.push(t);
+  }
+  fechaTudo();
+  return saida.join('');
+}
+
+const corpoHtml = paraHtml(rfc.body);
+---
+
+<Layout title={`${codigoRfc(rfc.number)} · ${rfc.title}`} description={rfc.summary}>
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+      <div class="chips" style="margin-top:14px">
+        <a
+          class="chip pastel"
+          href={`/labs/${rfc.lab.slug}`}
+          style={`background: var(--color-${rfc.lab.slug}); text-decoration:none`}
+        >
+          <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeCurtoDoLab(rfc.lab.name)}
+        </a>
+        {rfc.status === 'IN_DISCUSSION'
+          ? <span class="chip vivo"><span class="ponto"></span>{statusLabel[rfc.status]}</span>
+          : <span class="chip">{statusLabel[rfc.status]}</span>}
+        <span class="codigo">{codigoRfc(rfc.number)}</span>
+      </div>
+      <h1>{rfc.title}</h1>
+      <p class="sub">{rfc.summary}</p>
+    </header>
+
+    <div class="rfc-topo">
+      <div>
+        <article class="cartao vem">
+          <figure class="rfc-capa">
+            <Materia
+              tipo={m.tipo}
+              lab={rfc.lab.slug}
+              semente={m.semente}
+              alt={`Campo de dados em dithering, ${codigoRfc(rfc.number)}`}
+            />
+          </figure>
+          <div class="corpo-rfc" set:html={corpoHtml}></div>
+        </article>
+
+        {/* ---------- discussão ---------- */}
+        <div class="faixa-rotulo" id="discussao">
+          <span class="r">discussão</span>
+          <span class="mono" style="font-size:11px; color:var(--t-35)">
+            {comentarios.meta.total} {comentarios.meta.total === 1 ? 'comentário' : 'comentários'}
+          </span>
+        </div>
+
+        <div class="discussao">
+          {comentarios.data.length > 0 ? comentarios.data.map((c) => (
+            <div class:list={['comentario', c.isDeleted && 'removido']}>
+              <div class="cabeca">
+                <a href={`/users/${c.author.username}`}>@{c.author.username}</a>
+                <span class="quando">{haQuantoTempo(c.createdAt)}</span>
+                {c.isEdited && <span class="quando">· editado</span>}
+              </div>
+              <p>{c.body}</p>
+            </div>
+          )) : (
+            <Vazio
+              titulo="Ninguém comentou ainda"
+              texto="A discussão é o que transforma uma ideia solta em proposta com escopo. Comentar exige conta."
+              acaoHref="/entrar"
+              acaoTexto="entrar para comentar"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ---------- coluna lateral ---------- */}
+      <aside class="lado-rfc">
+        <div class="bloco vem">
+          <p class="titulo-bloco">para sair do papel</p>
+          <p style="margin:0 0 16px; font-size:14px; color:var(--t-75)">
+            {ativos.length === 0
+              ? 'Ninguém se inscreveu ainda. Quem sabe fazer entra sem aprovação e sem contrato.'
+              : `${ativos.length} ${ativos.length === 1 ? 'pessoa está' : 'pessoas estão'} construindo. Cabe mais.`}
+          </p>
+          <a class="botao" href="/entrar">quero construir</a>
+        </div>
+
+        {ativos.length > 0 && (
+          <div class="bloco vem">
+            <p class="titulo-bloco">construindo</p>
+            <div class="lista-pessoas">
+              {ativos.map((i, n) => (
+                <a class="pessoa" href={`/users/${i.user.username}`}>
+                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                    {i.user.username.slice(0, 2).toUpperCase()}
+                  </span>
+                  @{i.user.username}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sairam.length > 0 && (
+          <div class="bloco vem">
+            {/* a saída é pública por princípio: VISAO §5.1 */}
+            <p class="titulo-bloco">passaram por aqui</p>
+            <div class="lista-pessoas">
+              {sairam.map((i) => (
+                <a class="pessoa" href={`/users/${i.user.username}`} style="opacity:.6">
+                  <span class="inicial" style="background: var(--color-t-12)">
+                    {i.user.username.slice(0, 2).toUpperCase()}
+                  </span>
+                  @{i.user.username}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div class="bloco vem">
+          <p class="titulo-bloco">histórico</p>
+          <div class="linha"><span>escrita por</span><a href={`/users/${rfc.author.username}`} style="color:var(--t-90)"><b>@{rfc.author.username}</b></a></div>
+          <div class="linha"><span>publicada</span><b>{haQuantoTempo(rfc.publishedAt)}</b></div>
+          <div class="linha"><span>última mudança</span><b>{haQuantoTempo(rfc.updatedAt)}</b></div>
+          <div class="linha"><span>versões</span><b>{versoes.length || 1}</b></div>
+          {versoes.length > 1 && (
+            <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+              Nada é apagado: cada edição do corpo vira uma versão nova.
+            </p>
+          )}
+        </div>
+
+        {tags.length > 0 && (
+          <div class="bloco vem">
+            <p class="titulo-bloco">tags</p>
+            <div class="nuvem-tags">
+              {tags.map((t) => <a class="tag" href={`/rfcs?tag=${t.slug}`}>{t.name}</a>)}
+            </div>
+          </div>
+        )}
+      </aside>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<script>
+  function ligarEntrada() {
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('veio');
+        olho.unobserve(e.target);
+      }
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 6) * 60 + 'ms';
+      olho.observe(el);
+    });
+  }
+  document.addEventListener('astro:page-load', ligarEntrada);
+</script>

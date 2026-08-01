@@ -1,0 +1,30 @@
+---
+/* Nav — pílula flutuante, sticky. Aparece em toda página. */
+interface Props {
+  /** rota atual, pra marcar o item ativo */
+  atual?: 'labs' | 'rfcs' | 'builders' | 'sobre';
+}
+const { atual } = Astro.props;
+
+const itens = [
+  { chave: 'labs',     href: '/labs',     texto: 'laboratórios' },
+  { chave: 'rfcs',     href: '/rfcs',     texto: 'ideias' },
+  { chave: 'builders', href: '/builders', texto: 'mãos' },
+  { chave: 'sobre',    href: '/sobre',    texto: 'sobre' },
+] as const;
+---
+
+<nav class="nav">
+  <a class="marca" href="/">idearium</a>
+  {itens.map((i) => (
+    <a
+      class="esconde"
+      href={i.href}
+      aria-current={atual === i.chave ? 'page' : undefined}
+    >{i.texto}</a>
+  ))}
+  <span class="fim">
+    <a class="mono esconde" href="#" style="font-size:11px">pt · en</a>
+    <a class="entrar" href="/entrar">entrar</a>
+  </span>
+</nav>

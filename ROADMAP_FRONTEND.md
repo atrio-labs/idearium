@@ -13,8 +13,8 @@
 | Etapa | Status | Notas |
 |---|---|---|
 | F0. Fundação e design system | ✅ feito | direção Matéria portada, átrio de pé |
-| F1. Leitura pública | ⏳ próxima | destravada — Etapa 2 do backend está pronta |
-| F2. Identidade | ⏳ planejada | destravada — Etapa 1 pronta. Traz o adapter SSR |
+| F1. Leitura pública | ✅ feito | 5 telas ligadas na API real, 21 rotas no build |
+| F2. Identidade | ⏳ próxima | destravada — Etapa 1 pronta. Traz o adapter SSR |
 | F3. Participação | ⏳ planejada | destravada — Etapa 3 pronta |
 | F4. Autoria | ⏳ planejada | destravada — Etapa 2 pronta |
 | F5. Descoberta | ⏳ planejada | destravada — Etapa 4 pronta |
@@ -108,35 +108,53 @@ própria, coerente com o SSOT.
 
 ---
 
-### **F1 — Leitura pública** *(~2 semanas)* — ⏳ PRÓXIMA
+### **F1 — Leitura pública** — ✅ CONCLUÍDA
 
-**Objetivo:** um visitante anônimo consegue percorrer todo o conteúdo público
-sem nunca criar conta. É o caminho da persona Luísa no `VISAO.md` §7.
+**Objetivo:** um visitante anônimo percorre todo o conteúdo público sem nunca
+criar conta. É o caminho da persona Luísa no `VISAO.md` §7.
 
 **HUs:**
 
-| # | História | Aceite |
-|---|---|---|
-| F1.1 | Quem chega vê no átrio ideias reais, não fixture | átrio consome `GET /labs` e `GET /rfcs/featured`; com a API fora do ar a página ainda renderiza, com aviso |
-| F1.2 | Quem procura uma ideia filtra a lista por lab e por estado | `/rfcs` com `?lab=&status=&sort=`; filtro sobrevive a recarregar a página; zero resultado tem estado de vazio próprio |
-| F1.3 | Quem abre uma ideia lê a proposta inteira e o histórico | `/rfcs/:slug` com corpo, versões (`GET /rfcs/:id/versions`) e inscritos; rascunho de outra pessoa dá 404, não erro feio |
-| F1.4 | Quem quer entender um domínio abre o laboratório | `/labs/:slug` com descrição e RFCs do lab |
-| F1.5 | Quem viu um `@nome` numa discussão abre o perfil | `/users/:username` com RFCs escritas e inscrições |
+| # | História | Aceite | |
+|---|---|---|---|
+| F1.1 | Quem chega vê no átrio ideias reais, não fixture | átrio consome a API; com ela fora do ar a página ainda renderiza, com aviso | ✅ |
+| F1.2 | Quem procura uma ideia filtra a lista por lab e por estado | `/rfcs` com `?lab=&status=`; filtro sobrevive a recarregar; zero resultado tem vazio próprio | ✅ |
+| F1.3 | Quem abre uma ideia lê a proposta inteira e o histórico | `/rfcs/:slug` com corpo, versões, inscritos, discussão e tags | ✅ |
+| F1.4 | Quem quer entender um domínio abre o laboratório | `/labs` e `/labs/:slug` | ✅ |
+| F1.5 | Quem viu um `@nome` numa discussão abre o perfil | `/users/:username` com o que escreveu e onde constrói | ✅ |
 
-**Endpoints:** `GET /labs`, `/labs/:slug`, `/rfcs`, `/rfcs/featured`,
-`/rfcs/:slug`, `/rfcs/:id/versions`, `/rfcs/:id/enrollments`,
-`/users/:username`, `/users/:username/rfcs`, `/users/:username/enrollments`.
+**Entregue:**
+- `src/lib/api.ts` — único ponto de contato com o backend. Tipos escritos a
+  partir das respostas reais, não do schema. Nenhuma função lança: API fora
+  devolve fallback vazio e marca `apiIndisponivel`.
+- Componentes compartilhados: `Nav`, `Rodape`, `CartaoIdeia`, `Vazio`.
+- Build gera 21 rotas: átrio, `/rfcs`, `/labs`, 6 labs, 6 RFCs, 6 perfis.
 
-**A resolver com o Kae antes de começar:**
-- `pedindoMao` (RFCs do lab com vaga aberta) não existe em `GET /labs`. Ou vira
-  campo, ou some da UI.
-- `GET /rfcs/featured` devolve 3. O átrio usa 1 no destaque e 3 na grade, ou
-  seja, precisa de 4 — ou de duas chamadas.
+**O que a integração revelou** (nenhum vira pendência com o Kae — todos
+contornados no cliente):
 
-**Definition of done:**
-- [ ] Nenhum fixture em `src/pages/`.
-- [ ] Toda listagem tem estado de vazio.
-- [ ] `npm run build:web` gera as rotas dinâmicas via `getStaticPaths`.
+| Descoberta | Como ficou |
+|---|---|
+| `limit` tem teto de 100; pedir mais devolve **400** | `listarTodasRfcs()` pagina até o fim. Era falha silenciosa: o build gerava um site sem nenhuma RFC e terminava "com sucesso" |
+| `GET /rfcs/featured` devolve 3, o átrio precisa de 4 | átrio usa `GET /rfcs?limit=4`, mesma ordem de recência |
+| `pedindoMao` não existe e nunca existiu | saiu da UI; o lab mostra `rfcsCount` |
+| `buildersCount` do lab volta 0 mesmo com inscrições ativas | não exibido. Parece contar `BuilderProfile`, não `Enrollment` — confirmar com o Kae antes de usar |
+| `GET /users/:username/enrollments` devolve a RFC **sem** `author` nem `_count` | `CartaoIdeia` trata os dois como opcionais |
+| `glyph` do lab já vem do banco | a UI não tem mais tabela de glyph hardcoded |
+| Slug real é `tec-civica` / `econ-solidaria` | tokens de cor renomeados pra casar com o slug |
+
+**Débito assumido:**
+- Filtro de `/rfcs` é client-side sobre o catálogo inteiro. Passando de ~200
+  RFCs vira HTML demais e precisa virar SSR paginado.
+- Markdown do corpo é renderizado por um parser mínimo escrito à mão
+  (`rfcs/[slug].astro`), que escapa tudo antes de injetar. Cobre h2, lista,
+  parágrafo, negrito e código. Um renderer de verdade entra na F4 — e vai
+  precisar sanitizar igual.
+- Rota de perfil só existe pra quem **escreveu** alguma RFC: não há endpoint
+  público que liste usuários, e nem deveria haver. Quem só comentou ganha
+  página na F2, com SSR.
+- `/builders`, `/entrar`, `/rfcs/nova` e os quatro links institucionais ainda
+  são 404. Estão nas etapas seguintes.
 
 ---
 
@@ -233,11 +251,11 @@ Sequencial, mas F4 e F5 podem trocar de ordem sem prejuízo.
 | Etapa | Tempo | Acumulado |
 |---|---|---|
 | F0 | — | ✅ |
-| F1 | 2 semanas | 2 |
-| F2 | 1,5 semana | 3,5 |
-| F3 | 1 semana | 4,5 |
-| F4 | 2 semanas | 6,5 |
-| F5 | 1 semana | 7,5 |
+| F1 | — | ✅ |
+| F2 | 1,5 semana | 1,5 |
+| F3 | 1 semana | 2,5 |
+| F4 | 2 semanas | 4,5 |
+| F5 | 1 semana | 5,5 |
 
 Para go-live público falta ainda, fora desta lista: página `/sobre`,
 `/governanca`, `/codigo-de-conduta` e `/transparencia` — hoje são links mortos

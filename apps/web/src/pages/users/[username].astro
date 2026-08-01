@@ -1,0 +1,127 @@
+---
+/* ================================================================
+   /users/:username — perfil público (F1.5)
+   ================================================================
+   Pseudônimo por padrão (VISAO §5.3): o @username é o identificador
+   canônico, e fullName/bio são opcionais. A página não pede nem exibe
+   nada além do que a pessoa escolheu preencher.
+
+   Nada de métrica de vaidade aqui (VISAO §9): sem seguidores, sem
+   visualizações de perfil, sem contagem que exista pra impressionar.
+   O que aparece é trabalho: o que escreveu e onde está construindo.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import {
+  listarTodasRfcs, avisarSeVazio, obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario,
+  haQuantoTempo,
+} from '../../lib/api';
+
+export async function getStaticPaths() {
+  /* Não há endpoint que liste todos os usuários publicamente, e nem
+     deveria haver — diretório de gente é outra coisa. Então gero as
+     rotas a partir de quem aparece como autor no catálogo público.
+     Quem só comentou ainda não ganha página estática; isso resolve
+     junto com o SSR da F2. */
+  const todas = await listarTodasRfcs();
+  const nomes = [...new Set(todas.map((r) => r.author.username))];
+  avisarSeVazio({ onde: '/users/[username]', qtd: nomes.length });
+  return nomes.map((username) => ({ params: { username } }));
+}
+
+const { username } = Astro.params;
+const perfil = await obterPerfil(username!);
+if (!perfil) return Astro.redirect('/rfcs');
+
+const [escritas, inscricoes] = await Promise.all([
+  listarRfcsDoUsuario(username!),
+  listarInscricoesDoUsuario(username!),
+]);
+
+/* rascunho não aparece pra visitante; a API já filtra, isto é defesa */
+const publicas = escritas.data.filter((r) => r.status !== 'DRAFT');
+const construindo = inscricoes.data.filter((i) => i.leftAt == null && i.rfc);
+const bp = perfil.builderProfile;
+---
+
+<Layout
+  title={`Idearium · @${perfil.username}`}
+  description={bp?.headline ?? perfil.bio ?? `Perfil público de @${perfil.username}.`}
+>
+  <div class="palco">
+    <Nav atual="builders" />
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+    </header>
+
+    <section class="perfil-topo vem">
+      <h1>@{perfil.username}</h1>
+      {perfil.fullName && (
+        <p style="margin:0 0 8px; color:var(--t-75)">{perfil.fullName}</p>
+      )}
+      {bp?.headline && <p class="headline">{bp.headline}</p>}
+      {perfil.bio && <p class="headline">{perfil.bio}</p>}
+
+      <div class="chips" style="margin-bottom:14px">
+        {bp?.isOpenToWork && (
+          <span class="chip vivo"><span class="ponto"></span>disponível pra construir</span>
+        )}
+        {bp?.topics?.map((t) => <span class="chip pequeno">{t}</span>)}
+      </div>
+
+      <p class="meta">por aqui desde {haQuantoTempo(perfil.createdAt).replace('há', '')}</p>
+    </section>
+
+    {/* ---------- o que escreveu ---------- */}
+    <div class="faixa-rotulo">
+      <span class="r">ideias que escreveu</span>
+      <span class="mono" style="font-size:11px; color:var(--t-35)">
+        {publicas.length}
+      </span>
+    </div>
+
+    {publicas.length > 0 ? (
+      <div class="grade">
+        {publicas.map((rfc) => <CartaoIdeia rfc={rfc} />)}
+      </div>
+    ) : (
+      <Vazio
+        titulo="Ainda não escreveu nenhuma ideia"
+        texto="Escrever não é obrigatório: dá pra contribuir só construindo, ou só discutindo."
+      />
+    )}
+
+    {/* ---------- onde está construindo ---------- */}
+    {construindo.length > 0 && (
+      <>
+        <div class="faixa-rotulo">
+          <span class="r">onde está construindo</span>
+          <span class="mono" style="font-size:11px; color:var(--t-35)">
+            {construindo.length}
+          </span>
+        </div>
+        <div class="grade">
+          {construindo.map((i) => <CartaoIdeia rfc={i.rfc!} />)}
+        </div>
+      </>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

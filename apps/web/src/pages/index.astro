@@ -2,154 +2,92 @@
 /* ================================================================
    index.astro — o átrio, direção Matéria
    ================================================================
-   Substitui o átrio editorial/Kare OS. A direção veio de
-   brainstorming-design/atrio-v2/materia.html; as três transições
-   (chip de estado, errata, passo dado) de atrio-v2/motion.html.
+   Agora consome a API de verdade (F1.1). As páginas públicas são
+   pré-renderizadas, então estas chamadas rodam em build time.
 
    Estrutura, de cima pra baixo:
      nav          pílula flutuante, sticky
      abertura     explica o ciclo ENSINANDO o vocabulário
      destaque     uma RFC, com matéria + trilha + errata + pedido
-     grade        três ideias
+     grade        as demais ideias
      labs         os seis domínios
      chamada      escrever uma ideia
      rodapé
-
-   ----------------------------------------------------------------
-   DADOS
-   ----------------------------------------------------------------
-   Ainda são fixtures, mas já no SHAPE das respostas da API, pra que
-   a HU de integração (F1 do ROADMAP_FRONTEND) troque só a origem:
-
-     labs        →  GET /labs
-     destaque    →  GET /rfcs/featured  (o primeiro)
-     grade       →  GET /rfcs/featured  (os demais)
-
-   Nada aqui inventa campo que a API não tenha, com uma exceção
-   anotada: `pedindoMao` nos labs.
    ================================================================ */
 import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
 import Materia from '../components/astro/Materia.astro';
+import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import {
+  listarLabs, listarDestaques, listarRfcs, listarVersoes, listarInscricoes,
+  listarComentarios, apiIndisponivel,
+  statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo, materiaDaRfc,
+} from '../lib/api';
 
-type RfcStatus = 'DRAFT' | 'IN_DISCUSSION' | 'IN_BUILDING' | 'PUBLISHED' | 'ARCHIVED';
+const labs = await listarLabs();
 
-/* Mapa do enum do backend pro rótulo em PT minúsculo. Vocabulário
-   canônico do VISAO §14 — não inventar sinônimo na UI. */
-const statusLabel: Record<RfcStatus, string> = {
-  DRAFT:         'rascunho',
-  IN_DISCUSSION: 'em discussão',
-  IN_BUILDING:   'em construção',
-  PUBLISHED:     'publicada',
-  ARCHIVED:      'arquivada',
-};
+/* O átrio precisa de 4 RFCs (1 destaque + 3 na grade) e /rfcs/featured
+   devolve 3. Em vez de duas chamadas, uso a listagem: mesma ordem de
+   recência, e sobra margem se o número de destaques mudar.
+   Anotado no ROADMAP_FRONTEND como ponto de contrato com o Kae. */
+const pagina = await listarRfcs({ limit: 4, sort: 'recent' });
+const [destaque, ...outras] = pagina.data;
 
-/* GET /labs — glyph vem do VISAO §12. `pedindoMao` ainda não existe
-   na API (seriam RFCs do lab com vaga aberta); anotado pra virar
-   campo ou sair na F1. */
-const labs = [
-  { slug: 'educacao',  name: 'Educação',        glyph: '◈', rfcsCount: 12, pedindoMao: 4 },
-  { slug: 'cidades',   name: 'Cidades',         glyph: '◇', rfcsCount:  9, pedindoMao: 3 },
-  { slug: 'saude',     name: 'Saúde',           glyph: '✚', rfcsCount:  7, pedindoMao: 1 },
-  { slug: 'cultura',   name: 'Cultura',         glyph: '♪', rfcsCount:  6, pedindoMao: 5 },
-  { slug: 'civica',    name: 'Tec. Cívica',     glyph: '⌘', rfcsCount:  8, pedindoMao: 2 },
-  { slug: 'solidaria', name: 'Econ. Solidária', glyph: '◆', rfcsCount:  5, pedindoMao: 4 },
-] as const;
+/* Só o destaque carrega o detalhe: os cartões da grade não precisam. */
+const versoes   = destaque ? await listarVersoes(destaque.id) : [];
+const inscritos = destaque ? await listarInscricoes(destaque.id) : [];
+const comentarios = destaque ? await listarComentarios(destaque.id) : null;
 
-/* GET /rfcs/featured — o primeiro vira destaque */
-const destaque = {
-  number: 11,
-  slug: 'registre-onde-a-agua-subiu',
-  title: 'Registre onde a água subiu,',
-  titleSerif: 'não',
-  titleRest: 'quem registrou.',
-  summary:
-    'Canal colaborativo de relatos geolocalizados sobre alagamentos, agregando ' +
-    'ocorrências em tempo quase-real como dado público, preservando anonimato.',
-  status: 'IN_DISCUSSION' as RfcStatus,
-  lab: { slug: 'cidades', name: 'Cidades' },
-  version: 2,
-  daysAgo: 4,
-  materia: { tipo: 'mancha' as const, semente: 11 },
-  legenda: 'relatos agregados · 14 dias · rec/pe',
-  /* GET /rfcs/:id/versions — cada passo é um passo DADO, não % de
-     prazo: numa RFC voluntária não há prazo (VISAO §9) */
-  passos: [
-    { dado: true,  titulo: 'Fluxo desenhado',     resto: 'e discutido em 11 comentários' },
-    { dado: true,  titulo: 'Anonimato resolvido', resto: '— limite por região, após crítica de @jhonatan' },
-    { dado: false, titulo: '',                    resto: 'Falta quem conheça defesa civil por dentro' },
-  ],
-  /* diff entre RfcVersion — nada é apagado, a correção fica ao lado */
-  errata: {
-    de: 'agregando ocorrências em tempo real',
-    para: 'agregando ocorrências em tempo quase-real',
-    data: '19.07.2026',
-    versao: 'v0.3',
-  },
-  pedido: 'Precisa de <b>geo/back-end</b> e de alguém que já tenha trabalhado com defesa civil. Duas ou três pessoas.',
-  /* GET /rfcs/:id/enrollments */
-  inscritos: [
-    { iniciais: 'RF', lab: 'cidades' },
-    { iniciais: 'JH', lab: 'saude' },
-    { iniciais: 'LU', lab: 'cultura' },
-    { iniciais: 'MF', lab: 'civica' },
-  ],
-  inscritosRestantes: 1,
-};
+const ativos = inscritos.filter((i) => i.leftAt == null);
+const mostrados = ativos.slice(0, 4);
+const restantes = ativos.length - mostrados.length;
 
-/* GET /rfcs/featured — os demais viram a grade */
-const grade = [
-  {
-    number: 14,
-    slug: 'deixe-o-remedio-a-tres-ruas',
-    title: 'Deixe o remédio a três ruas de quem precisa dele.',
-    summary: 'Pontos comunitários de doação de medicamento fechado, com busca por proximidade e moderação local.',
-    lab: { slug: 'saude', name: 'Saúde' },
-    author: '@marina',
-    version: 4,
-    nota: '1 ponto piloto',
-    materia: { tipo: 'pontos' as const, semente: 14 },
-  },
-  {
-    number: 7,
-    slug: 'empreste-o-livro-sem-pedir-garantia',
-    title: 'Empreste o livro sem pedir garantia.',
-    summary: 'Catálogo leve para vizinhos emprestarem entre si. Sem nota, sem pontuação — só histórico de devolução.',
-    lab: { slug: 'educacao', name: 'Educação' },
-    author: '@luisa',
-    version: 6,
-    nota: '3 bairros',
-    materia: { tipo: 'grafo' as const, semente: 7 },
-  },
-  {
-    number: 23,
-    slug: 'publique-o-orcamento-antes-de-gasta-lo',
-    title: 'Publique o orçamento antes de gastá-lo.',
-    summary: 'Acompanha o portal de transparência e avisa quando uma rubrica muda, em linguagem que o vizinho entende.',
-    lab: { slug: 'civica', name: 'Tec. Cívica' },
-    author: '@dev.raposa',
-    version: 1,
-    nota: 'precisa de tudo',
-    materia: { tipo: 'serie' as const, semente: 23 },
-  },
-];
+/* A errata compara as duas últimas versões do corpo. Não existe
+   endpoint de diff, então acho o primeiro parágrafo que mudou — que é
+   o caso real de errata: uma frase corrigida, não o texto reescrito. */
+function acharErrata(vs: typeof versoes) {
+  if (vs.length < 2) return null;
+  const ordenadas = [...vs].sort((a, b) => a.version - b.version);
+  const antes = ordenadas.at(-2)!;
+  const agora = ordenadas.at(-1)!;
+  const pa = antes.body.split('\n');
+  const pb = agora.body.split('\n');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const a = (pa[i] ?? '').trim();
+    const b = (pb[i] ?? '').trim();
+    if (a && b && a !== b) {
+      return { de: a, para: b, versao: agora.version, data: agora.createdAt };
+    }
+  }
+  return null;
+}
+const errata = acharErrata(versoes);
 
-const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
+/* A trilha: cada barrinha é um passo dado, não porcentagem. Os passos
+   nomeados vêm do que existe de fato — versões, discussão, inscrições. */
+const passos = destaque ? [
+  { dado: versoes.length >= 1, titulo: 'Proposta escrita',
+    resto: `e numerada como ${codigoRfc(destaque.number)}` },
+  { dado: (comentarios?.meta.total ?? 0) > 0, titulo: 'Discutida em público',
+    resto: (comentarios?.meta.total ?? 0) > 0
+      ? `${comentarios!.meta.total} ${comentarios!.meta.total === 1 ? 'comentário' : 'comentários'}`
+      : '— ninguém comentou ainda' },
+  { dado: ativos.length > 0, titulo: 'Alguém se inscreveu',
+    resto: ativos.length
+      ? `${ativos.length} ${ativos.length === 1 ? 'pessoa' : 'pessoas'} construindo`
+      : '— a vaga está aberta' },
+] : [];
+const passosDados = passos.filter((p) => p.dado).length;
+
+const m = destaque ? materiaDaRfc(destaque) : null;
+const semRede = apiIndisponivel;
 ---
 
 <Layout title="Idearium · Átrio">
   <div class="palco">
-
-    <nav class="nav">
-      <a class="marca" href="/">idearium</a>
-      <a class="esconde" href="/labs">laboratórios</a>
-      <a class="esconde" href="/rfcs">ideias</a>
-      <a class="esconde" href="/builders">mãos</a>
-      <a class="esconde" href="/sobre">sobre</a>
-      <span class="fim">
-        <a class="mono esconde" href="#" style="font-size:11px">pt · en</a>
-        <a class="entrar" href="/entrar">entrar</a>
-      </span>
-    </nav>
+    <Nav />
 
     {/* ============ ABERTURA ============ */}
     <header class="abertura vem">
@@ -162,8 +100,7 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
 
       {/* O chip percorre o ciclo UMA vez quando a abertura entra em
           vista, e para em "publicada". Ciclo único, não loop: o ponto
-          de "em discussão" já respira em 2.6s, e dois loops perpétuos
-          competiriam na mesma tela. */}
+          de "em discussão" já respira em 2.6s. */}
       <p class="demo-ciclo" id="demo-ciclo">
         uma ideia atravessa quatro estados:
         <span class="chip pequeno" id="chip-demo">
@@ -205,126 +142,137 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
       <a href="/rfcs">ver todas as ideias abertas &rarr;</a>
     </div>
 
-    <article class="cartao destaque vem">
+    {semRede && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> O que aparece abaixo pode estar
+        incompleto. O conteúdo volta sozinho quando a API responder.
+      </p>
+    )}
 
-      <figure class="materia">
-        <Materia
-          tipo={destaque.materia.tipo}
-          lab={destaque.lab.slug}
-          semente={destaque.materia.semente}
-          legenda={destaque.legenda}
-          alt={`Densidade de relatos de alagamento em dithering, ${rfcCode(destaque.number)}`}
-        />
-      </figure>
+    {destaque && m ? (
+      <article class="cartao destaque vem">
+        <figure class="materia">
+          <Materia
+            tipo={m.tipo}
+            lab={destaque.lab.slug}
+            semente={m.semente}
+            legenda={`${destaque.lab.glyph} ${nomeCurtoDoLab(destaque.lab.name)} · ${haQuantoTempo(destaque.publishedAt)}`}
+            alt={`Campo de dados em dithering, ${codigoRfc(destaque.number)}`}
+          />
+        </figure>
 
-      <div class="conteudo">
-        <div class="chips">
-          <span class="chip pastel" style={`background: var(--color-${destaque.lab.slug})`}>{destaque.lab.name}</span>
-          <span class="chip vivo"><span class="ponto"></span>{statusLabel[destaque.status]}</span>
-          <span class="codigo">{rfcCode(destaque.number)}</span>
-        </div>
-
-        <h1>{destaque.title} <span class="serif">{destaque.titleSerif}</span> {destaque.titleRest}</h1>
-
-        <p class="resumo">{destaque.summary}</p>
-
-        <div class="trilha">
-          <div class="cabeca">
-            <span class="titulo">O que já existe</span>
-            <span class="versao">v0.{destaque.version} · há {destaque.daysAgo} dias</span>
+        <div class="conteudo">
+          <div class="chips">
+            <span class="chip pastel" style={`background: var(--color-${destaque.lab.slug})`}>
+              {nomeCurtoDoLab(destaque.lab.name)}
+            </span>
+            {destaque.status === 'IN_DISCUSSION'
+              ? <span class="chip vivo"><span class="ponto"></span>{statusLabel[destaque.status]}</span>
+              : <span class="chip">{statusLabel[destaque.status]}</span>}
+            <span class="codigo">{codigoRfc(destaque.number)}</span>
           </div>
 
-          <div class="barras" role="img" aria-label="3 de 8 passos dados">
-            <i class="feito"></i><i class="feito"></i><i class="feito"></i><i class="meio"></i>
-            <i></i><i></i><i></i><i></i>
-          </div>
+          <h1>{destaque.title}</h1>
+          <p class="resumo">{destaque.summary}</p>
 
-          <div class="passos">
-            {destaque.passos.map((p) => (
-              <div class:list={['passo', p.dado && 'dado']}>
-                <span class="caixa">
-                  {p.dado && (
-                    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
-                  )}
-                </span>
-                <span>{p.titulo && <b>{p.titulo}</b>} {p.resto}</span>
+          <div class="trilha">
+            <div class="cabeca">
+              <span class="titulo">O que já existe</span>
+              <span class="versao">v0.{versoes.length || 1} · {haQuantoTempo(destaque.updatedAt)}</span>
+            </div>
+
+            <div class="barras" role="img" aria-label={`${passosDados} de ${passos.length} passos dados`}>
+              {passos.map((p) => <i class={p.dado ? 'feito' : ''}></i>)}
+            </div>
+
+            <div class="passos">
+              {passos.map((p) => (
+                <div class:list={['passo', p.dado && 'dado']}>
+                  <span class="caixa">
+                    {p.dado && (
+                      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
+                    )}
+                  </span>
+                  <span><b>{p.titulo}</b> {p.resto}</span>
+                </div>
+              ))}
+            </div>
+
+            {errata && (
+              <div class="errata" data-aberta="nao">
+                <button class="gatilho" type="button" aria-expanded="false">
+                  <span class="chevron"></span> errata · 1 correção
+                </button>
+                <div class="fole"><div><div class="corpo">
+                  <span class="riscado">{errata.de}</span>
+                  {errata.para}
+                  <span class="data">corrigido {haQuantoTempo(errata.data)} · v0.{errata.versao}</span>
+                </div></div></div>
               </div>
-            ))}
-          </div>
-
-          {/* nada é apagado: o texto errado fica riscado e a correção
-              aparece ao lado, datada */}
-          <div class="errata" data-aberta="nao">
-            <button class="gatilho" type="button" aria-expanded="false">
-              <span class="chevron"></span> errata · 1 correção
-            </button>
-            <div class="fole"><div><div class="corpo">
-              <span class="riscado">{destaque.errata.de}</span>
-              {destaque.errata.para}
-              <span class="data">corrigido em {destaque.errata.data} · {destaque.errata.versao}</span>
-            </div></div></div>
+            )}
           </div>
         </div>
-      </div>
 
-      <div class="pedido">
-        <div class="texto">
-          <p class="rotulo">para sair do papel</p>
-          <p set:html={destaque.pedido}></p>
+        <div class="pedido">
+          <div class="texto">
+            <p class="rotulo">para sair do papel</p>
+            <p>
+              {ativos.length === 0
+                ? <>Ninguém se inscreveu ainda. <b>Pode ser você.</b></>
+                : <>Já tem <b>{ativos.length} {ativos.length === 1 ? 'pessoa' : 'pessoas'}</b> construindo. Cabe mais.</>}
+            </p>
+          </div>
+          <div class="acoes">
+            <a class="botao" href={`/rfcs/${destaque.slug}`}>quero construir</a>
+            <a class="botao leve" href={`/rfcs/${destaque.slug}#discussao`}>ler a discussão</a>
+            {mostrados.length > 0 && (
+              <span class="rostos" aria-label={`${ativos.length} pessoas inscritas`}>
+                {mostrados.map((i, n) => (
+                  <span style={`background: var(--color-${labs[n % (labs.length || 1)]?.slug ?? 'cidades'})`}>
+                    {i.user.username.slice(0, 2).toUpperCase()}
+                  </span>
+                ))}
+                {restantes > 0 && <span style="background: var(--color-t-12)">+{restantes}</span>}
+              </span>
+            )}
+          </div>
         </div>
-        <div class="acoes">
-          <a class="botao" href={`/rfcs/${destaque.slug}`}>quero construir</a>
-          <a class="botao leve" href={`/rfcs/${destaque.slug}#discussao`}>ler a discussão</a>
-          <span class="rostos" aria-label={`${destaque.inscritos.length + destaque.inscritosRestantes} pessoas inscritas`}>
-            {destaque.inscritos.map((i) => (
-              <span style={`background: var(--color-${i.lab})`}>{i.iniciais}</span>
-            ))}
-            <span style="background: var(--color-t-12)">+{destaque.inscritosRestantes}</span>
-          </span>
-        </div>
-      </div>
-    </article>
+      </article>
+    ) : (
+      <Vazio
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : 'Nenhuma ideia publicada ainda'}
+        texto={semRede
+          ? 'Assim que a API voltar, as ideias aparecem aqui sem você precisar fazer nada.'
+          : 'A primeira ideia publicada aparece aqui. Não precisa saber fazer — precisa conhecer o problema.'}
+        acaoHref={semRede ? undefined : '/rfcs/nova'}
+        acaoTexto={semRede ? undefined : 'escrever a primeira'}
+      />
+    )}
 
     {/* ============ GRADE ============ */}
-    <div class="grade">
-      {grade.map((rfc) => (
-        <a class="cartao ideia vem" href={`/rfcs/${rfc.slug}`}>
-          <div class="capa">
-            <Materia
-              tipo={rfc.materia.tipo}
-              lab={rfc.lab.slug}
-              semente={rfc.materia.semente}
-              alt={`Campo de dados em dithering, ${rfcCode(rfc.number)}`}
-            />
-          </div>
-          <div class="miolo">
-            <div class="chips" style="margin: 0">
-              <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>{rfc.lab.name}</span>
-              <span class="codigo">{rfcCode(rfc.number)}</span>
-            </div>
-            <h3>{rfc.title}</h3>
-            <p>{rfc.summary}</p>
-            <div class="pe">
-              <span>{rfc.author} · v0.{rfc.version}</span>
-              <span>{rfc.nota}</span>
-            </div>
-          </div>
-        </a>
-      ))}
-    </div>
+    {outras.length > 0 && (
+      <div class="grade">
+        {outras.map((rfc) => <CartaoIdeia rfc={rfc} />)}
+      </div>
+    )}
 
     {/* ============ LABS ============ */}
-    <div class="labs-faixa vem">
-      {labs.map((lab) => (
-        <a class="lab-card" href={`/labs/${lab.slug}`}>
-          <span class="fita" style={`background: var(--color-${lab.slug})`}></span>
-          <span class="txt">
-            <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{lab.name}</span>
-            <span class="qtd">{lab.rfcsCount} ideias · {lab.pedindoMao} pedindo mão</span>
-          </span>
-        </a>
-      ))}
-    </div>
+    {labs.length > 0 && (
+      <div class="labs-faixa vem">
+        {labs.map((lab) => (
+          <a class="lab-card" href={`/labs/${lab.slug}`}>
+            <span class="fita" style={`background: var(--color-${lab.slug})`}></span>
+            <span class="txt">
+              <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeCurtoDoLab(lab.name)}</span>
+              <span class="qtd">
+                {lab.rfcsCount} {lab.rfcsCount === 1 ? 'ideia' : 'ideias'}
+              </span>
+            </span>
+          </a>
+        ))}
+      </div>
+    )}
 
     {/* ============ CHAMADA ============ */}
     <section class="cartao chamada vem">
@@ -333,23 +281,13 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
       <a class="botao" href="/rfcs/nova">escrever uma ideia</a>
     </section>
 
-    <footer class="rodape">
-      <span>idearium · construção coletiva</span>
-      <nav>
-        <a href="/governanca">governança</a>
-        <a href="/codigo-de-conduta">código de conduta</a>
-        <a href="/transparencia">transparência</a>
-      </nav>
-      <span>cc by-sa 4.0</span>
-    </footer>
-
+    <Rodape />
   </div>
 </Layout>
 
 <script>
   /* ---------- entrada por IntersectionObserver ----------
-     cada peça anima quando chega. É o disparo de todas as
-     micro-animações nomeadas do global.css (.vem → .veio) */
+     dispara as micro-animações nomeadas do global.css (.vem → .veio) */
   function ligarEntrada() {
     const olho = new IntersectionObserver((entradas) => {
       for (const e of entradas) {
@@ -360,7 +298,7 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
     }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
 
     document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
-      el.style.animationDelay = (i * 70) + 'ms';   // escada leve entre blocos
+      el.style.animationDelay = (i * 70) + 'ms';
       olho.observe(el);
     });
   }
@@ -388,7 +326,6 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
       txt.classList.add('saindo');
       setTimeout(() => {
         txt.textContent = CICLO[i];
-        /* só "em discussão" respira — indica conversa em curso */
         chip.classList.toggle('vivo', CICLO[i] === 'em discussão');
         txt.classList.remove('saindo');
         txt.classList.add('entrando-de-baixo');
@@ -422,15 +359,12 @@ const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
     });
   }
 
-  function ligarTudo() {
+  /* Só `astro:page-load`: com o ClientRouter ativo ele já dispara na
+     carga inicial E em cada navegação. Chamar os dois duplicava os
+     listeners e a errata alternava duas vezes por clique. */
+  document.addEventListener('astro:page-load', () => {
     ligarEntrada();
     ligarChipDemo();
     ligarErrata();
-  }
-
-  /* Só `astro:page-load`, sem chamada direta: com o ClientRouter ativo
-     esse evento já dispara na carga inicial E em cada navegação. Chamar
-     os dois duplicava os listeners — a errata alternava duas vezes por
-     clique e voltava fechada. */
-  document.addEventListener('astro:page-load', ligarTudo);
+  });
 </script>

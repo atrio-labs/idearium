@@ -24,8 +24,8 @@
 interface Props {
   /** que tipo de dado a RFC produz */
   tipo: 'mancha' | 'pontos' | 'grafo' | 'serie';
-  /** slug do lab — vira a cor de fundo via var(--<lab>) */
-  lab: 'educacao' | 'cidades' | 'saude' | 'cultura' | 'civica' | 'solidaria';
+  /** slug do lab, como vem da API — vira a cor via var(--color-<slug>) */
+  lab: string;
   /** mesma semente, mesma imagem */
   semente: number;
   /** legenda opcional, sobreposta no canto inferior */
