@@ -1,39 +1,436 @@
 ---
 /* ================================================================
-   index.astro — página raiz (provisória, só pra testar a stack)
+   index.astro — o átrio, direção Matéria
    ================================================================
-   Esta é uma página TEMPORÁRIA pra validar que:
-     - Layout.astro carrega corretamente (fontes + global.css)
-     - Tokens do Tailwind 4 viraram classes utility (bg-cobalto, etc)
-     - As 3 fontes pixel-art baixaram e renderizam
+   Substitui o átrio editorial/Kare OS. A direção veio de
+   brainstorming-design/atrio-v2/materia.html; as três transições
+   (chip de estado, errata, passo dado) de atrio-v2/motion.html.
 
-   Depois que o Boot estiver pronto, esta página vai virar a entrada
-   real da app (/atrio ou redirect pra /boot).
+   Estrutura, de cima pra baixo:
+     nav          pílula flutuante, sticky
+     abertura     explica o ciclo ENSINANDO o vocabulário
+     destaque     uma RFC, com matéria + trilha + errata + pedido
+     grade        três ideias
+     labs         os seis domínios
+     chamada      escrever uma ideia
+     rodapé
+
+   ----------------------------------------------------------------
+   DADOS
+   ----------------------------------------------------------------
+   Ainda são fixtures, mas já no SHAPE das respostas da API, pra que
+   a HU de integração (F1 do ROADMAP_FRONTEND) troque só a origem:
+
+     labs        →  GET /labs
+     destaque    →  GET /rfcs/featured  (o primeiro)
+     grade       →  GET /rfcs/featured  (os demais)
+
+   Nada aqui inventa campo que a API não tenha, com uma exceção
+   anotada: `pedindoMao` nos labs.
    ================================================================ */
 import Layout from '../layouts/Layout.astro';
+import Materia from '../components/astro/Materia.astro';
+
+type RfcStatus = 'DRAFT' | 'IN_DISCUSSION' | 'IN_BUILDING' | 'PUBLISHED' | 'ARCHIVED';
+
+/* Mapa do enum do backend pro rótulo em PT minúsculo. Vocabulário
+   canônico do VISAO §14 — não inventar sinônimo na UI. */
+const statusLabel: Record<RfcStatus, string> = {
+  DRAFT:         'rascunho',
+  IN_DISCUSSION: 'em discussão',
+  IN_BUILDING:   'em construção',
+  PUBLISHED:     'publicada',
+  ARCHIVED:      'arquivada',
+};
+
+/* GET /labs — glyph vem do VISAO §12. `pedindoMao` ainda não existe
+   na API (seriam RFCs do lab com vaga aberta); anotado pra virar
+   campo ou sair na F1. */
+const labs = [
+  { slug: 'educacao',  name: 'Educação',        glyph: '◈', rfcsCount: 12, pedindoMao: 4 },
+  { slug: 'cidades',   name: 'Cidades',         glyph: '◇', rfcsCount:  9, pedindoMao: 3 },
+  { slug: 'saude',     name: 'Saúde',           glyph: '✚', rfcsCount:  7, pedindoMao: 1 },
+  { slug: 'cultura',   name: 'Cultura',         glyph: '♪', rfcsCount:  6, pedindoMao: 5 },
+  { slug: 'civica',    name: 'Tec. Cívica',     glyph: '⌘', rfcsCount:  8, pedindoMao: 2 },
+  { slug: 'solidaria', name: 'Econ. Solidária', glyph: '◆', rfcsCount:  5, pedindoMao: 4 },
+] as const;
+
+/* GET /rfcs/featured — o primeiro vira destaque */
+const destaque = {
+  number: 11,
+  slug: 'registre-onde-a-agua-subiu',
+  title: 'Registre onde a água subiu,',
+  titleSerif: 'não',
+  titleRest: 'quem registrou.',
+  summary:
+    'Canal colaborativo de relatos geolocalizados sobre alagamentos, agregando ' +
+    'ocorrências em tempo quase-real como dado público, preservando anonimato.',
+  status: 'IN_DISCUSSION' as RfcStatus,
+  lab: { slug: 'cidades', name: 'Cidades' },
+  version: 2,
+  daysAgo: 4,
+  materia: { tipo: 'mancha' as const, semente: 11 },
+  legenda: 'relatos agregados · 14 dias · rec/pe',
+  /* GET /rfcs/:id/versions — cada passo é um passo DADO, não % de
+     prazo: numa RFC voluntária não há prazo (VISAO §9) */
+  passos: [
+    { dado: true,  titulo: 'Fluxo desenhado',     resto: 'e discutido em 11 comentários' },
+    { dado: true,  titulo: 'Anonimato resolvido', resto: '— limite por região, após crítica de @jhonatan' },
+    { dado: false, titulo: '',                    resto: 'Falta quem conheça defesa civil por dentro' },
+  ],
+  /* diff entre RfcVersion — nada é apagado, a correção fica ao lado */
+  errata: {
+    de: 'agregando ocorrências em tempo real',
+    para: 'agregando ocorrências em tempo quase-real',
+    data: '19.07.2026',
+    versao: 'v0.3',
+  },
+  pedido: 'Precisa de <b>geo/back-end</b> e de alguém que já tenha trabalhado com defesa civil. Duas ou três pessoas.',
+  /* GET /rfcs/:id/enrollments */
+  inscritos: [
+    { iniciais: 'RF', lab: 'cidades' },
+    { iniciais: 'JH', lab: 'saude' },
+    { iniciais: 'LU', lab: 'cultura' },
+    { iniciais: 'MF', lab: 'civica' },
+  ],
+  inscritosRestantes: 1,
+};
+
+/* GET /rfcs/featured — os demais viram a grade */
+const grade = [
+  {
+    number: 14,
+    slug: 'deixe-o-remedio-a-tres-ruas',
+    title: 'Deixe o remédio a três ruas de quem precisa dele.',
+    summary: 'Pontos comunitários de doação de medicamento fechado, com busca por proximidade e moderação local.',
+    lab: { slug: 'saude', name: 'Saúde' },
+    author: '@marina',
+    version: 4,
+    nota: '1 ponto piloto',
+    materia: { tipo: 'pontos' as const, semente: 14 },
+  },
+  {
+    number: 7,
+    slug: 'empreste-o-livro-sem-pedir-garantia',
+    title: 'Empreste o livro sem pedir garantia.',
+    summary: 'Catálogo leve para vizinhos emprestarem entre si. Sem nota, sem pontuação — só histórico de devolução.',
+    lab: { slug: 'educacao', name: 'Educação' },
+    author: '@luisa',
+    version: 6,
+    nota: '3 bairros',
+    materia: { tipo: 'grafo' as const, semente: 7 },
+  },
+  {
+    number: 23,
+    slug: 'publique-o-orcamento-antes-de-gasta-lo',
+    title: 'Publique o orçamento antes de gastá-lo.',
+    summary: 'Acompanha o portal de transparência e avisa quando uma rubrica muda, em linguagem que o vizinho entende.',
+    lab: { slug: 'civica', name: 'Tec. Cívica' },
+    author: '@dev.raposa',
+    version: 1,
+    nota: 'precisa de tudo',
+    materia: { tipo: 'serie' as const, semente: 23 },
+  },
+];
+
+const rfcCode = (n: number) => `RFC-${String(n).padStart(4, '0')}`;
 ---
 
-<Layout title="Idearium · Stack OK">
-  <main class="min-h-screen bg-cobalto p-8 text-cream">
+<Layout title="Idearium · Átrio">
+  <div class="palco">
 
-    <h1 class="font-display text-3xl mb-6">IDEARIUM</h1>
-    <p class="font-ui text-xl mb-2">Stack carregada com sucesso.</p>
-    <p class="font-mono text-sm opacity-70">Astro 6 · React 19 · Tailwind 4 · Node 22</p>
+    <nav class="nav">
+      <a class="marca" href="/">idearium</a>
+      <a class="esconde" href="/labs">laboratórios</a>
+      <a class="esconde" href="/rfcs">ideias</a>
+      <a class="esconde" href="/builders">mãos</a>
+      <a class="esconde" href="/sobre">sobre</a>
+      <span class="fim">
+        <a class="mono esconde" href="#" style="font-size:11px">pt · en</a>
+        <a class="entrar" href="/entrar">entrar</a>
+      </span>
+    </nav>
 
-    <section class="mt-10 max-w-md">
-      <div class="bg-cream text-ink p-6 border-2 border-ink shadow-window">
-        <p class="font-display text-xs mb-3">JANELA DE TESTE</p>
-        <p class="font-ui mb-2">Se você está vendo:</p>
-        <ul class="font-ui text-sm space-y-1 list-disc list-inside">
-          <li>fundo <span class="bg-cobalto text-cream px-1">cobalto</span></li>
-          <li>fonte <span class="font-display">pixel</span> nos títulos</li>
-          <li>sombra dura <span class="text-yellow">amarela</span> embaixo da janela</li>
-        </ul>
-        <p class="font-mono text-xs mt-4 text-cobalto-light">
-          → tokens funcionando, próximo passo é o Boot screen.
-        </p>
+    {/* ============ ABERTURA ============ */}
+    <header class="abertura vem">
+      <h1>Ideias abertas, esperando <span class="serif">quem sabe fazer</span>.</h1>
+      <p class="sub">
+        Alguém vê um problema de perto e escreve. Outra pessoa sabe construir e
+        procura no que aplicar isso. O Idearium é o lugar onde os dois se
+        encontram — sem gatekeeper, sem taxa, e com o crédito dividido.
+      </p>
+
+      {/* O chip percorre o ciclo UMA vez quando a abertura entra em
+          vista, e para em "publicada". Ciclo único, não loop: o ponto
+          de "em discussão" já respira em 2.6s, e dois loops perpétuos
+          competiriam na mesma tela. */}
+      <p class="demo-ciclo" id="demo-ciclo">
+        uma ideia atravessa quatro estados:
+        <span class="chip pequeno" id="chip-demo">
+          <span class="ponto"></span><span class="rotulo-estado" id="chip-demo-txt">rascunho</span>
+        </span>
+      </p>
+
+      <div class="fluxo">
+        <div class="etapa">
+          <span class="n">01</span>
+          <h3>Alguém escreve</h3>
+          <p>Uma ideia vira proposta numerada. Não precisa saber construir — precisa conhecer o problema.</p>
+          <div class="vira">vira <span class="chip pequeno">{statusLabel.DRAFT}</span></div>
+        </div>
+        <div class="etapa">
+          <span class="n">02</span>
+          <h3>A comunidade refina</h3>
+          <p>Gente comenta, contesta, corrige. A proposta muda e o histórico fica: nada é apagado.</p>
+          <div class="vira">vira <span class="chip pequeno vivo"><span class="ponto"></span>{statusLabel.IN_DISCUSSION}</span></div>
+        </div>
+        <div class="etapa">
+          <span class="n">03</span>
+          <h3>Alguém se inscreve</h3>
+          <p>Quem sabe fazer entra. Sem aprovação e sem contrato — e pode sair quando quiser, publicamente.</p>
+          <div class="vira">vira <span class="chip pequeno">{statusLabel.IN_BUILDING}</span></div>
+        </div>
+        <div class="etapa">
+          <span class="n">04</span>
+          <h3>Vira real, e segue aberta</h3>
+          <p>Quando existe, o crédito é de todos que passaram por ela. E outra cidade pode construir de novo.</p>
+          <div class="vira">vira <span class="chip pequeno">{statusLabel.PUBLISHED}</span></div>
+        </div>
       </div>
+    </header>
+
+    {/* ============ DESTAQUE ============ */}
+    <div class="faixa-rotulo">
+      <span class="r">uma delas, agora</span>
+      <a href="/rfcs">ver todas as ideias abertas &rarr;</a>
+    </div>
+
+    <article class="cartao destaque vem">
+
+      <figure class="materia">
+        <Materia
+          tipo={destaque.materia.tipo}
+          lab={destaque.lab.slug}
+          semente={destaque.materia.semente}
+          legenda={destaque.legenda}
+          alt={`Densidade de relatos de alagamento em dithering, ${rfcCode(destaque.number)}`}
+        />
+      </figure>
+
+      <div class="conteudo">
+        <div class="chips">
+          <span class="chip pastel" style={`background: var(--color-${destaque.lab.slug})`}>{destaque.lab.name}</span>
+          <span class="chip vivo"><span class="ponto"></span>{statusLabel[destaque.status]}</span>
+          <span class="codigo">{rfcCode(destaque.number)}</span>
+        </div>
+
+        <h1>{destaque.title} <span class="serif">{destaque.titleSerif}</span> {destaque.titleRest}</h1>
+
+        <p class="resumo">{destaque.summary}</p>
+
+        <div class="trilha">
+          <div class="cabeca">
+            <span class="titulo">O que já existe</span>
+            <span class="versao">v0.{destaque.version} · há {destaque.daysAgo} dias</span>
+          </div>
+
+          <div class="barras" role="img" aria-label="3 de 8 passos dados">
+            <i class="feito"></i><i class="feito"></i><i class="feito"></i><i class="meio"></i>
+            <i></i><i></i><i></i><i></i>
+          </div>
+
+          <div class="passos">
+            {destaque.passos.map((p) => (
+              <div class:list={['passo', p.dado && 'dado']}>
+                <span class="caixa">
+                  {p.dado && (
+                    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
+                  )}
+                </span>
+                <span>{p.titulo && <b>{p.titulo}</b>} {p.resto}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* nada é apagado: o texto errado fica riscado e a correção
+              aparece ao lado, datada */}
+          <div class="errata" data-aberta="nao">
+            <button class="gatilho" type="button" aria-expanded="false">
+              <span class="chevron"></span> errata · 1 correção
+            </button>
+            <div class="fole"><div><div class="corpo">
+              <span class="riscado">{destaque.errata.de}</span>
+              {destaque.errata.para}
+              <span class="data">corrigido em {destaque.errata.data} · {destaque.errata.versao}</span>
+            </div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pedido">
+        <div class="texto">
+          <p class="rotulo">para sair do papel</p>
+          <p set:html={destaque.pedido}></p>
+        </div>
+        <div class="acoes">
+          <a class="botao" href={`/rfcs/${destaque.slug}`}>quero construir</a>
+          <a class="botao leve" href={`/rfcs/${destaque.slug}#discussao`}>ler a discussão</a>
+          <span class="rostos" aria-label={`${destaque.inscritos.length + destaque.inscritosRestantes} pessoas inscritas`}>
+            {destaque.inscritos.map((i) => (
+              <span style={`background: var(--color-${i.lab})`}>{i.iniciais}</span>
+            ))}
+            <span style="background: var(--color-t-12)">+{destaque.inscritosRestantes}</span>
+          </span>
+        </div>
+      </div>
+    </article>
+
+    {/* ============ GRADE ============ */}
+    <div class="grade">
+      {grade.map((rfc) => (
+        <a class="cartao ideia vem" href={`/rfcs/${rfc.slug}`}>
+          <div class="capa">
+            <Materia
+              tipo={rfc.materia.tipo}
+              lab={rfc.lab.slug}
+              semente={rfc.materia.semente}
+              alt={`Campo de dados em dithering, ${rfcCode(rfc.number)}`}
+            />
+          </div>
+          <div class="miolo">
+            <div class="chips" style="margin: 0">
+              <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>{rfc.lab.name}</span>
+              <span class="codigo">{rfcCode(rfc.number)}</span>
+            </div>
+            <h3>{rfc.title}</h3>
+            <p>{rfc.summary}</p>
+            <div class="pe">
+              <span>{rfc.author} · v0.{rfc.version}</span>
+              <span>{rfc.nota}</span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    {/* ============ LABS ============ */}
+    <div class="labs-faixa vem">
+      {labs.map((lab) => (
+        <a class="lab-card" href={`/labs/${lab.slug}`}>
+          <span class="fita" style={`background: var(--color-${lab.slug})`}></span>
+          <span class="txt">
+            <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{lab.name}</span>
+            <span class="qtd">{lab.rfcsCount} ideias · {lab.pedindoMao} pedindo mão</span>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    {/* ============ CHAMADA ============ */}
+    <section class="cartao chamada vem">
+      <h2>Escreva uma ideia. <span class="serif">Não precisa saber fazer.</span></h2>
+      <p>Precisa só querer que aconteça. Quem sabe fazer está aqui, procurando no que aplicar isso.</p>
+      <a class="botao" href="/rfcs/nova">escrever uma ideia</a>
     </section>
 
-  </main>
+    <footer class="rodape">
+      <span>idearium · construção coletiva</span>
+      <nav>
+        <a href="/governanca">governança</a>
+        <a href="/codigo-de-conduta">código de conduta</a>
+        <a href="/transparencia">transparência</a>
+      </nav>
+      <span>cc by-sa 4.0</span>
+    </footer>
+
+  </div>
 </Layout>
+
+<script>
+  /* ---------- entrada por IntersectionObserver ----------
+     cada peça anima quando chega. É o disparo de todas as
+     micro-animações nomeadas do global.css (.vem → .veio) */
+  function ligarEntrada() {
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('veio');
+        olho.unobserve(e.target);
+      }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = (i * 70) + 'ms';   // escada leve entre blocos
+      olho.observe(el);
+    });
+  }
+
+  /* ---------- chip demonstrativo: swap em três fases ----------
+     Percorre o ciclo UMA vez e para em "publicada". */
+  const CICLO = ['rascunho', 'em discussão', 'em construção', 'publicada'];
+
+  function ligarChipDemo() {
+    const linha = document.getElementById('demo-ciclo');
+    const chip = document.getElementById('chip-demo');
+    const txt = document.getElementById('chip-demo-txt');
+    if (!linha || !chip || !txt) return;
+
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      txt.textContent = CICLO[CICLO.length - 1];
+      return;
+    }
+
+    const dur = parseInt(getComputedStyle(txt).getPropertyValue('--swap-dur')) || 150;
+    let i = 0;
+
+    const passo = () => {
+      i++;
+      txt.classList.add('saindo');
+      setTimeout(() => {
+        txt.textContent = CICLO[i];
+        /* só "em discussão" respira — indica conversa em curso */
+        chip.classList.toggle('vivo', CICLO[i] === 'em discussão');
+        txt.classList.remove('saindo');
+        txt.classList.add('entrando-de-baixo');
+        void txt.offsetWidth;                 // reflow: sem isso o salto anima
+        txt.classList.remove('entrando-de-baixo');
+        if (i < CICLO.length - 1) setTimeout(passo, 1100);
+      }, dur);
+    };
+
+    const olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        olho.unobserve(e.target);
+        setTimeout(passo, 900);
+      }
+    }, { threshold: 0.6 });
+
+    olho.observe(linha);
+  }
+
+  /* ---------- errata: fole 0fr → 1fr ---------- */
+  function ligarErrata() {
+    document.querySelectorAll<HTMLElement>('.errata').forEach((el) => {
+      const gatilho = el.querySelector<HTMLButtonElement>('.gatilho');
+      if (!gatilho) return;
+      gatilho.addEventListener('click', () => {
+        const abrindo = el.dataset.aberta !== 'sim';
+        el.dataset.aberta = abrindo ? 'sim' : 'nao';
+        gatilho.setAttribute('aria-expanded', String(abrindo));
+      });
+    });
+  }
+
+  function ligarTudo() {
+    ligarEntrada();
+    ligarChipDemo();
+    ligarErrata();
+  }
+
+  /* Só `astro:page-load`, sem chamada direta: com o ClientRouter ativo
+     esse evento já dispara na carga inicial E em cada navegação. Chamar
+     os dois duplicava os listeners — a errata alternava duas vezes por
+     clique e voltava fechada. */
+  document.addEventListener('astro:page-load', ligarTudo);
+</script>

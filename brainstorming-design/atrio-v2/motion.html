@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Idearium · Motion — agora x transitions.dev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&display=swap" rel="stylesheet">
+<style>
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@main/public/assets/DepartureMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+/* ==================================================================
+   MOTION — comparação lado a lado
+   ==================================================================
+   Três peças da materia.html, cada uma em duas colunas:
+
+     ESQUERDA  o que a materia.html faz hoje
+     DIREITA   a técnica correspondente do transitions.dev,
+               reescrita nos tokens daqui
+
+   Por que reescrever em vez de colar o snippet: os termos do
+   transitions.dev permitem usar em projeto pessoal e comercial, mas
+   proíbem redistribuir "a coleção ou parte substancial dela" — e este
+   repo é público sob CC BY-SA 4.0, que re-licencia o que entra nele.
+   Colar 3 snippets literais num repo share-alike público é justo o
+   caso limítrofe. O que está aqui é a técnica (blur+swap em 3 fases,
+   grid-rows 0fr→1fr, stroke-dashoffset) escrita com --ease, --t-* e
+   os raios daqui. Crédito da ideia: transitions.dev, Jakub Antalik.
+
+   Os dois lados disparam no MESMO clique, com o MESMO conteúdo. Se o
+   conteúdo variasse entre as colunas, a comparação seria desonesta —
+   mesma regra do compare.html.
+   ================================================================== */
+
+:root {
+  --fundo:     #FCF9F7;
+  --cartao:    #FFFFFF;
+  --rebaixo:   #F7F4F1;
+
+  --tinta:     3, 3, 2;
+  --t-100: rgba(var(--tinta), 1);
+  --t-90:  rgba(var(--tinta), 0.90);
+  --t-75:  rgba(var(--tinta), 0.75);
+  --t-65:  rgba(var(--tinta), 0.65);
+  --t-50:  rgba(var(--tinta), 0.50);
+  --t-35:  rgba(var(--tinta), 0.35);
+  --t-12:  rgba(var(--tinta), 0.12);
+  --t-07:  rgba(var(--tinta), 0.07);
+
+  --saude:     #9BD8A9;
+  --cidades:   #A9C6E4;
+
+  --r-fora:  24px;
+  --r-dentro: 14px;
+  --r-pilula: 999px;
+
+  --sombra:
+    0 1px 1px rgba(var(--tinta), 0.015),
+    0 8px 10px rgba(var(--tinta), 0.02),
+    0 20px 20px rgba(var(--tinta), 0.015),
+    0 50px 40px rgba(var(--tinta), 0.01);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--t-90);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+.palco { max-width: 1120px; margin: 0 auto; padding: 44px 22px 90px; }
+
+h1 {
+  font-size: clamp(26px, 3.2vw, 36px);
+  font-weight: 420;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 14px;
+  color: var(--t-100);
+}
+h1 .serif { font-family: 'Newsreader', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.06em; }
+.abertura { color: var(--t-65); max-width: 60ch; margin: 0 0 8px; }
+.mono { font-family: 'Departure Mono', monospace; font-size: 11px; letter-spacing: 0.02em; color: var(--t-35); text-transform: uppercase; }
+
+/* ---------- peça ---------- */
+.peca {
+  background: var(--cartao);
+  border-radius: var(--r-fora);
+  box-shadow: var(--sombra);
+  padding: 28px 30px 30px;
+  margin-top: 26px;
+}
+.peca > header { margin-bottom: 6px; }
+.peca h2 {
+  font-size: 20px;
+  font-weight: 440;
+  letter-spacing: -0.024em;
+  margin: 6px 0 6px;
+  color: var(--t-100);
+}
+.peca .porque { margin: 0 0 20px; font-size: 14px; color: var(--t-65); max-width: 68ch; }
+.peca .porque b { font-weight: 470; color: var(--t-100); }
+
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .duo { grid-template-columns: 1fr; } }
+
+.lado {
+  background: var(--rebaixo);
+  border-radius: var(--r-dentro);
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.lado > .rotulo { margin-bottom: 14px; }
+.lado > .rotulo b { font-weight: 400; color: var(--t-50); }
+.vitrine { min-height: 104px; display: flex; align-items: center; justify-content: flex-start; }
+.nota { margin: 14px 0 0; font-size: 12.5px; color: var(--t-50); border-top: 1px solid var(--t-07); padding-top: 11px; }
+
+.disparo { margin-top: 20px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.botao {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 430;
+  padding: 10px 18px;
+  border-radius: var(--r-pilula);
+  border: 1px solid transparent;
+  background: var(--t-100);
+  color: #fff;
+  cursor: pointer;
+  transition: background 220ms var(--ease), transform 160ms var(--ease);
+}
+.botao:hover { background: var(--t-75); }
+.botao:active { transform: translateY(1px); }
+.botao.leve { background: transparent; color: var(--t-90); border-color: var(--t-12); }
+.botao.leve:hover { background: var(--t-07); }
+button:focus-visible { outline: 2px solid var(--t-75); outline-offset: 3px; }
+
+/* ---------- chip, como na materia.html ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 430;
+  padding: 5px 12px;
+  border-radius: var(--r-pilula);
+  color: var(--t-90);
+  background: var(--t-07);
+  white-space: nowrap;
+}
+.chip .ponto { width: 6px; height: 6px; border-radius: 50%; background: var(--t-50); flex-shrink: 0; }
+@keyframes chip-respira { 0%, 100% { opacity: 1; } 50% { opacity: 0.34; } }
+.chip.vivo .ponto { animation: chip-respira 2.6s ease-in-out infinite; }
+
+/* ==================================================================
+   1. CHIP DE ESTADO
+   ------------------------------------------------------------------
+   Técnica: "Text states swap" — troca de texto em três fases, com
+   blur no meio. Reescrita com --ease e os alphas daqui.
+
+   Fase 1  .saindo        sobe, desfoca, some
+   Fase 2  troca o texto + .entrando-de-baixo (pula pra baixo, sem
+           transição, pra não animar o salto)
+   Fase 3  reflow, tira a classe, volta a 0 com a transição normal
+   ================================================================== */
+.rotulo-estado {
+  --swap-dur: 150ms;
+  --swap-y: 4px;
+  --swap-blur: 2px;
+  display: inline-block;
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition:
+    transform var(--swap-dur) ease-in-out,
+    filter    var(--swap-dur) ease-in-out,
+    opacity   var(--swap-dur) ease-in-out;
+  will-change: transform, filter, opacity;
+}
+.rotulo-estado.saindo {
+  transform: translateY(calc(var(--swap-y) * -1));
+  filter: blur(var(--swap-blur));
+  opacity: 0;
+}
+.rotulo-estado.entrando-de-baixo {
+  transform: translateY(var(--swap-y));
+  filter: blur(var(--swap-blur));
+  opacity: 0;
+  transition: none;
+}
+
+/* ==================================================================
+   2. ERRATA
+   ------------------------------------------------------------------
+   Técnica: "Accordion" — grid-template-rows de 0fr para 1fr, que
+   anima altura automática sem medir nada em JS, mais o chevron
+   girando. É o achado da bancada.html (errata datada) ganhando
+   abertura.
+   ================================================================== */
+.errata { width: 100%; }
+.errata .gatilho {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 460;
+  color: var(--t-90);
+  cursor: pointer;
+  text-align: left;
+}
+.errata .chevron {
+  width: 9px; height: 9px;
+  border-right: 1.5px solid var(--t-50);
+  border-bottom: 1.5px solid var(--t-50);
+  transform: rotate(-45deg);
+  flex-shrink: 0;
+  transition: transform 260ms var(--ease);
+}
+.errata[data-aberta="sim"] .chevron { transform: rotate(45deg); }
+
+.errata .fole {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms var(--ease);
+}
+.errata[data-aberta="sim"] .fole { grid-template-rows: 1fr; }
+.errata .fole > div { overflow: hidden; }
+
+.errata .corpo { padding-top: 11px; font-size: 13px; color: var(--t-65); }
+.errata .riscado { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--t-35); }
+.errata .data { font-family: 'Departure Mono', monospace; font-size: 10px; color: var(--t-35); display: block; margin-top: 6px; }
+
+/* versão sem transição, pro lado esquerdo */
+.errata.crua .fole { transition: none; }
+.errata.crua .chevron { transition: none; }
+
+/* ==================================================================
+   3. PASSO DADO
+   ------------------------------------------------------------------
+   Esquerda: barra-enche, o que a materia.html já faz (scaleY).
+   Direita: "Checkbox check" — o traço do check é desenhado com
+   stroke-dashoffset. Mesma leitura ("um passo dado"), só que o traço
+   sendo desenhado mostra a ação, não o resultado.
+   ================================================================== */
+.barras { display: flex; gap: 2px; align-items: flex-end; height: 24px; }
+.barras i {
+  width: 7px;
+  border-radius: 2px;
+  background: var(--t-12);
+  height: 38%;
+  transform-origin: bottom;
+}
+.barras i.feito { background: var(--t-75); height: 100%; }
+.barras i.meio  { background: var(--t-35); height: 68%; }
+
+@keyframes barra-enche {
+  from { transform: scaleY(0.06); opacity: 0.4; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+.barras.rodando i { animation: barra-enche 480ms var(--ease) both; }
+.barras.rodando i:nth-child(1) { animation-delay: 0ms; }
+.barras.rodando i:nth-child(2) { animation-delay: 45ms; }
+.barras.rodando i:nth-child(3) { animation-delay: 90ms; }
+.barras.rodando i:nth-child(4) { animation-delay: 135ms; }
+.barras.rodando i:nth-child(5) { animation-delay: 180ms; }
+.barras.rodando i:nth-child(6) { animation-delay: 225ms; }
+.barras.rodando i:nth-child(7) { animation-delay: 270ms; }
+.barras.rodando i:nth-child(8) { animation-delay: 315ms; }
+
+.passos-check { display: grid; gap: 9px; }
+.item-check { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--t-65); }
+.caixa {
+  width: 19px; height: 19px;
+  border-radius: 6px;
+  border: 1.5px solid var(--t-12);
+  background: var(--cartao);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 240ms var(--ease), border-color 240ms var(--ease);
+}
+.item-check.marcado .caixa { background: var(--saude); border-color: var(--saude); }
+.caixa svg { width: 11px; height: 11px; display: block; overflow: visible; }
+.caixa path {
+  fill: none;
+  stroke: var(--t-100);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 18;
+  stroke-dashoffset: 18;
+}
+.item-check.marcado .caixa path {
+  animation: check-desenha 320ms var(--ease) 90ms forwards;
+}
+@keyframes check-desenha { to { stroke-dashoffset: 0; } }
+
+/* ---------- rodapé ---------- */
+.rodape {
+  margin-top: 34px;
+  padding: 0 10px;
+  font-family: 'Departure Mono', monospace;
+  font-size: 11px;
+  color: var(--t-35);
+  line-height: 1.9;
+}
+.rodape a { color: var(--t-50); }
+
+@media (prefers-reduced-motion: reduce) {
+  .chip.vivo .ponto { animation: none; }
+  .barras.rodando i { animation: none; }
+  .item-check.marcado .caixa path { animation: none; stroke-dashoffset: 0; }
+  .errata .fole, .errata .chevron { transition: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="palco">
+
+  <span class="mono">atrio-v2 · avaliação de motion</span>
+  <h1>O que muda quando a animação <span class="serif">diz</span> algo.</h1>
+  <p class="abertura">
+    Três peças da <b>materia.html</b>, cada uma com o que ela faz hoje à esquerda e a
+    técnica equivalente do transitions.dev à direita, reescrita nos tokens daqui.
+    Os dois lados disparam no mesmo clique, com o mesmo conteúdo.
+  </p>
+  <p class="abertura" style="font-size:14px">
+    O filtro usado pra escolher estas três: a transição entra se ela <b>diz</b> algo do
+    Idearium — o estado mudou, a correção foi registrada, o passo foi dado. Ficaram
+    de fora as duas mais bonitas do catálogo, <b>Number pop-in</b> e <b>Spinning
+    counter</b>: contador animado é o que transforma <span class="mono" style="text-transform:none">47 ideias</span>
+    em métrica de vaidade, proibida pelo VISAO §9.
+  </p>
+
+  <!-- ============ 1 ============ -->
+  <section class="peca">
+    <header><span class="mono">01 · text states swap</span></header>
+    <h2>Chip de estado</h2>
+    <p class="porque">
+      A abertura da <b>materia.html</b> ensina o vocabulário mostrando o chip que cada
+      etapa produz. Hoje o chip é estático e só o ponto respira. Se a mudança de estado
+      for animada, a transição passa a <b>ser</b> a explicação: quem chega vê o
+      <span class="mono" style="text-transform:none">rascunho</span> virar
+      <span class="mono" style="text-transform:none">em discussão</span> em vez de ler sobre isso.
+    </p>
+
+    <div class="duo">
+      <div class="lado">
+        <span class="mono rotulo">agora · <b>troca seca</b></span>
+        <div class="vitrine">
+          <span class="chip vivo" id="chip-a"><i class="ponto"></i><span id="txt-a">rascunho</span></span>
+        </div>
+        <p class="nota">O texto troca no mesmo frame. A leitura é de conteúdo substituído, não de estado que avançou.</p>
+      </div>
+
+      <div class="lado">
+        <span class="mono rotulo">proposto · <b>swap com blur, 150ms</b></span>
+        <div class="vitrine">
+          <span class="chip vivo" id="chip-b"><i class="ponto"></i><span class="rotulo-estado" id="txt-b">rascunho</span></span>
+        </div>
+        <p class="nota">Sai pra cima desfocando, entra de baixo. O movimento vertical dá direção: o ciclo anda pra frente.</p>
+      </div>
+    </div>
+
+    <div class="disparo">
+      <button class="botao" id="btn-1">avançar o estado</button>
+      <button class="botao leve" id="btn-1-reset">voltar pra rascunho</button>
+    </div>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section class="peca">
+    <header><span class="mono">02 · accordion</span></header>
+    <h2>Errata</h2>
+    <p class="porque">
+      O achado da <b>bancada.html</b> é a errata: o texto errado fica riscado e a correção
+      aparece ao lado, datada. Nada é apagado. Isso pede abertura — e
+      <b>grid-template-rows: 0fr → 1fr</b> anima altura automática sem medir nada em JS,
+      que é o que trava a maioria dos accordions.
+    </p>
+
+    <div class="duo">
+      <div class="lado">
+        <span class="mono rotulo">agora · <b>aparece de uma vez</b></span>
+        <div class="vitrine">
+          <div class="errata crua" data-aberta="nao" id="err-a">
+            <button class="gatilho" type="button"><span class="chevron"></span> errata · 1 correção</button>
+            <div class="fole"><div><div class="corpo">
+              <span class="riscado">agregando ocorrências em tempo real</span>
+              agregando ocorrências em tempo quase-real
+              <span class="data">corrigido em 19.07.2026 · v0.3</span>
+            </div></div></div>
+          </div>
+        </div>
+        <p class="nota">O salto de altura empurra o que está abaixo. Num cartão de RFC com histórico longo, cada abertura reposiciona a página.</p>
+      </div>
+
+      <div class="lado">
+        <span class="mono rotulo">proposto · <b>fole 0fr → 1fr, 300ms</b></span>
+        <div class="vitrine">
+          <div class="errata" data-aberta="nao" id="err-b">
+            <button class="gatilho" type="button"><span class="chevron"></span> errata · 1 correção</button>
+            <div class="fole"><div><div class="corpo">
+              <span class="riscado">agregando ocorrências em tempo real</span>
+              agregando ocorrências em tempo quase-real
+              <span class="data">corrigido em 19.07.2026 · v0.3</span>
+            </div></div></div>
+          </div>
+        </div>
+        <p class="nota">A altura cresce com a --ease daqui e o chevron gira junto. O olho acompanha o deslocamento em vez de reencontrar a página.</p>
+      </div>
+    </div>
+
+    <div class="disparo">
+      <button class="botao" id="btn-2">abrir e fechar as duas</button>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section class="peca">
+    <header><span class="mono">03 · checkbox check</span></header>
+    <h2>Passo dado</h2>
+    <p class="porque">
+      A regra daqui é firme: <b>barrinha é passo dado, não porcentagem</b> — numa RFC
+      voluntária não há prazo. A barrinha enchendo já respeita isso. A pergunta é se o
+      traço do check <b>sendo desenhado</b> não diz melhor a mesma coisa: mostra a ação
+      de marcar, não o resultado já marcado.
+    </p>
+
+    <div class="duo">
+      <div class="lado">
+        <span class="mono rotulo">agora · <b>barra-enche, scaleY</b></span>
+        <div class="vitrine">
+          <div class="barras" id="bar-a">
+            <i class="feito"></i><i class="feito"></i><i class="feito"></i><i class="meio"></i><i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+        <p class="nota">Legível em um relance e cabe no pé do cartão. Mas é um gráfico: mostra o estado acumulado, não o ato.</p>
+      </div>
+
+      <div class="lado">
+        <span class="mono rotulo">proposto · <b>stroke-dashoffset, 320ms</b></span>
+        <div class="vitrine" style="align-items:flex-start">
+          <div class="passos-check" id="chk-b">
+            <span class="item-check"><span class="caixa"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3"/></svg></span> proposta numerada</span>
+            <span class="item-check"><span class="caixa"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3"/></svg></span> revisada pela comunidade</span>
+            <span class="item-check"><span class="caixa"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3"/></svg></span> alguém se inscreveu</span>
+          </div>
+        </div>
+        <p class="nota">Nomeia cada passo, então não precisa de legenda. Ocupa muito mais altura: serve na página da RFC, não no cartão da grade.</p>
+      </div>
+    </div>
+
+    <div class="disparo">
+      <button class="botao" id="btn-3">rodar as duas</button>
+    </div>
+  </section>
+
+  <p class="rodape">
+    técnicas de <a href="https://transitions.dev/">transitions.dev</a> (Jakub Antalik), reescritas nos tokens da materia.html<br>
+    licença: uso pessoal e comercial liberado, redistribuir a coleção não. este repo é público sob CC BY-SA 4.0 — por isso técnica, não snippet colado<br>
+    nada aqui foi portado pra apps/web/
+  </p>
+
+</div>
+
+<script>
+/* ---------- 1. chip: swap em três fases ---------- */
+const CICLO = ['rascunho', 'em discussão', 'em construção', 'publicada'];
+let iEstado = 0;
+
+const txtA = document.getElementById('txt-a');
+const txtB = document.getElementById('txt-b');
+
+function pinta(i) {
+  /* só "em discussão" respira: indica conversa em curso */
+  const vivo = CICLO[i] === 'em discussão';
+  document.getElementById('chip-a').classList.toggle('vivo', vivo);
+  document.getElementById('chip-b').classList.toggle('vivo', vivo);
+}
+
+function avanca() {
+  iEstado = (iEstado + 1) % CICLO.length;
+  const novo = CICLO[iEstado];
+
+  /* esquerda: troca seca */
+  txtA.textContent = novo;
+
+  /* direita: as três fases */
+  const dur = parseInt(getComputedStyle(txtB).getPropertyValue('--swap-dur')) || 150;
+  txtB.classList.add('saindo');
+  setTimeout(() => {
+    txtB.textContent = novo;
+    txtB.classList.remove('saindo');
+    txtB.classList.add('entrando-de-baixo');
+    void txtB.offsetWidth;                    /* reflow: sem isso o salto anima */
+    txtB.classList.remove('entrando-de-baixo');
+  }, dur);
+
+  pinta(iEstado);
+}
+
+document.getElementById('btn-1').addEventListener('click', avanca);
+document.getElementById('btn-1-reset').addEventListener('click', () => {
+  iEstado = 0;
+  txtA.textContent = txtB.textContent = CICLO[0];
+  pinta(0);
+});
+
+/* ---------- 2. errata ---------- */
+const errA = document.getElementById('err-a');
+const errB = document.getElementById('err-b');
+
+function alterna(el) {
+  el.dataset.aberta = el.dataset.aberta === 'sim' ? 'nao' : 'sim';
+}
+errA.querySelector('.gatilho').addEventListener('click', () => alterna(errA));
+errB.querySelector('.gatilho').addEventListener('click', () => alterna(errB));
+document.getElementById('btn-2').addEventListener('click', () => {
+  alterna(errA);
+  alterna(errB);
+});
+
+/* ---------- 3. passo dado ---------- */
+const barA = document.getElementById('bar-a');
+const chkB = document.getElementById('chk-b');
+const itens = [...chkB.querySelectorAll('.item-check')];
+
+document.getElementById('btn-3').addEventListener('click', () => {
+  barA.classList.remove('rodando');
+  itens.forEach(i => i.classList.remove('marcado'));
+  void barA.offsetWidth;
+
+  barA.classList.add('rodando');
+  /* mesmo 45ms de atraso por índice que a materia.html usa nas barrinhas */
+  itens.forEach((item, i) => setTimeout(() => item.classList.add('marcado'), i * 140));
+});
+</script>
+
+</body>
+</html>

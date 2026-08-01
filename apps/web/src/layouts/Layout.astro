@@ -4,7 +4,8 @@
    ================================================================
    Toda página em src/pages/ que importar este Layout vai receber:
      - <html>, <head>, <body> já configurados
-     - Google Fonts pré-carregadas (Press Start 2P, Pixelify Sans, JetBrains Mono)
+     - Inter e Newsreader do Google Fonts; Departure Mono é self-hosted
+       e declarada em global.css
      - global.css importado (Tailwind + tokens)
      - <slot /> pra conteúdo específico da página
 
@@ -57,7 +58,7 @@ const {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&display=swap"
     />
 
     {/* View Transitions API — habilita morph entre páginas */}
