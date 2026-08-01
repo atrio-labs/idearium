@@ -1,0 +1,361 @@
+---
+/* ================================================================
+   /perfil — os próprios dados e o perfil de builder (F2.5)
+   ================================================================
+   Tela com sessão: SSR, sem `prerender`. O middleware já resolveu
+   quem é a pessoa; aqui só se confere e se lê o perfil completo.
+
+   DOIS FORMULÁRIOS SEPARADOS, e não um só com dois blocos.
+   O motivo não é visual: `PATCH /builders/me` é um UPSERT. Um botão
+   único gravaria um BuilderProfile em quem só entrou pra corrigir o
+   próprio nome — e ter BuilderProfile é justamente o que coloca a
+   pessoa na lista de mãos. Aparecer numa lista pública precisa ser
+   escolha explícita, então cada bloco tem o seu envio.
+
+   Depois de gravar, redireciono pra própria página com ?salvo=…
+   em vez de responder o POST direto. Assim a pessoa continua aqui
+   (é o pedido da HU) sem que recarregar reenvie o formulário, e o
+   que aparece na tela é o que o servidor tem de fato.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import type { Perfil } from '../lib/api';
+import { comSessao, exigirSessao } from '../lib/sessao';
+
+const usuario = Astro.locals.usuario;
+const destino = exigirSessao(usuario, Astro.url);
+if (destino) return Astro.redirect(destino);
+
+/* Não há `GET /builders/me`: no controller da API o `me` cai na rota
+   `:username` e volta 404. O builderProfile vem dentro de /users/me,
+   então uma leitura só resolve os dois blocos. */
+const leitura = await comSessao<Perfil>(Astro.cookies, 'GET', '/users/me');
+/* sessão morreu entre o middleware e esta chamada */
+if (leitura.status === 401) return Astro.redirect(exigirSessao(null, Astro.url)!);
+
+const eu = leitura.dado;
+const bp = eu?.builderProfile ?? null;
+
+/* O que os campos mostram: o que a API tem, sobrescrito pelo que a
+   pessoa digitou quando o envio falha — ninguém deve perder texto. */
+let perfil = {
+  fullName: eu?.fullName ?? '',
+  bio: eu?.bio ?? '',
+  avatarUrl: eu?.avatarUrl ?? '',
+  preferredLocale: eu?.preferredLocale ?? 'pt-BR',
+};
+let builder = {
+  headline: bp?.headline ?? '',
+  topics: (bp?.topics ?? []).join(', '),
+  isOpenToWork: bp?.isOpenToWork ?? true,
+};
+
+let erroPerfil = '';
+let erroBuilder = '';
+let erroTemas = '';
+let erroAvatar = '';
+
+const LIMITE_TEMAS = 10;
+const LIMITE_TAMANHO_TEMA = 50;
+
+/* O `type="url"` do browser aceita `http://localhost/eu.png`, e o
+   `@IsUrl` da API não: ele exige domínio com ponto. Sem esta checagem
+   o 400 volta como aviso solto no topo, sem dizer qual campo errou. */
+function enderecoDeImagemValido(valor: string) {
+  try {
+    const url = new URL(valor);
+    return (url.protocol === 'https:' || url.protocol === 'http:') && url.hostname.includes('.');
+  } catch {
+    return false;
+  }
+}
+
+if (Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  const texto = (nome: string) => String(dados.get(nome) ?? '').trim();
+
+  if (dados.get('formulario') === 'perfil') {
+    perfil = {
+      fullName: texto('fullName'),
+      bio: texto('bio'),
+      avatarUrl: texto('avatarUrl'),
+      preferredLocale: texto('preferredLocale') || 'pt-BR',
+    };
+
+    if (perfil.avatarUrl && !enderecoDeImagemValido(perfil.avatarUrl)) {
+      erroAvatar = 'Precisa ser um endereço completo, começando com https:// e com um domínio.';
+    } else {
+      /* campo em branco vira null, que é como a API apaga. String vazia
+         não serve: em avatarUrl ela reprova no IsUrl e volta 400. */
+      const resposta = await comSessao(Astro.cookies, 'PATCH', '/users/me', {
+        fullName: perfil.fullName || null,
+        bio: perfil.bio || null,
+        avatarUrl: perfil.avatarUrl || null,
+        preferredLocale: perfil.preferredLocale,
+      });
+
+      if (resposta.ok) return Astro.redirect('/perfil?salvo=perfil', 303);
+      erroPerfil = resposta.erro ?? 'Não consegui salvar agora.';
+    }
+  }
+
+  if (dados.get('formulario') === 'builder') {
+    builder = {
+      headline: texto('headline'),
+      topics: texto('topics'),
+      isOpenToWork: dados.get('isOpenToWork') != null,
+    };
+
+    const temas = builder.topics.split(',').map((t) => t.trim()).filter(Boolean);
+
+    /* A vírgula é invenção desta tela, não do contrato: a API recebe
+       lista. Então o erro de tamanho é checado aqui, onde dá pra
+       dizer "temas" em vez de devolver o índice do array. */
+    if (temas.length > LIMITE_TEMAS) {
+      erroTemas = `Escolha no máximo ${LIMITE_TEMAS} temas.`;
+    } else if (temas.some((t) => t.length > LIMITE_TAMANHO_TEMA)) {
+      erroTemas = `Cada tema cabe em ${LIMITE_TAMANHO_TEMA} caracteres.`;
+    } else {
+      const resposta = await comSessao(Astro.cookies, 'PATCH', '/builders/me', {
+        headline: builder.headline || null,
+        topics: temas,
+        isOpenToWork: builder.isOpenToWork,
+      });
+
+      if (resposta.ok) return Astro.redirect('/perfil?salvo=builder', 303);
+      erroBuilder = resposta.erro ?? 'Não consegui salvar agora.';
+    }
+  }
+}
+
+/* O formulário posta pra própria URL, que depois do primeiro sucesso
+   já é /perfil?salvo=… — ler o parâmetro num POST faria o envio que
+   falhou mostrar erro e "salvo" ao mesmo tempo. */
+const salvo = Astro.request.method === 'POST' ? null : Astro.url.searchParams.get('salvo');
+---
+
+<Layout title="Idearium · Seu perfil" description="Edite seus dados e o que você sabe fazer.">
+  <div class="palco">
+    <Nav />
+
+    <div class="form-estreito">
+      {eu ? (
+        <>
+          <header class="cabecalho-pagina">
+            <a class="volta" href={`/users/${eu.username}`}>
+              ver como você aparece pros outros &rarr;
+            </a>
+            <h1>Seu perfil, <span class="serif">só o que você quiser</span>.</h1>
+            <p class="sub">
+              O @{eu.username} é o que as pessoas veem em toda parte. Nome, bio e
+              o resto são opcionais — preencha o que ajudar quem for te encontrar.
+            </p>
+          </header>
+
+          {/* ---------- quem você é ---------- */}
+          <section class="bloco vem">
+            <p class="titulo-bloco">quem você é</p>
+
+            {salvo === 'perfil' && <p class="aviso-ok" role="status">Pronto, seus dados foram salvos.</p>}
+            {erroPerfil && <p class="aviso-erro" role="alert">{erroPerfil}</p>}
+
+            <form method="POST">
+              <input type="hidden" name="formulario" value="perfil" />
+
+              <div class="campo">
+                <label class="rotulo" for="fullName">nome</label>
+                <input
+                  class="entrada"
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  maxlength="100"
+                  value={perfil.fullName}
+                  aria-describedby="ajuda-fullName"
+                  autocomplete="name"
+                />
+                <span class="ajuda" id="ajuda-fullName">
+                  Opcional. Fica ao lado do @{eu.username}, nunca no lugar dele.
+                </span>
+              </div>
+
+              <div class="campo">
+                <label class="rotulo" for="bio">bio</label>
+                <textarea
+                  class="entrada"
+                  id="bio"
+                  name="bio"
+                  maxlength="500"
+                  aria-describedby="ajuda-bio">{perfil.bio}</textarea>
+                <span class="ajuda" id="ajuda-bio">
+                  Até 500 caracteres. De onde você fala, o que te interessa.
+                </span>
+              </div>
+
+              <div class:list={['campo', erroAvatar && 'com-erro']}>
+                <label class="rotulo" for="avatarUrl">endereço da sua imagem</label>
+                <input
+                  class="entrada mono"
+                  id="avatarUrl"
+                  name="avatarUrl"
+                  type="url"
+                  maxlength="500"
+                  placeholder="https://"
+                  value={perfil.avatarUrl}
+                  aria-describedby={erroAvatar ? 'erro-avatarUrl ajuda-avatarUrl' : 'ajuda-avatarUrl'}
+                  aria-invalid={erroAvatar ? 'true' : undefined}
+                />
+                {erroAvatar && <span class="erro-campo" id="erro-avatarUrl">{erroAvatar}</span>}
+                <span class="ajuda" id="ajuda-avatarUrl">
+                  Uma imagem já hospedada em algum lugar. Deixe em branco pra ficar sem.
+                </span>
+              </div>
+
+              <div class="campo">
+                <label class="rotulo" for="preferredLocale">idioma</label>
+                <select
+                  class="entrada"
+                  id="preferredLocale"
+                  name="preferredLocale"
+                  aria-describedby="ajuda-preferredLocale">
+                  <option value="pt-BR" selected={perfil.preferredLocale === 'pt-BR'}>português</option>
+                  <option value="en" selected={perfil.preferredLocale === 'en'}>english</option>
+                </select>
+                <span class="ajuda" id="ajuda-preferredLocale">
+                  Fica guardado no seu perfil. A interface ainda só existe em português.
+                </span>
+              </div>
+
+              <div class="acoes-form">
+                <span class="separador"></span>
+                <button class="botao" type="submit">salvar seus dados</button>
+              </div>
+            </form>
+          </section>
+
+          {/* ---------- perfil de builder ---------- */}
+          <section class="bloco vem">
+            <p class="titulo-bloco">o que você sabe fazer</p>
+
+            <p style="margin:0 0 18px; font-size:13.5px; color:var(--t-65)">
+              Isto é opcional e é o que te torna encontrável em
+              <a href="/builders" style="color:var(--t-90)">mãos</a>, a lista de quem
+              escreveu o que sabe fazer. Salvar aqui é o que coloca o @{eu.username}
+              lá — e, uma vez na lista, dá pra dizer que você não está disponível
+              agora, mas não dá pra sair dela. Sem preencher, você continua podendo
+              escrever, comentar e entrar em qualquer ideia — só não aparece nessa lista.
+            </p>
+
+            {salvo === 'builder' && <p class="aviso-ok" role="status">Pronto, salvei o que você sabe fazer.</p>}
+            {erroBuilder && <p class="aviso-erro" role="alert">{erroBuilder}</p>}
+
+            <form method="POST">
+              <input type="hidden" name="formulario" value="builder" />
+
+              <div class="campo">
+                <label class="rotulo" for="headline">uma linha sobre você</label>
+                <input
+                  class="entrada"
+                  id="headline"
+                  name="headline"
+                  type="text"
+                  maxlength="140"
+                  value={builder.headline}
+                  aria-describedby="ajuda-headline"
+                />
+                <span class="ajuda" id="ajuda-headline">
+                  Até 140 caracteres. É o que aparece embaixo do seu nome na lista.
+                </span>
+              </div>
+
+              <div class:list={['campo', erroTemas && 'com-erro']}>
+                <label class="rotulo" for="topics">temas</label>
+                <input
+                  class="entrada"
+                  id="topics"
+                  name="topics"
+                  type="text"
+                  value={builder.topics}
+                  placeholder="educação, dados abertos, ilustração"
+                  aria-describedby={erroTemas ? 'erro-topics ajuda-topics' : 'ajuda-topics'}
+                  aria-invalid={erroTemas ? 'true' : undefined}
+                />
+                {erroTemas && <span class="erro-campo" id="erro-topics">{erroTemas}</span>}
+                <span class="ajuda" id="ajuda-topics">
+                  Separe por vírgula: <span class="mono">saúde, backend, pesquisa</span>.
+                  Até {LIMITE_TEMAS} temas, cada um com no máximo {LIMITE_TAMANHO_TEMA} caracteres.
+                  É por eles que alguém filtra a lista.
+                </span>
+              </div>
+
+              <div class="campo">
+                <label class="marcavel">
+                  <input type="checkbox" name="isOpenToWork" checked={builder.isOpenToWork} />
+                  <span class="caixa">
+                    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
+                  </span>
+                  <span>estou disponível pra construir agora</span>
+                </label>
+                <span class="ajuda">
+                  Desmarque quando estiver sem tempo. Seu perfil continua em mãos;
+                  o que sai é a marca de que você topa começar algo agora.
+                </span>
+              </div>
+
+              <div class="acoes-form">
+                <span class="separador"></span>
+                <button class="botao" type="submit">salvar o que você sabe fazer</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="conta">
+            <a href={`/users/${eu.username}`}>seu perfil público</a>
+            <a href="/sair">sair</a>
+          </div>
+        </>
+      ) : (
+        <Vazio
+          falha
+          titulo="Não consegui carregar seu perfil"
+          texto="A API não respondeu. Seus dados continuam lá; tente de novo em instantes."
+        />
+      )}
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  /* .bloco nasceu dentro de um grid com gap (a coluna da RFC), então
+     não tem margem própria; empilhado, precisa de respiro */
+  .bloco { margin-bottom: 18px; }
+
+  /* linha de links de conta: discreta de propósito, e fora do rodapé
+     do site — sair é ação da pessoa, não navegação institucional */
+  .conta {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 20px 4px 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .conta a { color: var(--t-35); text-decoration: none; }
+  .conta a:hover { color: var(--t-90); }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

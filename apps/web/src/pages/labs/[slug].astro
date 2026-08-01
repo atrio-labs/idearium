@@ -7,6 +7,10 @@ import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import { listarLabs, obterLab, listarTodasRfcs, nomeCurtoDoLab } from '../../lib/api';
 
+/* Página pública: pré-renderizada em build. O SSR do adapter existe
+   só pras rotas com sessão. */
+export const prerender = true;
+
 export async function getStaticPaths() {
   const labs = await listarLabs();
   return labs.map((lab) => ({ params: { slug: lab.slug } }));

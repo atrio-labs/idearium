@@ -1,0 +1,162 @@
+---
+/* ================================================================
+   /tags/:slug — as ideias marcadas com uma tag (F5)
+   ================================================================
+   SSR e não getStaticPaths, de propósito.
+
+   Lab é catálogo fechado e semeado: getStaticPaths cabe lá. Tag é o
+   contrário — nasce no instante em que alguém salva POST /rfcs/:id/tags,
+   sem passar por deploy. Com rota estática, a tag criada depois do build
+   devolveria 404 até o próximo build, e quem acabou de criá-la veria a
+   página quebrada logo depois de publicar a ideia. Uma tela que custa
+   uma consulta por acesso é preço menor que esse buraco.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import type { Autor, LabResumo, Pagina, RfcStatus } from '../../lib/api';
+
+/* A api.ts ainda não expõe /tags/:slug — ela é de outro agente e está
+   sendo editada em paralelo. Até lá a chamada mora aqui, com o mesmo
+   contrato: nunca lança, e separa tag inexistente de servidor mudo. */
+const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+
+interface TagCheia {
+  id: string;
+  slug: string;
+  name: string;
+  createdAt: string;
+  usageCount: number;
+}
+
+/* A API monta esta listagem com um SELECT próprio: traz createdAt, mas
+   não updatedAt nem a contagem de versões. */
+interface RfcDaTag {
+  id: string;
+  number: number | null;
+  slug: string;
+  title: string;
+  summary: string;
+  locale: string;
+  status: RfcStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  author: Autor;
+  lab: LabResumo;
+}
+
+const { slug } = Astro.params;
+
+let tag: TagCheia | null = null;
+let rfcs: RfcDaTag[] = [];
+let total = 0;
+let caiu = false;
+
+try {
+  const r = await fetch(`${BASE}/tags/${encodeURIComponent(slug!)}?limit=100`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (r.ok) {
+    const corpo = (await r.json()) as { tag: TagCheia; rfcs: Pagina<RfcDaTag> };
+    tag = corpo.tag;
+    rfcs = corpo.rfcs.data;
+    total = corpo.rfcs.meta.total;
+  } else if (r.status !== 404) {
+    caiu = true;
+  }
+} catch {
+  caiu = true;
+}
+
+/* Tag que não existe é 404 de verdade, não uma página vazia com 200:
+   buscador e leitor de feed precisam do código certo. */
+if (!tag && !caiu) Astro.response.status = 404;
+
+const titulo = tag?.name ?? slug;
+---
+
+<Layout
+  title={`Idearium · #${titulo}`}
+  description={`Ideias marcadas com ${titulo}.`}
+>
+  <div class="palco">
+    <Nav />
+
+    {/* .vem nasce com opacity 0 e quem devolve a opacidade é o observer lá
+        embaixo. Sem JavaScript ele nunca roda e a grade fica em branco. */}
+    <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href="/tags">&larr; todas as tags</a>
+      <h1 style="margin-top:16px">{titulo}</h1>
+      {tag && (
+        <p class="sub">
+          Ideias de qualquer laboratório marcadas com esta tag por quem as
+          escreveu.
+        </p>
+      )}
+    </header>
+
+    {caiu && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
+        vazia por isso, não por falta de ideias.
+      </p>
+    )}
+
+    {tag && rfcs.length > 0 && (
+      <p class="contagem">
+        {total} {total === 1 ? 'ideia' : 'ideias'}
+        {total > rfcs.length && `· mostrando as ${rfcs.length} mais recentes`}
+      </p>
+    )}
+
+    {tag && rfcs.length > 0 ? (
+      <div class="grade">
+        {/* updatedAt não vem nesta rota e CartaoIdeia não usa; createdAt
+            preenche o campo pra não inventar outra data. */}
+        {rfcs.map((r) => <CartaoIdeia rfc={{ ...r, updatedAt: r.createdAt }} />)}
+      </div>
+    ) : caiu ? (
+      <Vazio
+        falha
+        titulo="O servidor não respondeu"
+        texto="Assim que a API voltar, as ideias desta tag aparecem aqui."
+      />
+    ) : !tag ? (
+      <Vazio
+        titulo={`Não existe a tag "${slug}"`}
+        texto="Ou ela nunca foi usada, ou o endereço veio com um erro de digitação."
+        acaoHref="/tags"
+        acaoTexto="ver as tags que existem"
+      />
+    ) : (
+      <Vazio
+        titulo={`Nenhuma ideia pública com ${titulo}`}
+        texto="A tag existe, mas as ideias que a usavam foram arquivadas ou ainda são rascunho."
+        acaoHref="/tags"
+        acaoTexto="ver outras tags"
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .cabecalho-pagina h1 { font-family: var(--font-mono); font-weight: 400; }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

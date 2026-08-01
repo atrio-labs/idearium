@@ -883,6 +883,160 @@ button:focus-visible {
 
 
 /* ----------------------------------------------------------------
+   11.6. FORMULÁRIOS (F2 em diante)
+   ----------------------------------------------------------------
+   Mesmo idioma macio: campo é superfície rebaixada, foco é a tinta,
+   erro é texto e não cor gritante. Nada de vermelho saturado — o
+   contraste vem do peso, como no resto.
+   ---------------------------------------------------------------- */
+
+.form-estreito { max-width: 460px; margin: 0 auto; }
+
+.campo { display: block; margin-bottom: 16px; }
+.campo > .rotulo {
+  display: block;
+  font-size: 13px;
+  font-weight: 460;
+  color: var(--t-90);
+  margin-bottom: 6px;
+}
+.campo > .ajuda {
+  display: block;
+  font-size: 12.5px;
+  color: var(--t-50);
+  margin-top: 6px;
+}
+
+.entrada,
+textarea.entrada,
+select.entrada {
+  width: 100%;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 400;
+  color: var(--t-100);
+  background: var(--rebaixo);
+  border: 1px solid transparent;
+  border-radius: var(--r-dentro);
+  padding: 11px 14px;
+  transition: background 200ms var(--ease), border-color 200ms var(--ease);
+}
+.entrada::placeholder { color: var(--t-35); }
+.entrada:hover { border-color: var(--t-07); }
+.entrada:focus {
+  outline: none;
+  background: var(--cartao);
+  border-color: var(--t-35);
+}
+textarea.entrada { resize: vertical; min-height: 120px; line-height: 1.6; }
+textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
+.entrada.mono { font-family: var(--font-mono); font-size: 13px; }
+
+.campo.com-erro .entrada { border-color: var(--t-75); background: var(--cartao); }
+.erro-campo { display: block; font-size: 12.5px; color: var(--t-90); margin-top: 6px; font-weight: 430; }
+
+/* aviso de erro do formulário inteiro */
+.aviso-erro {
+  background: var(--rebaixo);
+  border: 1px solid var(--t-12);
+  border-left: 3px solid var(--t-75);
+  border-radius: var(--r-dentro);
+  padding: 13px 16px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  color: var(--t-90);
+}
+.aviso-ok {
+  background: var(--color-saude);
+  border-radius: var(--r-dentro);
+  padding: 13px 16px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  color: var(--t-100);
+}
+
+.acoes-form {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--t-07);
+}
+.acoes-form .separador { flex: 1; }
+
+.botao:disabled { opacity: .45; cursor: not-allowed; }
+.botao.perigo { background: transparent; color: var(--t-90); border-color: var(--t-12); }
+.botao.perigo:hover { background: var(--t-07); }
+
+/* caixa de marcar, reaproveitando o check desenhado da trilha */
+.marcavel { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; color: var(--t-75); }
+.marcavel input { position: absolute; opacity: 0; width: 0; height: 0; }
+.marcavel .caixa { margin-top: 1px; }
+.marcavel input:focus-visible + .caixa { outline: 2px solid var(--t-75); outline-offset: 3px; }
+.marcavel input:checked + .caixa { background: var(--color-saude); border-color: var(--color-saude); }
+.marcavel input:checked + .caixa path { animation: check-desenha 320ms var(--ease) both; }
+.marcavel .caixa path { stroke-dashoffset: 18; }
+
+/* nav: bloco de quem está logado */
+.nav .eu {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px 5px 6px;
+  border-radius: var(--r-pilula);
+  background: var(--t-07);
+  color: var(--t-90);
+  font-size: 13px;
+  text-decoration: none;
+}
+.nav .eu:hover { background: var(--t-12); }
+.nav .eu .inicial {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--cartao);
+  font-family: var(--font-mono); font-size: 9px;
+}
+
+/* formulário de comentário na discussão */
+.novo-comentario {
+  background: var(--cartao);
+  border-radius: var(--r-dentro);
+  padding: 17px 20px 18px;
+  margin-bottom: 10px;
+  box-shadow: var(--sombra);
+}
+.comentario .acoes-comentario {
+  display: flex; gap: 12px; margin-top: 10px;
+}
+.comentario .acoes-comentario button {
+  background: none; border: 0; padding: 0;
+  font-family: inherit; font-size: 12px; color: var(--t-50);
+  cursor: pointer; text-decoration: underline;
+}
+.comentario .acoes-comentario button:hover { color: var(--t-90); }
+
+/* lista de builders */
+.grade-builders { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.builder-card {
+  background: var(--cartao);
+  border-radius: var(--r-fora);
+  box-shadow: var(--sombra);
+  padding: 20px 22px 22px;
+  text-decoration: none; color: inherit;
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+  display: block;
+}
+.builder-card:hover { transform: translateY(-3px); box-shadow: var(--sombra-alta); }
+.builder-card .nome {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--t-100);
+  display: block;
+  margin-bottom: 7px;
+}
+.builder-card .headline { font-size: 13.5px; color: var(--t-65); margin: 0 0 12px; }
+
+/* busca */
+.caixa-busca { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.caixa-busca .entrada { font-size: 16px; padding: 13px 16px; }
+
+
+/* ----------------------------------------------------------------
    12. CHAMADA + RODAPÉ
    ---------------------------------------------------------------- */
 

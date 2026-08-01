@@ -1,0 +1,557 @@
+---
+/* ================================================================
+   /rfcs/:slug/editar — editar, publicar e arquivar (F4)
+   ================================================================
+   Convive com /rfcs/[slug].astro: o Astro casa a rota mais específica
+   primeiro, então /rfcs/x resolve o detalhe e /rfcs/x/editar resolve
+   esta página.
+
+   A RFC é buscada COM sessão (comSessao, não obterRfc): rascunho é
+   invisível pra chamada anônima, e é justamente o rascunho que esta
+   tela existe pra editar.
+
+   Rascunho de outra pessoa e RFC inexistente respondem exatamente
+   igual — 404 com a mesma frase. Diferenciar os dois contaria que
+   existe um rascunho naquele endereço, que é a única coisa que o
+   autor de um rascunho não quer contar.
+
+   Todas as ações são POST tradicional pra própria página, separadas
+   por um campo `acao`. São formulários irmãos, nunca aninhados.
+   ================================================================ */
+import Layout from '../../../layouts/Layout.astro';
+import Nav from '../../../components/astro/Nav.astro';
+import Rodape from '../../../components/astro/Rodape.astro';
+import Vazio from '../../../components/astro/Vazio.astro';
+import {
+  statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
+  type Rfc, type Tag,
+} from '../../../lib/api';
+import { comSessao, exigirSessao } from '../../../lib/sessao';
+
+const usuario = Astro.locals.usuario;
+const destino = exigirSessao(usuario, Astro.url);
+if (destino) return Astro.redirect(destino);
+
+/* Os mesmos números do UpdateRfcDto da API. */
+const LIMITE = {
+  titulo: { min: 5,  max: 200 },
+  resumo: { min: 5,  max: 280 },
+  corpo:  { min: 50, max: 50_000 },
+  tag:    { min: 2,  max: 40 },
+  tags:   { max: 10 },
+};
+
+/* Espelha o slugify() da API. É o slug, e não o texto digitado, que
+   identifica a tag lá dentro: sem repetir a regra aqui, "C#" viraria
+   "c", seria descartado no meio de um 200, e a tela ainda diria que o
+   conjunto salvo é o que está no campo. */
+function slugDaTag(bruto: string) {
+  return bruto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function separarTags(bruto: string) {
+  const porSlug = new Map<string, string>();
+  const tags: string[] = [];
+  const semLetras: string[] = [];
+  const repetidas: string[] = [];
+
+  for (const parte of bruto.split(',')) {
+    const t = parte.trim();
+    if (!t) continue;
+    const slug = slugDaTag(t);
+    if (slug.length < LIMITE.tag.min) { semLetras.push(t); continue; }
+    const anterior = porSlug.get(slug);
+    if (anterior) { repetidas.push(`${t} e ${anterior}`); continue; }
+    porSlug.set(slug, t);
+    tags.push(t);
+  }
+  return { tags, semLetras, repetidas };
+}
+
+/** Devolve a mensagem de erro do campo, ou string vazia se está tudo bem. */
+function erroDeTags(s: ReturnType<typeof separarTags>) {
+  if (s.tags.length > LIMITE.tags.max) return `No máximo ${LIMITE.tags.max} tags.`;
+  if (s.tags.some((t) => t.length < LIMITE.tag.min || t.length > LIMITE.tag.max))
+    return `Cada tag precisa ter de ${LIMITE.tag.min} a ${LIMITE.tag.max} caracteres.`;
+  if (s.semLetras.length)
+    return `Tag é guardada só por letras e números, e de ${s.semLetras.join(', ')} não sobra nada. Reescreva com pelo menos ${LIMITE.tag.min} letras ou números.`;
+  if (s.repetidas.length)
+    return `Acento e pontuação não separam tags: ${s.repetidas.join('; ')} são a mesma. Deixe uma só.`;
+  return '';
+}
+
+interface Campos { title: string; summary: string; body: string }
+
+function validar(v: Campos) {
+  const e: Record<string, string> = {};
+
+  if (v.title.length < LIMITE.titulo.min) e.title = `O título precisa de pelo menos ${LIMITE.titulo.min} caracteres.`;
+  else if (v.title.length > LIMITE.titulo.max) e.title = `O título passou de ${LIMITE.titulo.max} caracteres.`;
+
+  if (v.summary.length < LIMITE.resumo.min) e.summary = `O resumo precisa de pelo menos ${LIMITE.resumo.min} caracteres.`;
+  else if (v.summary.length > LIMITE.resumo.max) e.summary = `O resumo passou de ${LIMITE.resumo.max} caracteres.`;
+
+  if (v.body.length < LIMITE.corpo.min) e.body = `O corpo precisa de pelo menos ${LIMITE.corpo.min} caracteres.`;
+  else if (v.body.length > LIMITE.corpo.max) e.body = `O corpo passou de ${LIMITE.corpo.max} caracteres.`;
+
+  return e;
+}
+
+const { slug } = Astro.params;
+const busca = await comSessao<Rfc>(Astro.cookies, 'GET', `/rfcs/${slug}`);
+
+/* status 0 é o único caso em que o servidor não falou nada. Aí o vazio
+   é falha nossa, não ausência de permissão — e a tela precisa dizer
+   qual dos dois é. */
+const semRede = busca.status === 0 || busca.status >= 500;
+const encontrada = busca.dado;
+const meu = !!encontrada && encontrada.author.username === usuario?.username;
+
+let rfc = meu ? encontrada : null;
+
+let valores: Campos = rfc
+  ? { title: rfc.title, summary: rfc.summary, body: rfc.body }
+  : { title: '', summary: '', body: '' };
+/* null significa "espelhe o conjunto que está na API". Só vira string
+   quando a troca de tags falhou e o campo precisa devolver o que a
+   pessoa digitou. */
+let valorTags: string | null = null;
+let erros: Record<string, string> = {};
+let avisoGeral = '';
+let avisoOk = '';
+
+if (Astro.request.method === 'POST' && rfc) {
+  const f = await Astro.request.formData();
+  const acao = String(f.get('acao') ?? '');
+
+  if (acao === 'publicar') {
+    const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/publish`);
+    if (r.ok) return Astro.redirect(`/rfcs/${rfc.slug}`);
+    avisoGeral = r.erro ?? 'Não consegui publicar agora.';
+
+  } else if (acao === 'arquivar') {
+    /* Arquivar um rascunho tira dele o sigilo: a API só esconde de
+       terceiros o que está em DRAFT, então o texto que nunca foi
+       publicado passaria a abrir para qualquer visitante — e publicar
+       depois deixa de ser possível, porque publish exige DRAFT. */
+    if (rfc.status === 'DRAFT') {
+      avisoGeral = 'Rascunho não se arquiva: ele já está fora de todas as listagens. Ou publique, ou deixe onde está.';
+    } else if (!f.get('confirmo')) {
+      avisoGeral = 'Marque a confirmação antes de arquivar.';
+    } else {
+      const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/archive`);
+      if (r.ok) return Astro.redirect(`/rfcs/${rfc.slug}`);
+      avisoGeral = r.erro ?? 'Não consegui arquivar agora.';
+    }
+
+  } else if (acao === 'tags') {
+    valorTags = String(f.get('tags') ?? '');
+    const separadas = separarTags(valorTags);
+    const erroTags = erroDeTags(separadas);
+
+    if (erroTags) {
+      erros.tags = erroTags;
+    } else {
+      const tags = separadas.tags;
+      const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/tags`, { tags });
+      if (r.ok) {
+        avisoOk = tags.length
+          ? 'Tags trocadas. O conjunto agora é exatamente o que está no campo.'
+          : 'Tags removidas: a ideia ficou sem nenhuma.';
+        valorTags = null;
+      } else {
+        avisoGeral = r.erro ?? 'Não consegui trocar as tags agora.';
+      }
+    }
+
+  } else {
+    valores = {
+      title:   String(f.get('title') ?? '').trim(),
+      summary: String(f.get('summary') ?? '').trim(),
+      body:    String(f.get('body') ?? '').trim(),
+    };
+    erros = validar(valores);
+
+    if (Object.keys(erros).length === 0) {
+      const corpoMudou = valores.body !== rfc.body;
+      const r = await comSessao<Rfc>(Astro.cookies, 'PATCH', `/rfcs/${rfc.id}`, valores);
+
+      if (r.ok && r.dado) {
+        rfc = r.dado;
+        valores = { title: rfc.title, summary: rfc.summary, body: rfc.body };
+        avisoOk = corpoMudou
+          ? `Salvo. O corpo mudou, então nasceu a versão ${rfc._count.versions} — a anterior continua no histórico.`
+          : 'Salvo. O corpo não mudou, então nenhuma versão nova foi criada.';
+      } else {
+        avisoGeral = r.erro ?? 'Não consegui salvar agora.';
+      }
+    }
+  }
+}
+
+/* Vem de /rfcs/nova, que cria o rascunho e manda pra cá. */
+const recemCriada = Astro.url.searchParams.get('criada') === '1';
+const tagsFalharam = Astro.url.searchParams.get('tags') === 'falhou';
+
+/* Aqui a leitura precisa distinguir falha de vazio: um campo de tags
+   em branco significa "apague todas", então uma leitura que falhou em
+   silêncio faria a pessoa remover as tags reais achando que não havia
+   nenhuma. Por isso comSessao, e não listarTagsDaRfc. */
+const leituraTags = rfc
+  ? await comSessao<Tag[]>(Astro.cookies, 'GET', `/rfcs/${rfc.id}/tags`)
+  : null;
+const tagsIlegiveis = !!leituraTags && !leituraTags.ok;
+const tags = leituraTags?.dado ?? [];
+const campoTags = valorTags ?? tags.map((t) => t.name).join(', ');
+
+if (!rfc) Astro.response.status = semRede ? 503 : 404;
+
+/* alias const: garante o estreitamento de tipo dentro do template */
+const ideia = rfc;
+const rascunho = ideia?.status === 'DRAFT';
+const arquivada = ideia?.status === 'ARCHIVED';
+/* O número nasce na publicação e nunca é devolvido. É ele, e não a
+   ausência de DRAFT, que diz se a ideia chegou a existir em público:
+   um rascunho arquivado não é DRAFT e mesmo assim nunca foi publicado. */
+const publicada = ideia != null && ideia.number != null;
+
+const descreve = (campo: string) =>
+  [`ajuda-${campo}`, erros[campo] && `erro-${campo}`].filter(Boolean).join(' ');
+---
+
+<Layout title={ideia ? `Editar · ${ideia.title}` : 'Não encontrei essa ideia · Idearium'}>
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    {!ideia ? (
+      <>
+        <header class="cabecalho-pagina">
+          <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+          <h1>Não encontrei essa <span class="serif">ideia</span>.</h1>
+        </header>
+        <Vazio
+          falha={semRede}
+          titulo={semRede ? 'O servidor não respondeu' : 'Nada para editar neste endereço'}
+          texto={semRede
+            ? 'Não consegui falar com a API, então não sei nem se essa ideia existe. Tente de novo em instantes.'
+            : 'Ou o endereço está errado, ou essa ideia não é sua para editar. Rascunho só existe para quem escreveu.'}
+          acaoHref="/rfcs"
+          acaoTexto="ver as ideias abertas"
+        />
+      </>
+    ) : (
+      <>
+        <header class="cabecalho-pagina">
+          <a class="volta" href={`/rfcs/${ideia.slug}`}>&larr; ver a ideia</a>
+          <div class="chips" style="margin-top:14px">
+            <span class="chip pastel" style={`background: var(--color-${ideia.lab.slug})`}>
+              <span aria-hidden="true">{ideia.lab.glyph}</span> {nomeCurtoDoLab(ideia.lab.name)}
+            </span>
+            <span class="chip">{statusLabel[ideia.status]}</span>
+            <span class="codigo">{codigoRfc(ideia.number)}</span>
+          </div>
+          <h1>Editando <span class="serif">{ideia.title}</span></h1>
+          <p class="sub">
+            {rascunho
+              ? 'Ainda é rascunho: só você enxerga, e ela ainda não tem número. Publicar é a decisão do bloco ao lado.'
+              : publicada
+                ? 'Já está publicada e tem número permanente. Toda mudança no corpo entra no histórico, à vista de quem lê.'
+                : 'Foi arquivada antes de ser publicada, então nunca recebeu número. O texto continua aqui e continua editável.'}
+          </p>
+        </header>
+
+        {recemCriada && (
+          <p class="aviso-ok" role="status">
+            <b>Rascunho criado.</b> Ele existe, mas ninguém além de você o vê.
+            Quando quiser, publique.
+          </p>
+        )}
+        {tagsFalharam && (
+          <p class="aviso-erro" role="alert">
+            <b>As tags não foram salvas.</b> O rascunho está inteiro, só o
+            conjunto de tags não passou. Tente de novo no bloco de tags.
+          </p>
+        )}
+        {avisoOk && <p class="aviso-ok" role="status">{avisoOk}</p>}
+        {avisoGeral && <p class="aviso-erro" role="alert">{avisoGeral}</p>}
+        {Object.keys(erros).length > 0 && (
+          <p class="aviso-erro" role="alert">
+            <b>Falta ajustar alguma coisa.</b> Os campos com problema estão
+            marcados abaixo. Nada do que você escreveu se perdeu.
+          </p>
+        )}
+
+        <div class="rfc-topo">
+          <div>
+            <form method="post" novalidate>
+              <input type="hidden" name="acao" value="salvar" />
+              <article class="cartao">
+                <div class="conteudo">
+
+                  <div class:list={['campo', erros.title && 'com-erro']}>
+                    <div class="linha-rotulo">
+                      <label class="rotulo" for="title">título</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="title" data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
+                    </div>
+                    <input
+                      class="entrada"
+                      id="title"
+                      name="title"
+                      type="text"
+                      value={valores.title}
+                      aria-describedby={descreve('title')}
+                      aria-invalid={erros.title ? 'true' : undefined}
+                    />
+                    <span class="ajuda" id="ajuda-title">
+                      De {LIMITE.titulo.min} a {LIMITE.titulo.max} caracteres. O endereço da ideia não muda
+                      quando o título muda.
+                    </span>
+                    {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
+                  </div>
+
+                  <div class:list={['campo', erros.summary && 'com-erro']}>
+                    <div class="linha-rotulo">
+                      <label class="rotulo" for="summary">resumo</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="summary" data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
+                    </div>
+                    <textarea
+                      class="entrada"
+                      id="summary"
+                      name="summary"
+                      rows="3"
+                      aria-describedby={descreve('summary')}
+                      aria-invalid={erros.summary ? 'true' : undefined}
+                    >{valores.summary}</textarea>
+                    <span class="ajuda" id="ajuda-summary">
+                      De {LIMITE.resumo.min} a {LIMITE.resumo.max} caracteres. É o que aparece no cartão da listagem.
+                    </span>
+                    {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
+                  </div>
+
+                  <div class:list={['campo', erros.body && 'com-erro']}>
+                    <div class="linha-rotulo">
+                      <label class="rotulo" for="body">corpo</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
+                    </div>
+                    <textarea
+                      class="entrada corpo-longo"
+                      id="body"
+                      name="body"
+                      aria-describedby={descreve('body')}
+                      aria-invalid={erros.body ? 'true' : undefined}
+                    >{valores.body}</textarea>
+                    <span class="ajuda" id="ajuda-body">
+                      Mínimo de {LIMITE.corpo.min} caracteres. Aceita markdown simples:
+                      <span class="codigo">## título</span>, <span class="codigo">- lista</span>,
+                      <span class="codigo">**negrito**</span> e <span class="codigo">`código`</span>.
+                      Qualquer outra marcação aparece como texto puro.
+                    </span>
+                    {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
+                  </div>
+
+                  <div class="acoes-form">
+                    <button class="botao" type="submit">salvar</button>
+                    <span class="separador"></span>
+                    <a class="botao leve" href={`/rfcs/${ideia.slug}`}>ver como ficou</a>
+                  </div>
+
+                </div>
+              </article>
+            </form>
+          </div>
+
+          <aside class="lado-rfc">
+            {rascunho ? (
+              <div class="bloco">
+                <p class="titulo-bloco">publicar</p>
+                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                  Publicar tira a ideia da gaveta: ela entra nas listagens, abre
+                  para discussão e para quem quiser construir.
+                </p>
+                <div class="linha"><span>agora</span><b>rascunho</b></div>
+                <div class="linha"><span>depois</span><b>em discussão</b></div>
+                <p style="margin:12px 0 16px; font-size:12.5px; color:var(--t-50)">
+                  Nesse momento ela recebe o número permanente, e o número não
+                  volta atrás: publicar não tem desfazer.
+                </p>
+                <form method="post">
+                  <input type="hidden" name="acao" value="publicar" />
+                  <button class="botao" type="submit">publicar</button>
+                </form>
+              </div>
+            ) : publicada ? (
+              <div class="bloco">
+                <p class="titulo-bloco">já publicada</p>
+                <div class="linha"><span>número</span><b>{codigoRfc(ideia.number)}</b></div>
+                <div class="linha"><span>publicada</span><b>{haQuantoTempo(ideia.publishedAt)}</b></div>
+                <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                  O número é permanente. Ele identifica a ideia mesmo depois de
+                  o título mudar.
+                </p>
+              </div>
+            ) : (
+              <div class="bloco">
+                <p class="titulo-bloco">nunca publicada</p>
+                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                  Ela foi arquivada enquanto ainda era rascunho: não recebeu
+                  número e não passou por nenhuma listagem.
+                </p>
+                <div class="linha"><span>número</span><b>nenhum</b></div>
+                <div class="linha"><span>arquivada</span><b>{haQuantoTempo(ideia.archivedAt)}</b></div>
+                <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                  Publicar exige rascunho, e ela deixou de ser um ao ser
+                  arquivada. Hoje não existe caminho de volta.
+                </p>
+              </div>
+            )}
+
+            <div class="bloco">
+              <p class="titulo-bloco">tags</p>
+              {tagsIlegiveis ? (
+                <p class="aviso-erro" role="alert" style="margin:0">
+                  <b>Não consegui ler as tags desta ideia.</b> O formulário fica
+                  fora do ar de propósito: campo vazio aqui significa apagar
+                  todas, e eu não sei o que há para apagar. Recarregue em
+                  instantes.
+                </p>
+              ) : (
+                <>
+                  <form method="post">
+                    <input type="hidden" name="acao" value="tags" />
+                    <div class:list={['campo', erros.tags && 'com-erro']} style="margin-bottom:12px">
+                      <label class="rotulo" for="tags">o conjunto inteiro</label>
+                      <input
+                        class="entrada mono"
+                        id="tags"
+                        name="tags"
+                        type="text"
+                        value={campoTags}
+                        aria-describedby={descreve('tags')}
+                        aria-invalid={erros.tags ? 'true' : undefined}
+                        placeholder="mobilidade, praça"
+                      />
+                      <span class="ajuda" id="ajuda-tags">
+                        Separe por vírgula, até {LIMITE.tags.max} tags. O que você enviar
+                        <b> substitui todas as tags de uma vez</b>: o que sair do campo
+                        sai da ideia. Campo vazio remove todas. Só letras e números
+                        contam, então "praça" e "praca" são a mesma tag.
+                      </span>
+                      {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
+                    </div>
+                    <button class="botao leve" type="submit">trocar tags</button>
+                  </form>
+
+                  {tags.length > 0 && (
+                    <div class="nuvem-tags" style="margin-top:14px">
+                      {tags.map((t) => <span class="tag">{t.name}</span>)}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div class="bloco">
+              <p class="titulo-bloco">histórico</p>
+              <div class="linha"><span>versões</span><b>{ideia._count.versions}</b></div>
+              <div class="linha"><span>última mudança</span><b>{haQuantoTempo(ideia.updatedAt)}</b></div>
+              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                Mudar o corpo cria uma versão nova em vez de sobrescrever a
+                anterior. Nada é apagado — o histórico é o que deixa a ideia
+                evoluir sem apagar de onde ela veio.
+              </p>
+            </div>
+
+            {arquivada ? (
+              <div class="bloco">
+                <p class="titulo-bloco">arquivada</p>
+                <p style="margin:0; font-size:13px; color:var(--t-65)">
+                  Foi arquivada {haQuantoTempo(ideia.archivedAt)}. O texto, a discussão
+                  e as versões continuam onde estavam. Tirar do arquivo ainda não
+                  existe: nenhuma tela e nenhuma rota devolvem a ideia ao estado
+                  anterior.
+                </p>
+              </div>
+            ) : rascunho ? null : (
+              <div class="bloco">
+                <p class="titulo-bloco">arquivar</p>
+                <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                  Arquivar diz que a ideia esfriou. Ela sai das listagens, mas
+                  nada é deletado: texto, discussão, inscrições e versões
+                  continuam de pé.
+                </p>
+                <p style="margin:0 0 14px; font-size:12.5px; color:var(--t-50)">
+                  Não há desfazer hoje. Quando arquivar, a ideia fica arquivada.
+                </p>
+                <form method="post">
+                  <input type="hidden" name="acao" value="arquivar" />
+                  <label class="marcavel" style="margin-bottom:14px">
+                    <input type="checkbox" name="confirmo" value="1" />
+                    <span class="caixa" aria-hidden="true">
+                      <svg viewBox="0 0 12 12"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
+                    </span>
+                    <span style="font-size:13px">entendo que a ideia sai das listagens e que não há desfazer</span>
+                  </label>
+                  <button class="botao perigo" type="submit">arquivar</button>
+                </form>
+              </div>
+            )}
+          </aside>
+        </div>
+      </>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  /* o contador mora na linha do rótulo, colado no limite que ele mede,
+     mas FORA do <label>: dentro dele o número entraria no nome acessível
+     do campo e seria reanunciado a cada tecla digitada */
+  .campo > .linha-rotulo {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .linha-rotulo > .rotulo {
+    font-size: 13px;
+    font-weight: 460;
+    color: var(--t-90);
+  }
+  .contador { font-size: 10.5px; color: var(--t-35); font-weight: 400; }
+  .contador.fora { color: var(--t-90); font-weight: 460; }
+</style>
+
+<script>
+  function ligarContadores() {
+    const marcadores = document.querySelectorAll<HTMLElement>('[data-contador]');
+
+    for (const marcador of marcadores) {
+      const campo = document.getElementById(marcador.dataset.contador!) as
+        HTMLInputElement | HTMLTextAreaElement | null;
+      if (!campo) continue;
+
+      const min = Number(marcador.dataset.min);
+      const max = Number(marcador.dataset.max);
+
+      const atualizar = () => {
+        const n = campo.value.trim().length;
+        const curto = n > 0 && n < min;
+        marcador.textContent = curto ? `${n} / mínimo ${min}` : `${n} / ${max}`;
+        marcador.classList.toggle('fora', curto || n > max);
+      };
+
+      campo.addEventListener('input', atualizar);
+      atualizar();
+    }
+  }
+
+  document.addEventListener('astro:page-load', ligarContadores);
+</script>

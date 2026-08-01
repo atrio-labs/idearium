@@ -1,0 +1,360 @@
+---
+/* ================================================================
+   /buscar — busca textual nas ideias (F5)
+   ================================================================
+   SSR, não pré-renderizada: o resultado depende da querystring, que
+   só existe no pedido. Em troca, /buscar?q=água&lab=cidades vira um
+   link que qualquer pessoa pode mandar pra outra.
+
+   O formulário é GET puro. Sem JavaScript, escrever e apertar "buscar"
+   funciona igual; com JavaScript, trocar um filtro reenvia sozinho.
+
+   Os dois limites da busca aparecem NA TELA, não só neste comentário:
+   ela distingue acento e lê um idioma por vez. O segundo é decisão de
+   backend documentada (ROADMAP_BACKEND §2.5, "Cross-language search"):
+   o search_vector é construído com o dicionário de cada idioma, então
+   uma consulta em português não casa com o índice em inglês. Esconder
+   isso faria a pessoa achar que a ideia não existe.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import {
+  listarLabs, nomeCurtoDoLab,
+  type Autor, type LabResumo, type Pagina, type RfcStatus,
+} from '../lib/api';
+
+/* A api.ts ainda não expõe /search — ela é de outro agente e está sendo
+   editada em paralelo. Até lá a chamada mora aqui, com o mesmo contrato
+   do resto do cliente: nunca lança, e separa "não achei" de "não falei
+   com o servidor". */
+const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+
+interface Achado {
+  id: string;
+  number: number | null;
+  slug: string;
+  title: string;
+  summary: string;
+  locale: string;
+  status: RfcStatus;
+  publishedAt: string | null;
+  rank: number;
+  author: Autor;
+  lab: LabResumo;
+}
+
+interface TagResumo {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+async function pedir<T>(
+  caminho: string,
+): Promise<{ dado: T | null; caiu: boolean; recusada: boolean }> {
+  try {
+    const r = await fetch(BASE + caminho, { headers: { Accept: 'application/json' } });
+    if (!r.ok) {
+      /* 400 e 422 são a API recusando a consulta, e a pessoa precisa ler
+         isso no campo. Todo o resto (404 de rota, 429, 502 de gateway) é
+         indisponibilidade: chamar de "nada encontrado" esconderia a queda. */
+      const recusada = r.status === 400 || r.status === 422;
+      return { dado: null, caiu: !recusada, recusada };
+    }
+    return { dado: (await r.json()) as T, caiu: false, recusada: false };
+  } catch {
+    return { dado: null, caiu: true, recusada: false };
+  }
+}
+
+/* Teto do SearchQueryDto. Pedir mais devolve 400, não uma lista maior. */
+const LIMITE_BUSCA = 50;
+
+const IDIOMAS = [
+  { valor: 'pt-BR', texto: 'português' },
+  { valor: 'en', texto: 'inglês' },
+] as const;
+
+const params = Astro.url.searchParams;
+const termo = (params.get('q') ?? '').trim();
+const labPedido = params.get('lab') ?? '';
+const idioma = params.get('locale') === 'en' ? 'en' : 'pt-BR';
+
+/* A API exige 2 caracteres. Vale avisar no campo em vez de mandar a
+   consulta e traduzir um 400 depois. */
+const curtoDemais = termo.length === 1;
+const buscou = termo.length >= 2;
+
+const labs = await listarLabs();
+
+/* Slug de lab que não existe filtra a busca pra nada sem marcar pílula
+   nenhuma: num link compartilhado com erro de digitação, a pessoa leria
+   zero resultado como "não há ideia" em vez de "o recorte está errado".
+   Só descarto quando tenho a lista pra comparar. */
+const labEscolhido =
+  labs.length > 0 && !labs.some((l) => l.slug === labPedido) ? '' : labPedido;
+
+let achados: Achado[] = [];
+let total = 0;
+let caiu = false;
+let recusada = false;
+let populares: TagResumo[] = [];
+
+if (buscou) {
+  const p = new URLSearchParams({ q: termo, locale: idioma, limit: String(LIMITE_BUSCA) });
+  if (labEscolhido) p.set('lab', labEscolhido);
+  const r = await pedir<Pagina<Achado>>(`/search?${p}`);
+  achados = r.dado?.data ?? [];
+  total = r.dado?.meta.total ?? 0;
+  caiu = r.caiu;
+  recusada = r.recusada;
+} else {
+  /* Sem consulta, a tela ainda precisa oferecer um caminho. As tags mais
+     usadas são o atalho mais honesto: são recortes reais do acervo. */
+  const r = await pedir<Pagina<TagResumo>>('/tags?limit=12');
+  populares = r.dado?.data ?? [];
+  caiu = r.caiu;
+}
+
+/* /search não traz createdAt nem updatedAt (o SELECT do FTS não os
+   busca). CartaoIdeia só lê `publishedAt ?? createdAt`, então repito
+   publishedAt em vez de inventar uma data que não veio. */
+const paraCartao = (a: Achado) => ({
+  ...a,
+  createdAt: a.publishedAt ?? '',
+  updatedAt: a.publishedAt ?? '',
+});
+
+const temAcento = /[áàâãéêíóôõúüç]/i.test(termo);
+const nomeDoLab = labs.find((l) => l.slug === labEscolhido);
+const filtrando = Boolean(labEscolhido) || idioma !== 'pt-BR';
+
+/* O campo fala da consulta, o vazio fala do resultado. Sem essa separação
+   uma consulta recusada aparecia como "nada encontrado", e a pessoa
+   procurava o erro na palavra que escreveu. */
+const erroNoCampo = curtoDemais
+  ? 'Escreva pelo menos duas letras.'
+  : recusada
+    ? 'A busca recusou esta consulta. Ela aceita até 200 caracteres no termo.'
+    : null;
+
+const tituloVazio = caiu
+  ? 'O servidor não respondeu'
+  : recusada
+    ? 'A consulta não foi aceita'
+    : `Nada encontrado para "${termo}"`;
+
+const textoVazio = caiu
+  ? 'Assim que a API voltar, o resultado aparece aqui.'
+  : recusada
+    ? 'A busca não chegou a rodar. Encurte o termo e tente de novo.'
+    : temAcento
+      ? filtrando
+        ? 'Talvez o recorte esteja apertado. Tente sem escolher laboratório, ou no outro idioma.'
+        : 'Tente uma palavra mais geral, ou o termo que a pessoa usaria para descrever o problema.'
+      : 'Se a palavra leva acento, escreva com ele: a busca trata "remedio" e "remédio" como palavras diferentes. Também vale afrouxar o laboratório ou trocar o idioma.';
+---
+
+<Layout
+  title={buscou ? `Idearium · busca por ${termo}` : 'Idearium · Buscar'}
+  description="Procure ideias abertas por palavra, laboratório e idioma."
+>
+  <div class="palco">
+    <Nav atual="buscar" />
+
+    {/* .vem nasce com opacity 0 e quem devolve a opacidade é o observer lá
+        embaixo. Sem JavaScript ele nunca roda e a grade de resultados fica
+        em branco, o oposto do que esta tela promete. */}
+    <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
+
+    <header class="cabecalho-pagina">
+      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+        busca
+      </span>
+      <h1>Procure pelo <span class="serif">problema</span>.</h1>
+      <p class="sub">
+        A busca lê o título, o resumo e o corpo das ideias já publicadas.
+        Rascunho não aparece aqui.
+      </p>
+    </header>
+
+    <form class="forma-busca" method="get" action="/buscar" role="search">
+      <div class:list={['campo', erroNoCampo && 'com-erro']}>
+        <label class="rotulo" for="q">o que você procura</label>
+        <div class="caixa-busca">
+          <input
+            class="entrada"
+            id="q"
+            name="q"
+            type="search"
+            value={termo}
+            placeholder="alagamento, merenda, transporte"
+            maxlength="200"
+            autocomplete="off"
+            aria-describedby={erroNoCampo ? 'erro-q nota-busca' : 'nota-busca'}
+          />
+          <button class="botao" type="submit">buscar</button>
+        </div>
+        {erroNoCampo && (
+          <span class="erro-campo" id="erro-q">{erroNoCampo}</span>
+        )}
+        <p class="ajuda" id="nota-busca">
+          A busca distingue acento: <b>remedio</b> não encontra <b>remédio</b>.
+          E lê um idioma por vez — português e inglês não se cruzam.
+        </p>
+      </div>
+
+      <div class="filtros">
+        <div class="grupo" role="group" aria-labelledby="rotulo-lab">
+          <span class="rotulo" id="rotulo-lab">laboratório</span>
+          <label class="opcao">
+            <input type="radio" name="lab" value="" checked={labEscolhido === ''} />
+            <span class="filtro">todos</span>
+          </label>
+          {labs.map((l) => (
+            <label class="opcao">
+              <input type="radio" name="lab" value={l.slug} checked={labEscolhido === l.slug} />
+              <span class="filtro">
+                <span class="swatch" style={`background: var(--color-${l.slug})`}></span>
+                {nomeCurtoDoLab(l.name)}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div class="filtros" style="padding-top:0">
+        <div class="grupo" role="group" aria-labelledby="rotulo-idioma">
+          <span class="rotulo" id="rotulo-idioma">idioma</span>
+          {IDIOMAS.map((i) => (
+            <label class="opcao">
+              <input type="radio" name="locale" value={i.valor} checked={idioma === i.valor} />
+              <span class="filtro">{i.texto}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </form>
+
+    {caiu && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> O resultado abaixo pode estar
+        vazio por isso, não por falta de ideias.
+      </p>
+    )}
+
+    {!buscou ? (
+      <div class="convite vem">
+        <p class="titulo-bloco">por onde começar</p>
+        <p class="texto-convite">
+          Escreva uma palavra do problema, não o nome de um projeto. Quem
+          escreveu a ideia descreveu o que dói, e é isso que está indexado.
+        </p>
+        {populares.length > 0 ? (
+          <>
+            {/* sem contagem: o número que /tags devolve inclui rascunho e
+                arquivada, então prometeria ideias que a tag não entrega */}
+            <div class="nuvem-tags">
+              {populares.map((t) => (
+                <a class="tag" href={`/tags/${t.slug}`}>{t.name}</a>
+              ))}
+            </div>
+            <p class="saida">
+              <a href="/tags">ver todas as tags</a>
+            </p>
+          </>
+        ) : (
+          <p class="saida">
+            {caiu
+              ? 'As tags aparecem aqui assim que o servidor responder. '
+              : 'Nenhuma ideia foi marcada com tag ainda. '}
+            <a href="/rfcs">ver todas as ideias</a>
+          </p>
+        )}
+      </div>
+    ) : achados.length > 0 ? (
+      <>
+        <p class="contagem">
+          {total} {total === 1 ? 'ideia encontrada' : 'ideias encontradas'}
+          {nomeDoLab && `em ${nomeCurtoDoLab(nomeDoLab.name)}`}
+          {idioma === 'en' && 'em inglês'}
+          {total > achados.length && `· mostrando as ${achados.length} mais próximas`}
+        </p>
+        <div class="grade">
+          {achados.map((a) => <CartaoIdeia rfc={paraCartao(a)} />)}
+        </div>
+      </>
+    ) : (
+      <Vazio
+        falha={caiu}
+        titulo={tituloVazio}
+        texto={textoVazio}
+        acaoHref={caiu ? undefined : '/rfcs'}
+        acaoTexto={caiu ? undefined : 'ver todas as ideias'}
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .forma-busca { margin-bottom: 6px; }
+  .forma-busca .campo { max-width: 620px; }
+  .forma-busca .ajuda b { font-weight: 460; color: var(--t-75); }
+
+  /* Pílula de filtro como radio: sem JavaScript o formulário continua
+     aplicável pelo botão "buscar", que é o requisito de link
+     compartilhável. O visual é o mesmo de /rfcs. */
+  .opcao { display: inline-flex; }
+  .opcao input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .opcao input:checked + .filtro {
+    background: var(--t-100);
+    color: #fff;
+    border-color: transparent;
+  }
+  .opcao input:focus-visible + .filtro { outline: 2px solid var(--t-75); outline-offset: 3px; }
+
+  .convite {
+    background: var(--cartao);
+    border-radius: var(--r-fora);
+    box-shadow: var(--sombra);
+    padding: 26px 28px 28px;
+  }
+  .texto-convite { margin: 0 0 20px; color: var(--t-65); max-width: 52ch; font-size: 14.5px; }
+  .saida { margin: 16px 0 0; font-size: 13px; }
+  .saida a { color: var(--t-50); text-decoration: none; }
+  .saida a:hover { color: var(--t-90); }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    /* Trocar o laboratório ou o idioma reenvia na hora. É melhoria
+       progressiva: sem isso o botão "buscar" faz o mesmo.
+
+       Só clique de ponteiro reenvia. Num grupo de radios a seta já marca
+       a opção enquanto percorre, então reenviar no `change` recarregaria
+       a página a cada tecla e jogaria o foco pro topo — quem navega por
+       teclado nunca chegaria no sexto lab. `detail` vem 0 no clique
+       sintético do teclado; nesse caminho o "buscar" é quem envia. */
+    const forma = document.querySelector<HTMLFormElement>('.forma-busca');
+    if (forma) {
+      for (const radio of forma.querySelectorAll<HTMLInputElement>('.opcao input')) {
+        radio.addEventListener('click', (e) => {
+          if ((e as MouseEvent).detail > 0) forma.requestSubmit();
+        });
+      }
+    }
+
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

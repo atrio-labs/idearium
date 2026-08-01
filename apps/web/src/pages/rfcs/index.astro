@@ -24,6 +24,10 @@ import {
   type RfcStatus,
 } from '../../lib/api';
 
+/* Página pública: pré-renderizada em build. O SSR do adapter existe
+   só pras rotas com sessão. */
+export const prerender = true;
+
 const [labs, rfcs] = await Promise.all([
   listarLabs(),
   listarTodasRfcs(),

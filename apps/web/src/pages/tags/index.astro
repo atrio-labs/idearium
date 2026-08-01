@@ -1,0 +1,134 @@
+---
+/* ================================================================
+   /tags — todas as tags, por uso (F5)
+   ================================================================
+   SSR, não pré-renderizada. Tag não é catálogo fechado como lab: ela
+   nasce no momento em que alguém escreve POST /rfcs/:id/tags. Uma
+   lista congelada em build ficaria desatualizada no primeiro uso.
+
+   A tag aparece sem número. O `usageCount` que /tags devolve conta toda
+   RFC ligada à tag, inclusive rascunho e arquivada, enquanto /tags/:slug
+   só lista as públicas: o número prometeria ideias que o link não
+   entrega. Enquanto as duas contas não vierem da mesma condição, é mais
+   honesto não exibir nenhuma. A ordem da lista continua sendo por uso.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import type { Pagina } from '../../lib/api';
+
+/* A api.ts ainda não expõe /tags — ela é de outro agente e está sendo
+   editada em paralelo. Até lá a chamada mora aqui, com o mesmo
+   contrato: nunca lança, e separa "não há tag" de "servidor mudo". */
+const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+
+interface TagResumo {
+  id: string;
+  slug: string;
+  name: string;
+  createdAt: string;
+  usageCount: number;
+}
+
+/* Teto do PaginationQueryDto. A lista vem ordenada por uso, então o que
+   sobra além disso é a cauda menos usada; quando o acervo passar de 100
+   tags, esta tela precisa de paginação de verdade. */
+const LIMITE_API = 100;
+
+let tags: TagResumo[] = [];
+let total = 0;
+let caiu = false;
+
+try {
+  const r = await fetch(`${BASE}/tags?limit=${LIMITE_API}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (r.ok) {
+    const p = (await r.json()) as Pagina<TagResumo>;
+    tags = p.data;
+    total = p.meta.total;
+  } else {
+    caiu = true;
+  }
+} catch {
+  caiu = true;
+}
+---
+
+<Layout
+  title="Idearium · Tags"
+  description="Os recortes que atravessam os laboratórios, ordenados por uso."
+>
+  <div class="palco">
+    <Nav />
+
+    {/* .vem nasce com opacity 0 e quem devolve a opacidade é o observer lá
+        embaixo. Sem JavaScript ele nunca roda e o painel inteiro some. */}
+    <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
+
+    <header class="cabecalho-pagina">
+      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+        tags
+      </span>
+      <h1>Recortes que <span class="serif">atravessam</span> os labs.</h1>
+      <p class="sub">
+        Uma tag junta ideias de laboratórios diferentes que tratam da mesma
+        coisa. Quem escreve a ideia escolhe as dela.
+      </p>
+    </header>
+
+    {caiu && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
+        incompleta ou vazia por isso, não por falta de tags.
+      </p>
+    )}
+
+    {tags.length > 0 ? (
+      <>
+        <p class="contagem">
+          {total} {total === 1 ? 'tag' : 'tags'}
+          {total > tags.length && `· mostrando as ${tags.length} mais usadas`}
+        </p>
+
+        <div class="cartao painel-tags vem">
+          <div class="nuvem-tags">
+            {tags.map((t) => (
+              <a class="tag" href={`/tags/${t.slug}`}>{t.name}</a>
+            ))}
+          </div>
+        </div>
+      </>
+    ) : (
+      <Vazio
+        falha={caiu}
+        titulo={caiu ? 'O servidor não respondeu' : 'Nenhuma tag ainda'}
+        texto={caiu
+          ? 'Assim que a API voltar, as tags aparecem aqui.'
+          : 'Tag nasce junto com a ideia. Quando alguém marcar a primeira, ela fica listada aqui.'}
+        acaoHref={caiu ? undefined : '/rfcs'}
+        acaoTexto={caiu ? undefined : 'ver as ideias'}
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .painel-tags { padding: 24px 26px 26px; }
+  .painel-tags .nuvem-tags { gap: 8px; }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

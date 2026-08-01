@@ -1,0 +1,401 @@
+---
+/* ================================================================
+   /rfcs/nova — escrever uma ideia (F4)
+   ================================================================
+   Tela de autoria. Exige sessão e é SSR: o formulário faz POST pra
+   ela mesma, sem nenhum fetch no cliente e sem token no browser.
+
+   A decisão central desta tela é de produto, não de código: salvar
+   NÃO publica. O VISAO §6 separa rascunho de publicação porque o
+   número da RFC é permanente — e um número permanente não pode
+   nascer de um clique acidental. Por isso a tela repete isso três
+   vezes: no subtítulo, no bloco lateral e no rótulo do botão.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import { listarLabs, apiIndisponivel, nomeCurtoDoLab, type Rfc } from '../../lib/api';
+import { comSessao, exigirSessao } from '../../lib/sessao';
+
+const usuario = Astro.locals.usuario;
+const destino = exigirSessao(usuario, Astro.url);
+if (destino) return Astro.redirect(destino);
+
+/* Os mesmos números do CreateRfcDto da API, repetidos aqui de
+   propósito: a pessoa precisa saber o limite antes de escrever, não
+   depois de o servidor recusar o texto pronto. */
+const LIMITE = {
+  titulo:  { min: 5,  max: 200 },
+  resumo:  { min: 5,  max: 280 },
+  corpo:   { min: 50, max: 50_000 },
+  tag:     { min: 2,  max: 40 },
+  tags:    { max: 10 },
+};
+
+/* Espelha o slugify() da API. É o slug, e não o texto digitado, que
+   identifica a tag lá dentro: sem repetir a regra aqui, "C#" viraria
+   "c", a API descartaria a tag no meio de um 200 e a pessoa seria
+   redirecionada sem saber que perdeu tag. */
+function slugDaTag(bruto: string) {
+  return bruto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** Aceita "praça, mobilidade , praça" e devolve ["praça","mobilidade"],
+ *  separando o que a API engoliria em silêncio. */
+function separarTags(bruto: string) {
+  const porSlug = new Map<string, string>();
+  const tags: string[] = [];
+  const semLetras: string[] = [];
+  const repetidas: string[] = [];
+
+  for (const parte of bruto.split(',')) {
+    const t = parte.trim();
+    if (!t) continue;
+    const slug = slugDaTag(t);
+    if (slug.length < LIMITE.tag.min) { semLetras.push(t); continue; }
+    const anterior = porSlug.get(slug);
+    if (anterior) { repetidas.push(`${t} e ${anterior}`); continue; }
+    porSlug.set(slug, t);
+    tags.push(t);
+  }
+  return { tags, semLetras, repetidas };
+}
+
+interface Campos { title: string; summary: string; body: string; labId: string; tags: string }
+
+/* Validar aqui, e não só no servidor da API, é o que devolve o erro
+   grudado no campo certo. A API responde uma lista de mensagens sem
+   dizer a qual campo cada uma pertence. */
+function validar(v: Campos, tags: ReturnType<typeof separarTags>) {
+  const e: Record<string, string> = {};
+
+  if (v.title.length < LIMITE.titulo.min) e.title = `O título precisa de pelo menos ${LIMITE.titulo.min} caracteres.`;
+  else if (v.title.length > LIMITE.titulo.max) e.title = `O título passou de ${LIMITE.titulo.max} caracteres.`;
+
+  if (v.summary.length < LIMITE.resumo.min) e.summary = `O resumo precisa de pelo menos ${LIMITE.resumo.min} caracteres.`;
+  else if (v.summary.length > LIMITE.resumo.max) e.summary = `O resumo passou de ${LIMITE.resumo.max} caracteres.`;
+
+  if (v.body.length < LIMITE.corpo.min) e.body = `O corpo precisa de pelo menos ${LIMITE.corpo.min} caracteres. Descreva o problema antes da solução.`;
+  else if (v.body.length > LIMITE.corpo.max) e.body = `O corpo passou de ${LIMITE.corpo.max} caracteres.`;
+
+  if (!v.labId) e.labId = 'Escolha o laboratório onde a ideia vive.';
+
+  if (tags.tags.length > LIMITE.tags.max) e.tags = `No máximo ${LIMITE.tags.max} tags.`;
+  else if (tags.tags.some((t) => t.length < LIMITE.tag.min || t.length > LIMITE.tag.max))
+    e.tags = `Cada tag precisa ter de ${LIMITE.tag.min} a ${LIMITE.tag.max} caracteres.`;
+  else if (tags.semLetras.length)
+    e.tags = `Tag é guardada só por letras e números, e de ${tags.semLetras.join(', ')} não sobra nada. Reescreva com pelo menos ${LIMITE.tag.min} letras ou números.`;
+  else if (tags.repetidas.length)
+    e.tags = `Acento e pontuação não separam tags: ${tags.repetidas.join('; ')} são a mesma. Deixe uma só.`;
+
+  return e;
+}
+
+const labs = await listarLabs();
+const semLabs = labs.length === 0;
+
+let valores: Campos = { title: '', summary: '', body: '', labId: '', tags: '' };
+let erros: Record<string, string> = {};
+let avisoGeral = '';
+
+if (Astro.request.method === 'POST') {
+  const f = await Astro.request.formData();
+  valores = {
+    title:   String(f.get('title') ?? '').trim(),
+    summary: String(f.get('summary') ?? '').trim(),
+    body:    String(f.get('body') ?? '').trim(),
+    labId:   String(f.get('labId') ?? ''),
+    tags:    String(f.get('tags') ?? ''),
+  };
+
+  const tags = separarTags(valores.tags);
+  erros = validar(valores, tags);
+
+  if (Object.keys(erros).length === 0) {
+    const r = await comSessao<Rfc>(Astro.cookies, 'POST', '/rfcs', {
+      title: valores.title,
+      summary: valores.summary,
+      body: valores.body,
+      labId: valores.labId,
+    });
+
+    if (r.ok && r.dado) {
+      /* As tags são uma segunda chamada: a API define o conjunto
+         inteiro num endpoint separado. Se ela falhar, o rascunho já
+         existe — então segue pra edição avisando o que faltou, em vez
+         de perder o texto ou fingir que deu tudo certo. */
+      let tagsOk = true;
+      if (tags.tags.length > 0) {
+        const t = await comSessao(Astro.cookies, 'POST', `/rfcs/${r.dado.id}/tags`, { tags: tags.tags });
+        tagsOk = t.ok;
+      }
+      return Astro.redirect(`/rfcs/${r.dado.slug}/editar?criada=1${tagsOk ? '' : '&tags=falhou'}`);
+    }
+
+    avisoGeral = r.erro ?? 'Não consegui salvar o rascunho agora.';
+  }
+}
+
+const descreve = (campo: string) =>
+  [`ajuda-${campo}`, erros[campo] && `erro-${campo}`].filter(Boolean).join(' ');
+---
+
+<Layout
+  title="Escrever uma ideia · Idearium"
+  description="Escreva uma proposta. Salvar cria um rascunho; publicar é um segundo passo."
+>
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+      <h1>Escrever uma <span class="serif">ideia</span>.</h1>
+      <p class="sub">
+        Você está começando um rascunho. Salvar não publica nada: o texto fica
+        só com você até decidir publicar, num segundo passo deliberado.
+      </p>
+    </header>
+
+    {semLabs ? (
+      <Vazio
+        falha={apiIndisponivel}
+        titulo={apiIndisponivel ? 'O servidor não respondeu' : 'Nenhum laboratório cadastrado'}
+        texto={apiIndisponivel
+          ? 'Toda ideia pertence a um laboratório, e não consegui carregar a lista. Sem ela não dá pra começar o rascunho. Tente de novo em instantes.'
+          : 'Toda ideia pertence a um laboratório, e ainda não existe nenhum. Fale com quem mantém o Idearium.'}
+        acaoHref="/rfcs"
+        acaoTexto="voltar para as ideias"
+      />
+    ) : (
+      <form method="post" novalidate>
+        {avisoGeral && (
+          <p class="aviso-erro" role="alert">
+            <b>Não consegui salvar.</b> {avisoGeral}
+          </p>
+        )}
+        {Object.keys(erros).length > 0 && (
+          <p class="aviso-erro" role="alert">
+            <b>Falta ajustar alguma coisa.</b> Os campos com problema estão
+            marcados abaixo. Nada do que você escreveu se perdeu.
+          </p>
+        )}
+
+        <div class="rfc-topo">
+          <div>
+            <article class="cartao">
+              <div class="conteudo">
+
+                <div class:list={['campo', erros.title && 'com-erro']}>
+                  <div class="linha-rotulo">
+                    <label class="rotulo" for="title">título</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="title" data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
+                  </div>
+                  <input
+                    class="entrada"
+                    id="title"
+                    name="title"
+                    type="text"
+                    value={valores.title}
+                    aria-describedby={descreve('title')}
+                    aria-invalid={erros.title ? 'true' : undefined}
+                    placeholder="Biblioteca cooperativa de bairro"
+                  />
+                  <span class="ajuda" id="ajuda-title">
+                    De {LIMITE.titulo.min} a {LIMITE.titulo.max} caracteres. Nomeie o problema, não a solução.
+                  </span>
+                  {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
+                </div>
+
+                <div class:list={['campo', erros.summary && 'com-erro']}>
+                  <div class="linha-rotulo">
+                    <label class="rotulo" for="summary">resumo</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="summary" data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
+                  </div>
+                  <textarea
+                    class="entrada"
+                    id="summary"
+                    name="summary"
+                    rows="3"
+                    aria-describedby={descreve('summary')}
+                    aria-invalid={erros.summary ? 'true' : undefined}
+                    placeholder="Uma frase que faça alguém que não conhece o assunto entender o que está em jogo."
+                  >{valores.summary}</textarea>
+                  <span class="ajuda" id="ajuda-summary">
+                    De {LIMITE.resumo.min} a {LIMITE.resumo.max} caracteres. É o que aparece no cartão da
+                    listagem, então é por ele que a ideia é escolhida ou ignorada.
+                  </span>
+                  {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
+                </div>
+
+                <div class:list={['campo', erros.labId && 'com-erro']}>
+                  <label class="rotulo" for="labId">laboratório</label>
+                  <select
+                    class="entrada"
+                    id="labId"
+                    name="labId"
+                    aria-describedby={descreve('labId')}
+                    aria-invalid={erros.labId ? 'true' : undefined}
+                  >
+                    <option value="">escolha um laboratório</option>
+                    {labs.map((l) => (
+                      <option value={l.id} selected={valores.labId === l.id}>
+                        {l.glyph} {nomeCurtoDoLab(l.name)}
+                      </option>
+                    ))}
+                  </select>
+                  <span class="ajuda" id="ajuda-labId">
+                    O laboratório é o recorte temático, não um silo: quem transita
+                    por outros labs continua enxergando a ideia.
+                  </span>
+                  {erros.labId && <span class="erro-campo" id="erro-labId">{erros.labId}</span>}
+                </div>
+
+                <div class:list={['campo', erros.body && 'com-erro']}>
+                  <div class="linha-rotulo">
+                    <label class="rotulo" for="body">corpo</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
+                  </div>
+                  <textarea
+                    class="entrada corpo-longo"
+                    id="body"
+                    name="body"
+                    aria-describedby={descreve('body')}
+                    aria-invalid={erros.body ? 'true' : undefined}
+                    placeholder={'## O problema\n\nQuem sente, onde, com que frequência.\n\n## O que eu proponho\n\n- primeiro passo\n- segundo passo\n\n## O que ainda não sei\n\nSeja honesto aqui. É o que atrai quem sabe fazer.'}
+                  >{valores.body}</textarea>
+                  <span class="ajuda" id="ajuda-body">
+                    Mínimo de {LIMITE.corpo.min} caracteres, máximo de {LIMITE.corpo.max.toLocaleString('pt-BR')}.
+                    Aceita markdown simples — o quadro ao lado lista tudo que é reconhecido hoje.
+                  </span>
+                  {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
+                </div>
+
+                <div class:list={['campo', erros.tags && 'com-erro']}>
+                  <label class="rotulo" for="tags">tags</label>
+                  <input
+                    class="entrada mono"
+                    id="tags"
+                    name="tags"
+                    type="text"
+                    value={valores.tags}
+                    aria-describedby={descreve('tags')}
+                    aria-invalid={erros.tags ? 'true' : undefined}
+                    placeholder="mobilidade, praça, orçamento participativo"
+                  />
+                  <span class="ajuda" id="ajuda-tags">
+                    Opcional. Separe por vírgula, até {LIMITE.tags.max} tags de {LIMITE.tag.min} a {LIMITE.tag.max}
+                    caracteres cada. Só letras e números contam, então "praça" e
+                    "praca" são a mesma tag. Dá pra mudar depois.
+                  </span>
+                  {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
+                </div>
+
+                <div class="acoes-form">
+                  <button class="botao" type="submit">salvar como rascunho</button>
+                  <span class="separador"></span>
+                  <a class="botao leve" href="/rfcs">descartar</a>
+                </div>
+
+              </div>
+            </article>
+          </div>
+
+          <aside class="lado-rfc">
+            <div class="bloco">
+              <p class="titulo-bloco">salvar não publica</p>
+              <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
+                O que você salvar aqui vira rascunho: não aparece em nenhuma
+                listagem, ninguém além de você abre, e ainda não tem número.
+              </p>
+              <div class="linha"><span>ao salvar</span><b>rascunho</b></div>
+              <div class="linha"><span>ao publicar</span><b>em discussão</b></div>
+              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                Publicar é um botão separado, na tela de edição. É lá que a ideia
+                ganha o número permanente.
+              </p>
+            </div>
+
+            <div class="bloco">
+              <p class="titulo-bloco">markdown reconhecido</p>
+              <div class="linha"><span class="codigo">## título</span><b>seção</b></div>
+              <div class="linha"><span class="codigo">- item</span><b>lista</b></div>
+              <div class="linha"><span class="codigo">**texto**</span><b>negrito</b></div>
+              <div class="linha"><span class="codigo">`código`</span><b>código</b></div>
+              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                É só isso, e é exatamente o que a página da ideia sabe mostrar
+                hoje. Qualquer outra marcação aparece como texto puro.
+              </p>
+            </div>
+
+            <div class="bloco">
+              <p class="titulo-bloco">como se escreve aqui</p>
+              <p style="margin:0; font-size:13px; color:var(--t-65)">
+                Comece pelo problema e por quem o sente. Diga o que você não sabe
+                fazer: é isso que faz alguém se inscrever. Não precisa estar
+                pronta — precisa estar clara.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </form>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  /* o contador mora na linha do rótulo, colado no limite que ele mede,
+     mas FORA do <label>: dentro dele o número entraria no nome acessível
+     do campo e seria reanunciado a cada tecla digitada */
+  .campo > .linha-rotulo {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .linha-rotulo > .rotulo {
+    font-size: 13px;
+    font-weight: 460;
+    color: var(--t-90);
+  }
+  .contador { font-size: 10.5px; color: var(--t-35); font-weight: 400; }
+  /* fora do intervalo pesa mais, sem cor gritante — como o resto da folha */
+  .contador.fora { color: var(--t-90); font-weight: 460; }
+</style>
+
+<script>
+  function ligarContadores() {
+    const marcadores = document.querySelectorAll<HTMLElement>('[data-contador]');
+
+    for (const marcador of marcadores) {
+      const campo = document.getElementById(marcador.dataset.contador!) as
+        HTMLInputElement | HTMLTextAreaElement | null;
+      if (!campo) continue;
+
+      const min = Number(marcador.dataset.min);
+      const max = Number(marcador.dataset.max);
+
+      const atualizar = () => {
+        const n = campo.value.trim().length;
+        const curto = n > 0 && n < min;
+        marcador.textContent = curto
+          ? `${n} / mínimo ${min}`
+          : `${n} / ${max}`;
+        marcador.classList.toggle('fora', curto || n > max);
+      };
+
+      campo.addEventListener('input', atualizar);
+      atualizar();
+    }
+  }
+
+  document.addEventListener('astro:page-load', ligarContadores);
+</script>

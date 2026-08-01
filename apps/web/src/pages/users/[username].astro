@@ -20,6 +20,10 @@ import {
   haQuantoTempo,
 } from '../../lib/api';
 
+/* Página pública: pré-renderizada em build. O SSR do adapter existe
+   só pras rotas com sessão. */
+export const prerender = true;
+
 export async function getStaticPaths() {
   /* Não há endpoint que liste todos os usuários publicamente, e nem
      deveria haver — diretório de gente é outra coisa. Então gero as

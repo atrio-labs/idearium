@@ -26,6 +26,10 @@ import {
   statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo, materiaDaRfc,
 } from '../lib/api';
 
+/* Página pública: pré-renderizada em build. O SSR do adapter existe
+   só pras rotas com sessão. */
+export const prerender = true;
+
 const labs = await listarLabs();
 
 /* O átrio precisa de 4 RFCs (1 destaque + 3 na grade) e /rfcs/featured

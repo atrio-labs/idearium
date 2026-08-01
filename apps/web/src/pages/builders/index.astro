@@ -1,0 +1,174 @@
+---
+/* ================================================================
+   /builders — quem topa construir (F2)
+   ================================================================
+   Lista pública de quem marcou que está disponível pra construir.
+   Quem desmarcou o "estou disponível" em /perfil sai daqui: a lista
+   promete disponibilidade no título, então publicar alguém que disse
+   o contrário seria falar por ela (VISAO §5.2).
+
+   É o único lugar do produto onde pessoas aparecem em lista, então
+   ele carrega um risco próprio: lista de gente vira ranking sozinha,
+   se a gente deixar. Duas defesas, ambas deliberadas (VISAO §9):
+
+     1. Nenhuma contagem por pessoa. Nada de "12 ideias", "3 em
+        construção". Só o que a própria pessoa escreveu sobre si.
+     2. Nenhuma ordenação por atividade. A API devolve por updatedAt
+        e é isso que fica — e o cabeçalho da lista diz qual é a ordem,
+        pra ninguém ler posição como mérito.
+
+   SSR, não pré-renderizada: perfil novo precisa aparecer sem esperar
+   o próximo build. A página não depende de sessão, só de ser fresca.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import { LIMITE_API, type Autor, type Pagina } from '../../lib/api';
+
+interface Builder {
+  user: Autor;
+  headline: string | null;
+  topics: string[];
+  isOpenToWork: boolean;
+  updatedAt: string;
+}
+
+const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+
+const TETO_PAGINAS = 20;               // trava contra paginação infinita
+
+let semRede = false;
+let truncada = false;
+
+/* Percorre a paginação inteira. Sumir da lista por causa do limite da
+   página 1 seria pior que uma chamada a mais: a pessoa preencheu o
+   perfil e não se encontra nele.
+
+   `isOpenToWork=true` é obrigatório na query: o filtro do BuildersService
+   só entra quando o parâmetro chega, e o default do Swagger não vale em
+   runtime. Sem ele a lista inclui quem desmarcou a disponibilidade. */
+async function listarMaos(): Promise<Builder[]> {
+  const todos: Builder[] = [];
+  for (let page = 1; ; page++) {
+    try {
+      const r = await fetch(
+        `${BASE}/builders?isOpenToWork=true&page=${page}&limit=${LIMITE_API}`,
+        { headers: { Accept: 'application/json' } },
+      );
+      if (!r.ok) { semRede = true; break; }
+      const p = (await r.json()) as Pagina<Builder>;
+      todos.push(...p.data);
+      if (page >= p.meta.totalPages || p.data.length === 0) break;
+    } catch {
+      semRede = true;
+      break;
+    }
+    if (page >= TETO_PAGINAS) { truncada = true; break; }
+  }
+  return todos;
+}
+
+const maos = await listarMaos();
+
+/* Só dá pra afirmar um número quando a varredura terminou inteira.
+   Lista cortada no meio com "N pessoas" em cima vira número errado. */
+const contagemConfiavel = !semRede && !truncada;
+---
+
+<Layout
+  title="Idearium · Mãos"
+  description="Quem preencheu perfil dizendo o que sabe fazer e topa construir ideia dos outros."
+>
+  <div class="palco">
+    <Nav atual="builders" />
+
+    <header class="cabecalho-pagina">
+      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+        mãos disponíveis
+      </span>
+      <h1>Quem topa <span class="serif">construir</span>.</h1>
+      <p class="sub">
+        Não é diretório de freelancer nem marketplace: ninguém aqui cobra e
+        ninguém contrata. São pessoas que escreveram o que sabem fazer e topam
+        construir de graça. O contato acontece na discussão de uma ideia.
+      </p>
+    </header>
+
+    {semRede && (
+      <p class="aviso-api">
+        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
+        incompleta ou vazia por isso, não por falta de gente.
+      </p>
+    )}
+
+    {maos.length > 0 && (
+      <p class="contagem">
+        {contagemConfiavel && (
+          <>{maos.length} {maos.length === 1 ? 'pessoa' : 'pessoas'} · </>
+        )}
+        quem atualizou o perfil por último aparece primeiro
+      </p>
+    )}
+
+    {/* Marca o documento antes de a grade existir: a entrada animada só
+        pode esconder o cartão se houver JS depois pra revelá-lo. */}
+    <script is:inline>document.documentElement.classList.add('com-js');</script>
+
+    {maos.length > 0 ? (
+      <div class="grade-builders">
+        {maos.map((m) => (
+          <a class="builder-card vem" href={`/users/${m.user.username}`}>
+            <span class="nome">@{m.user.username}</span>
+            {m.headline && <p class="headline">{m.headline}</p>}
+
+            {(m.isOpenToWork || m.topics.length > 0) && (
+              <div class="chips" style="margin-bottom:0">
+                {m.isOpenToWork && (
+                  <span class="chip vivo"><span class="ponto"></span>disponível pra construir</span>
+                )}
+                {m.topics.map((t) => <span class="chip pequeno">{t}</span>)}
+              </div>
+            )}
+          </a>
+        ))}
+      </div>
+    ) : (
+      <Vazio
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : 'Ninguém disponível agora'}
+        texto={semRede
+          ? 'As pessoas continuam lá. Só não consegui carregar a lista agora.'
+          : 'A lista mostra quem marcou que topa construir neste momento. Preencher leva um minuto: uma linha sobre o que você sabe fazer e os assuntos que te puxam. A primeira pode ser você.'}
+        acaoHref={semRede ? undefined : '/perfil'}
+        acaoTexto={semRede ? undefined : 'preencher o meu'}
+      />
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  /* `.vem` nasce em opacity 0 no global.css e só reaparece quando o
+     IntersectionObserver marca `.veio`. Sem JS a grade inteira sumiria,
+     com a linha de contagem logo acima jurando que há gente. Aqui o
+     padrão é visível e quem esconde é a classe posta pelo próprio JS. */
+  .builder-card.vem { opacity: 1; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html.com-js .builder-card.vem { opacity: 0; }
+  }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
+      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
+      olho.observe(el);
+    });
+  });
+</script>

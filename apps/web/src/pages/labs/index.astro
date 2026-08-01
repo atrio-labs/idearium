@@ -6,6 +6,10 @@ import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import { listarLabs, nomeCurtoDoLab, apiIndisponivel } from '../../lib/api';
 
+/* Página pública: pré-renderizada em build. O SSR do adapter existe
+   só pras rotas com sessão. */
+export const prerender = true;
+
 const labs = await listarLabs();
 const semRede = apiIndisponivel;
 ---

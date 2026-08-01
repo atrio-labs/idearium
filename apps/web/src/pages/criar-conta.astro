@@ -1,0 +1,186 @@
+---
+/* ================================================================
+   /criar-conta — quem nunca entrou faz conta (F2.2)
+   ================================================================
+   Mesmo desenho de /entrar: POST no próprio arquivo, cookie httpOnly
+   gravado no servidor, nenhum token no cliente.
+
+   As regras de username e senha aparecem em .ajuda ANTES de alguém
+   errar. A validação nativa do browser repete as mesmas regras, mas
+   quem decide é a API: ela responde as mensagens já traduzidas
+   (nestjs-i18n) e é a única que sabe se o nome já está tomado.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import { criarConta, destinoSeguro } from '../lib/sessao';
+
+const voltar = destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin);
+const pediramVolta = voltar !== '/';
+
+if (Astro.locals.usuario) return Astro.redirect(voltar);
+
+/* O mesmo formato que a API exige (RegisterDto): começa e termina com
+   letra ou dígito, no meio aceita ponto, hífen e sublinhado. Aceita
+   maiúscula porque tanto esta página quanto o RegisterDto baixam a caixa
+   antes de validar — barrar no browser um valor que o sistema inteiro
+   aceita só faz a pessoa apanhar da mensagem nativa do navegador. */
+const FORMATO_USERNAME = '[A-Za-z0-9](?:[A-Za-z0-9._-]{1,28}[A-Za-z0-9])';
+
+let erro: string | null = null;
+let username = '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  /* a API normaliza username e email antes de validar; faço o mesmo aqui
+     pra ninguém ser recusado por um espaço colado no fim */
+  username = String(dados.get('username') ?? '').trim().toLowerCase();
+  email = String(dados.get('email') ?? '').trim().toLowerCase();
+  const senha = String(dados.get('senha') ?? '');
+
+  if (!username || !email || !senha) {
+    erro = 'Preencha nome de usuário, email e senha.';
+  } else {
+    try {
+      const r = await criarConta(Astro.cookies, { username, email, password: senha });
+      if (r.ok) return Astro.redirect(voltar);
+      erro = r.erro;
+    } catch {
+      erro = 'Não consegui falar com o servidor. Tente de novo em instantes.';
+    }
+  }
+}
+
+const acao = pediramVolta
+  ? `/criar-conta?voltar=${encodeURIComponent(voltar)}`
+  : '/criar-conta';
+const linkEntrar = pediramVolta
+  ? `/entrar?voltar=${encodeURIComponent(voltar)}`
+  : '/entrar';
+---
+
+<Layout
+  title="Idearium · Criar conta"
+  description="Crie uma conta com pseudônimo pra escrever, discutir e construir ideias."
+>
+  <div class="palco">
+    <Nav />
+
+    <div class="form-estreito">
+      <header class="cabecalho-pagina">
+        <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
+          criar conta
+        </span>
+        <h1>Comece pelo <span class="serif">pseudônimo</span>.</h1>
+        <p class="sub">
+          O @username é como você aparece em toda parte: nas ideias que
+          escrever, na discussão, na lista de quem está construindo. Nome real
+          é opcional aqui e continua opcional depois.
+        </p>
+      </header>
+
+      <form method="POST" action={acao}>
+        {/* o erro só existe depois de um POST, que recarrega a página
+            inteira — leitor de tela não anuncia live region que já veio
+            pronta, então o foco vai pro texto do erro em vez do campo */}
+        {erro && (
+          <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>
+            {erro}
+          </p>
+        )}
+
+        <div class="campo">
+          <label class="rotulo" for="username">nome de usuário</label>
+          <input
+            class="entrada mono"
+            id="username"
+            name="username"
+            type="text"
+            value={username}
+            required
+            minlength="3"
+            maxlength="30"
+            pattern={FORMATO_USERNAME}
+            title="3 a 30 caracteres: letras, dígitos, ponto, hífen ou sublinhado. Começa e termina com letra ou dígito. Maiúscula vira minúscula."
+            autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            aria-describedby={erro ? 'ajuda-username erro-form' : 'ajuda-username'}
+            autofocus={!erro}
+          />
+          <span class="ajuda" id="ajuda-username">
+            De 3 a 30 caracteres: letras, dígitos, ponto, hífen e sublinhado.
+            Começa e termina com letra ou dígito. Maiúscula vira minúscula. É
+            público e não muda depois.
+          </span>
+        </div>
+
+        <div class="campo">
+          <label class="rotulo" for="email">email</label>
+          <input
+            class="entrada"
+            id="email"
+            name="email"
+            type="email"
+            value={email}
+            required
+            maxlength="254"
+            autocomplete="email"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-describedby={erro ? 'ajuda-email erro-form' : 'ajuda-email'}
+          />
+          <span class="ajuda" id="ajuda-email">
+            Serve pra entrar. Não aparece no seu perfil nem pra quem lê o que
+            você escreve.
+          </span>
+        </div>
+
+        <div class="campo">
+          <label class="rotulo" for="senha">senha</label>
+          <input
+            class="entrada"
+            id="senha"
+            name="senha"
+            type="password"
+            required
+            minlength="10"
+            maxlength="200"
+            autocomplete="new-password"
+            aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
+          />
+          <span class="ajuda" id="ajuda-senha">
+            No mínimo 10 caracteres. Comprimento vale mais que símbolo
+            obrigatório, então uma frase serve.
+          </span>
+        </div>
+
+        <div class="acoes-form">
+          <button class="botao" type="submit">criar conta</button>
+          <span class="separador"></span>
+          <a class="botao leve" href={linkEntrar}>já tenho conta</a>
+        </div>
+      </form>
+
+      <p class="nota">
+        Nome real, bio e foto ficam no perfil, depois — e são todos opcionais.
+        Ninguém precisa saber quem você é pra levar sua ideia a sério.
+      </p>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  /* nota de rodapé do formulário: é sobre a tela inteira, não sobre um
+     campo, então não cabe em .ajuda */
+  .nota {
+    margin: 26px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--t-50);
+  }
+</style>

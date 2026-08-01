@@ -1,46 +1,251 @@
 ---
 /* ================================================================
-   /rfcs/:slug — detalhe da RFC (F1.3)
+   /rfcs/:slug — detalhe da RFC (F1.3 + participação, F3)
    ================================================================
-   Uma rota por RFC pública, gerada em build. Rascunho não entra em
-   getStaticPaths: a API só mostra rascunho ao autor, e sem sessão em
-   build time não há como (nem por que) pré-renderizar isso. Rascunho
-   passa a existir na F2, junto com SSR.
+   Uma rota por RFC, renderizada a cada requisição. Além de ler a
+   ideia, esta tela é onde alguém entra pra construir, sai, e discute.
+   Toda ação é POST no próprio arquivo seguido de redirect: sem API
+   client-side, sem token no browser, e recarregar não repete o envio.
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Materia from '../../components/astro/Materia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
+import { comSessao } from '../../lib/sessao';
 import {
-  listarTodasRfcs, avisarSeVazio, obterRfc, listarVersoes, listarInscricoes, listarComentarios,
-  listarTagsDaRfc, statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
+  LIMITE_API, statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
   materiaDaRfc,
+  type Rfc, type Versao, type Inscricao, type Comentario, type Tag, type Pagina,
 } from '../../lib/api';
 
-export async function getStaticPaths() {
-  const todas = await listarTodasRfcs();
-  avisarSeVazio({ onde: '/rfcs/[slug]', qtd: todas.length });
-  return todas.map((rfc) => ({ params: { slug: rfc.slug } }));
-}
+/* Esta é a única página pública em SSR. Motivo: ela precisa saber
+   coisas que dependem de QUEM está lendo — se você já se inscreveu, se
+   o comentário é seu, se a RFC é seu rascunho. Nada disso existe em
+   build time.
+
+   SSR não prejudica indexação: o crawler recebe o mesmo HTML completo.
+   O que se perde é cache, não conteúdo. */
 
 const { slug } = Astro.params;
-const rfc = await obterRfc(slug!);
+const usuario = Astro.locals.usuario;
+const voltar = Astro.url.pathname;
+const paraEntrar = `/entrar?voltar=${encodeURIComponent(voltar)}`;
 
-/* getStaticPaths garante que a RFC existe; isso é rede de segurança
-   pra RFC arquivada entre o build e a leitura. */
-if (!rfc) return Astro.redirect('/rfcs');
+/* A discussão é paginada e a página escolhida vive na querystring, do
+   mesmo jeito que o modo de edição: editar, cancelar e remover têm que
+   devolver a pessoa pra onde ela estava lendo. */
+const pedida = Number(Astro.url.searchParams.get('p'));
+const paginaPedida = Number.isInteger(pedida) && pedida > 0 ? pedida : null;
 
-const [versoes, inscricoes, comentarios, tags] = await Promise.all([
-  listarVersoes(rfc.id),
-  listarInscricoes(rfc.id),
-  listarComentarios(rfc.id),
-  listarTagsDaRfc(rfc.id),
+function comPagina(extra?: string) {
+  const partes: string[] = [];
+  if (paginaPedida) partes.push(`p=${paginaPedida}`);
+  if (extra) partes.push(extra);
+  return partes.length ? `?${partes.join('&')}` : '';
+}
+
+/* Leitura que respeita quem está lendo. Com sessão a chamada vai
+   assinada — é o que faz o autor enxergar o próprio rascunho, que pra
+   qualquer outra pessoa é 404. Sem sessão não há cookie pra ler e a
+   chamada sai sem Authorization, igual à leitura pública.
+
+   Devolve também SE FALHOU, não só o vazio: a tela precisa separar
+   "não há nada aqui" de "não falei com o servidor". A flag
+   apiIndisponivel de api.ts não serve nesta página — ela é do módulo,
+   vale pro processo inteiro e nunca desliga, então numa rota SSR a
+   primeira queda contaminaria todas as requisições seguintes. */
+interface Leitura<T> {
+  dado: T;
+  falhou: boolean;
+}
+
+async function ler<T>(caminho: string, aoFalhar: T): Promise<Leitura<T>> {
+  const r = await comSessao<T>(Astro.cookies, 'GET', caminho);
+  return {
+    dado: r.ok && r.dado != null ? r.dado : aoFalhar,
+    /* 404 é resposta legítima — a ideia não existe, ou é rascunho de
+       outra pessoa — e não queda do backend. */
+    falhou: !r.ok && r.status !== 404,
+  };
+}
+
+const leituraRfc = await ler<Rfc | null>(`/rfcs/${slug}`, null);
+const rfc = leituraRfc.dado;
+
+if (!rfc) {
+  /* A ideia não existe pra quem está pedindo: a lista é o lugar certo
+     pra voltar. */
+  if (!leituraRfc.falhou) return Astro.redirect('/rfcs');
+
+  /* Servidor fora é outra história. Mandar pra /rfcs, que é
+     pré-renderizada e parece saudável, faria a pessoa concluir que a
+     ideia foi apagada. Sem a RFC não há página pra desenhar, então
+     respondemos o erro que de fato aconteceu. */
+  return new Response(
+    'Não consegui falar com o servidor para carregar esta ideia. ' +
+    'Ela continua onde estava; tente de novo em instantes.',
+    {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '30' },
+    },
+  );
+}
+
+/* Erro fica onde a ação foi disparada: quem errou no comentário não
+   deve descobrir isso na coluna lateral. */
+let erroParticipacao: string | null = null;
+let erroDiscussao: string | null = null;
+
+/* O que a pessoa escreveu não pode sumir junto com o erro: sem isso,
+   um 500 apaga um texto longo e a única saída é escrever de novo. */
+let acaoFalha: string | null = null;
+let corpoEnviado: string | null = null;
+let alvoEnviado = '';
+
+if (Astro.request.method === 'POST') {
+  if (!usuario) return Astro.redirect(paraEntrar);
+
+  const dados = await Astro.request.formData();
+  const acao = String(dados.get('acao') ?? '');
+  const corpo = String(dados.get('corpo') ?? '').trim();
+  const alvo = String(dados.get('comentario') ?? '');
+
+  if (acao === 'entrar-na-ideia') {
+    const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/enroll`, {});
+    /* A troca entre "em discussão" e "em construção" é recalculada pelo
+       servidor na mesma transação da inscrição. Por isso recarregamos e
+       mostramos o que a API disser: o frontend não opina sobre status. */
+    if (r.ok) return Astro.redirect(voltar);
+    erroParticipacao = r.status === 409
+      ? 'Essa inscrição não vale mais. Recarregue a página para ver como a ideia está agora.'
+      : 'Não consegui te inscrever agora. Tente de novo em instantes.';
+
+  } else if (acao === 'sair-da-ideia') {
+    const r = await comSessao(Astro.cookies, 'DELETE', `/rfcs/${rfc.id}/enroll`);
+    if (r.ok) return Astro.redirect(voltar);
+    erroParticipacao = r.status === 404
+      ? 'Você já não estava nesta ideia.'
+      : 'Não consegui te tirar daqui agora. Tente de novo em instantes.';
+
+  } else if (acao === 'comentar') {
+    if (!corpo) {
+      erroDiscussao = 'Comentário vazio não vai. Escreva alguma coisa.';
+    } else {
+      const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/comments`, { body: corpo });
+      /* Sem página na volta: o padrão é a última, que é onde o
+         comentário recém-publicado está. */
+      if (r.ok) return Astro.redirect(`${voltar}#discussao`);
+      erroDiscussao = r.status === 403
+        ? 'Esta ideia foi arquivada. A discussão não recebe comentário novo.'
+        : 'Não consegui publicar seu comentário agora. Tente de novo em instantes.';
+    }
+
+  } else if (acao === 'editar-comentario') {
+    if (!corpo) {
+      erroDiscussao = 'Comentário vazio não vai. Para tirar o texto do ar, use remover.';
+    } else {
+      const r = await comSessao(Astro.cookies, 'PATCH', `/comments/${alvo}`, { body: corpo });
+      if (r.ok) return Astro.redirect(`${voltar}${comPagina()}#c-${alvo}`);
+      erroDiscussao = r.status === 403 || r.status === 404
+        ? 'Só quem escreveu o comentário pode editar.'
+        : 'Não consegui salvar a edição agora. Tente de novo em instantes.';
+    }
+
+  } else if (acao === 'remover-comentario') {
+    const r = await comSessao(Astro.cookies, 'DELETE', `/comments/${alvo}`);
+    if (r.ok) return Astro.redirect(`${voltar}${comPagina()}#c-${alvo}`);
+    erroDiscussao = r.status === 403 || r.status === 404
+      ? 'Só quem escreveu o comentário pode remover.'
+      : 'Não consegui remover o comentário agora. Tente de novo em instantes.';
+  }
+
+  if (erroDiscussao) {
+    acaoFalha = acao;
+    corpoEnviado = corpo;
+    alvoEnviado = alvo;
+  }
+}
+
+const semComentarios: Pagina<Comentario> = {
+  data: [], meta: { page: 1, limit: LIMITE_API, total: 0, totalPages: 0 },
+};
+
+/* A API devolve a discussão em ordem crescente e paginada. Sem pedir
+   página, quem abre a RFC vê só os comentários mais antigos e nunca o
+   próprio, recém-publicado — que cai na última página. Por isso o
+   padrão aqui é a ÚLTIMA página; as anteriores ficam a um link. */
+const caminhoComentarios = (p: number) =>
+  `/rfcs/${rfc.id}/comments?page=${p}&limit=${LIMITE_API}`;
+
+const [leituraVersoes, leituraInscricoes, primeiraLeitura, leituraTags] = await Promise.all([
+  ler<Versao[]>(`/rfcs/${rfc.id}/versions`, []),
+  ler<Inscricao[]>(`/rfcs/${rfc.id}/enrollments`, []),
+  ler<Pagina<Comentario>>(caminhoComentarios(paginaPedida ?? 1), semComentarios),
+  ler<Tag[]>(`/rfcs/${rfc.id}/tags`, []),
 ]);
 
+/* Só a primeira leitura sabe quantas páginas existem. A segunda ida à
+   API acontece apenas na discussão longa de quem não pediu página. */
+const ultimaPagina = primeiraLeitura.dado.meta.totalPages;
+const leituraComentarios = paginaPedida == null && ultimaPagina > 1
+  ? await ler<Pagina<Comentario>>(caminhoComentarios(ultimaPagina), semComentarios)
+  : primeiraLeitura;
+
+const versoes = leituraVersoes.dado;
+const inscricoes = leituraInscricoes.dado;
+const tags = leituraTags.dado;
+const comentarios = leituraComentarios.dado;
+const falhaComentarios = leituraComentarios.falhou;
+const falhaInscricoes = leituraInscricoes.falhou;
+const paginaAtual = comentarios.meta.page;
+const totalPaginas = comentarios.meta.totalPages;
+
 const ativos = inscricoes.filter((i) => i.leftAt == null);
-const sairam = inscricoes.filter((i) => i.leftAt != null);
 const m = materiaDaRfc(rfc);
+
+const inscrito = usuario != null && ativos.some((i) => i.user.id === usuario.id);
+const rascunhoMeu = rfc.status === 'DRAFT' && usuario?.id === rfc.author.id;
+
+/* Rascunho e ideia arquivada não recebem inscrição — a API recusa com
+   409, então o botão nem aparece. */
+const aberta = rfc.status !== 'DRAFT' && rfc.status !== 'ARCHIVED';
+
+/* Arquivada também não recebe comentário: a API responde 403 sempre.
+   Deixar o campo na tela seria oferecer um caminho que nunca dá certo. */
+const discussaoAberta = rfc.status !== 'ARCHIVED';
+
+/* Editar acontece no lugar do texto, e o modo de edição vive na
+   querystring: sem isso a tela precisaria de estado no cliente pra uma
+   coisa que o servidor já sabe renderizar. */
+const editando = Astro.url.searchParams.get('editar');
+
+/* Cada erro fica no formulário que o gerou. O da edição só pode ficar
+   inline quando aquele formulário está mesmo na tela; o resto (remoção,
+   edição de comentário alheio) aparece no topo da discussão. */
+const edicaoNaTela = comentarios.data.some(
+  (c) => c.id === editando && usuario != null && c.author.id === usuario.id && !c.isDeleted,
+);
+const erroNovoComentario = acaoFalha === 'comentar' ? erroDiscussao : null;
+const erroEdicao = acaoFalha === 'editar-comentario' && alvoEnviado === editando && edicaoNaTela
+  ? erroDiscussao
+  : null;
+const erroSolto = erroDiscussao && !erroNovoComentario && !erroEdicao ? erroDiscussao : null;
+
+const textoNovoFalha = acaoFalha === 'comentar' ? corpoEnviado : null;
+const textoEdicaoFalha = acaoFalha === 'editar-comentario' ? corpoEnviado : null;
+
+const tituloDiscussaoVazia = falhaComentarios
+  ? 'Não consegui carregar a discussão'
+  : 'Ninguém comentou ainda';
+
+const textoDiscussaoVazia = falhaComentarios
+  ? 'O servidor não respondeu. Pode haver conversa aqui: recarregue em instantes.'
+  : !discussaoAberta
+    ? 'A ideia foi arquivada sem discussão. O que está escrito continua aqui pra leitura.'
+    : usuario
+      ? 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comece você, logo abaixo.'
+      : 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comentar exige conta.';
 
 /* Markdown mínimo: a API guarda o corpo em markdown e ainda não há
    renderer no projeto. Isto cobre o que o editor produz hoje (h2,
@@ -120,6 +325,14 @@ const corpoHtml = paraHtml(rfc.body);
       <p class="sub">{rfc.summary}</p>
     </header>
 
+    {rascunhoMeu && (
+      <p class="aviso-rascunho">
+        <b>Este rascunho só aparece pra você.</b> Enquanto não for publicado,
+        ninguém mais lê, comenta nem se inscreve. Publicar é o que dá número
+        à ideia. <a href={`/rfcs/${rfc.slug}/editar`}>editar e publicar</a>
+      </p>
+    )}
+
     <div class="rfc-topo">
       <div>
         <article class="cartao vem">
@@ -139,26 +352,127 @@ const corpoHtml = paraHtml(rfc.body);
           <span class="r">discussão</span>
           <span class="mono" style="font-size:11px; color:var(--t-35)">
             {comentarios.meta.total} {comentarios.meta.total === 1 ? 'comentário' : 'comentários'}
+            {totalPaginas > 1 && ` · página ${paginaAtual} de ${totalPaginas}`}
           </span>
         </div>
 
         <div class="discussao">
-          {comentarios.data.length > 0 ? comentarios.data.map((c) => (
-            <div class:list={['comentario', c.isDeleted && 'removido']}>
-              <div class="cabeca">
-                <a href={`/users/${c.author.username}`}>@{c.author.username}</a>
-                <span class="quando">{haQuantoTempo(c.createdAt)}</span>
-                {c.isEdited && <span class="quando">· editado</span>}
+          {erroSolto && <p class="aviso-erro" role="alert">{erroSolto}</p>}
+
+          {paginaAtual > 1 && (
+            <p class="convite">
+              <a href={`?p=${paginaAtual - 1}#discussao`}>ver comentários anteriores</a>
+            </p>
+          )}
+
+          {comentarios.data.length > 0 ? comentarios.data.map((c) => {
+            const meu = usuario != null && c.author.id === usuario.id && !c.isDeleted;
+            const emEdicao = meu && editando === c.id;
+            return (
+              <div class:list={['comentario', c.isDeleted && 'removido']} id={`c-${c.id}`}>
+                <div class="cabeca">
+                  <a href={`/users/${c.author.username}`}>@{c.author.username}</a>
+                  <span class="quando">{haQuantoTempo(c.createdAt)}</span>
+                  {c.isEdited && <span class="quando">· editado</span>}
+                </div>
+
+                {emEdicao ? (
+                  <form method="post">
+                    <input type="hidden" name="acao" value="editar-comentario" />
+                    <input type="hidden" name="comentario" value={c.id} />
+                    {erroEdicao && (
+                      <p class="aviso-erro" role="alert" id={`erro-edicao-${c.id}`}>{erroEdicao}</p>
+                    )}
+                    <div class:list={['campo', erroEdicao && 'com-erro']} style="margin-bottom:0">
+                      <label class="rotulo" for={`edicao-${c.id}`}>editar seu comentário</label>
+                      <textarea
+                        class="entrada"
+                        id={`edicao-${c.id}`}
+                        name="corpo"
+                        required
+                        maxlength="5000"
+                        aria-describedby={erroEdicao ? `erro-edicao-${c.id}` : undefined}
+                        aria-invalid={erroEdicao ? 'true' : undefined}
+                      >{alvoEnviado === c.id && textoEdicaoFalha != null ? textoEdicaoFalha : c.body}</textarea>
+                    </div>
+                    <div class="acoes-edicao">
+                      <button class="botao" type="submit">salvar</button>
+                      <a class="botao leve" href={`${voltar}${comPagina()}#c-${c.id}`}>cancelar</a>
+                    </div>
+                  </form>
+                ) : (
+                  <p>{c.body}</p>
+                )}
+
+                {meu && !emEdicao && (
+                  <div class="acoes-comentario">
+                    <a href={`${comPagina(`editar=${c.id}`)}#c-${c.id}`}>editar</a>
+                    <form
+                      method="post"
+                      data-confirmar="Remover deixa a marca [removido] no lugar do texto, e isso não volta atrás. Remover mesmo assim?"
+                    >
+                      <input type="hidden" name="acao" value="remover-comentario" />
+                      <input type="hidden" name="comentario" value={c.id} />
+                      <button type="submit">remover</button>
+                    </form>
+                  </div>
+                )}
               </div>
-              <p>{c.body}</p>
-            </div>
-          )) : (
+            );
+          }) : (
             <Vazio
-              titulo="Ninguém comentou ainda"
-              texto="A discussão é o que transforma uma ideia solta em proposta com escopo. Comentar exige conta."
-              acaoHref="/entrar"
-              acaoTexto="entrar para comentar"
+              falha={falhaComentarios}
+              titulo={tituloDiscussaoVazia}
+              texto={textoDiscussaoVazia}
+              acaoHref={!falhaComentarios && !usuario ? paraEntrar : undefined}
+              acaoTexto={!falhaComentarios && !usuario ? 'entrar para comentar' : undefined}
             />
+          )}
+
+          {paginaAtual < totalPaginas && (
+            <p class="convite">
+              <a href={`?p=${paginaAtual + 1}#discussao`}>ver comentários seguintes</a>
+            </p>
+          )}
+
+          {!discussaoAberta ? (
+            <p class="convite">
+              Ideia arquivada: a discussão fica pra leitura e não recebe comentário novo.
+            </p>
+          ) : usuario ? (
+            <form class="novo-comentario" method="post">
+              <input type="hidden" name="acao" value="comentar" />
+              {erroNovoComentario && (
+                <p class="aviso-erro" role="alert" id="erro-novo-comentario">{erroNovoComentario}</p>
+              )}
+              <div class:list={['campo', erroNovoComentario && 'com-erro']} style="margin-bottom:0">
+                <label class="rotulo" for="novo-comentario">escrever na discussão</label>
+                <textarea
+                  class="entrada"
+                  id="novo-comentario"
+                  name="corpo"
+                  required
+                  maxlength="5000"
+                  placeholder="o que ainda falta pra isso sair do papel?"
+                  aria-describedby={erroNovoComentario
+                    ? 'erro-novo-comentario ajuda-novo-comentario'
+                    : 'ajuda-novo-comentario'}
+                  aria-invalid={erroNovoComentario ? 'true' : undefined}
+                >{textoNovoFalha ?? ''}</textarea>
+                <span class="ajuda" id="ajuda-novo-comentario">
+                  Comentário é público e fica no histórico. Editar marca "editado";
+                  remover deixa "[removido]" no lugar do texto.
+                </span>
+              </div>
+              <div class="acoes-edicao">
+                <button class="botao" type="submit">comentar</button>
+              </div>
+            </form>
+          ) : comentarios.data.length > 0 && (
+            <p class="convite">
+              A discussão é aberta pra leitura e exige conta pra escrever.
+              <a href={paraEntrar}>entrar</a>
+            </p>
           )}
         </div>
       </div>
@@ -168,11 +482,41 @@ const corpoHtml = paraHtml(rfc.body);
         <div class="bloco vem">
           <p class="titulo-bloco">para sair do papel</p>
           <p style="margin:0 0 16px; font-size:14px; color:var(--t-75)">
-            {ativos.length === 0
-              ? 'Ninguém se inscreveu ainda. Quem sabe fazer entra sem aprovação e sem contrato.'
-              : `${ativos.length} ${ativos.length === 1 ? 'pessoa está' : 'pessoas estão'} construindo. Cabe mais.`}
+            {falhaInscricoes
+              ? 'Não consegui carregar quem está construindo: o servidor não respondeu. Pode haver gente aqui.'
+              : ativos.length === 0
+                ? 'Ninguém se inscreveu ainda. Quem sabe fazer entra sem aprovação e sem contrato.'
+                : `${ativos.length} ${ativos.length === 1 ? 'pessoa está' : 'pessoas estão'} construindo. Cabe mais.`}
           </p>
-          <a class="botao" href="/entrar">quero construir</a>
+
+          {erroParticipacao && <p class="aviso-erro" role="alert">{erroParticipacao}</p>}
+
+          {!aberta ? (
+            <p style="margin:0; font-size:12.5px; color:var(--t-50)">
+              {rfc.status === 'DRAFT'
+                ? 'Rascunho não recebe inscrição. Publicar é o que abre a ideia pra quem quiser construir.'
+                : 'Ideia arquivada. O que foi escrito continua aqui, mas não entra mais gente.'}
+            </p>
+          ) : !usuario ? (
+            <a class="botao" href={paraEntrar}>quero construir</a>
+          ) : inscrito ? (
+            <form method="post">
+              <input type="hidden" name="acao" value="sair-da-ideia" />
+              <button class="botao perigo" type="submit">sair desta ideia</button>
+              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                Sair tira seu nome de quem está construindo, e a discussão que você
+                escreveu continua onde está. Voltar depois é entrar de novo.
+              </p>
+            </form>
+          ) : (
+            <form method="post">
+              <input type="hidden" name="acao" value="entrar-na-ideia" />
+              <button class="botao" type="submit">quero construir</button>
+              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+                Sem aprovação e sem contrato. Sair depois também é um clique.
+              </p>
+            </form>
+          )}
         </div>
 
         {ativos.length > 0 && (
@@ -191,27 +535,17 @@ const corpoHtml = paraHtml(rfc.body);
           </div>
         )}
 
-        {sairam.length > 0 && (
-          <div class="bloco vem">
-            {/* a saída é pública por princípio: VISAO §5.1 */}
-            <p class="titulo-bloco">passaram por aqui</p>
-            <div class="lista-pessoas">
-              {sairam.map((i) => (
-                <a class="pessoa" href={`/users/${i.user.username}`} style="opacity:.6">
-                  <span class="inicial" style="background: var(--color-t-12)">
-                    {i.user.username.slice(0, 2).toUpperCase()}
-                  </span>
-                  @{i.user.username}
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Não existe bloco "passaram por aqui": GET /rfcs/:id/enrollments
+            devolve só inscrição ativa (leftAt: null), então a lista de quem
+            saiu não chega até aqui. Prometer na microcopy o que a tela não
+            mostra é pior do que não prometer. */}
 
         <div class="bloco vem">
           <p class="titulo-bloco">histórico</p>
           <div class="linha"><span>escrita por</span><a href={`/users/${rfc.author.username}`} style="color:var(--t-90)"><b>@{rfc.author.username}</b></a></div>
-          <div class="linha"><span>publicada</span><b>{haQuantoTempo(rfc.publishedAt)}</b></div>
+          {rfc.publishedAt && (
+            <div class="linha"><span>publicada</span><b>{haQuantoTempo(rfc.publishedAt)}</b></div>
+          )}
           <div class="linha"><span>última mudança</span><b>{haQuantoTempo(rfc.updatedAt)}</b></div>
           <div class="linha"><span>versões</span><b>{versoes.length || 1}</b></div>
           {versoes.length > 1 && (
@@ -236,6 +570,42 @@ const corpoHtml = paraHtml(rfc.body);
   </div>
 </Layout>
 
+<style>
+  /* aviso de rascunho: mesma superfície rebaixada dos outros avisos,
+     sem cor de alarme — rascunho não é erro */
+  .aviso-rascunho {
+    background: var(--rebaixo);
+    border: 1px solid var(--t-07);
+    border-radius: var(--r-dentro);
+    padding: 13px 17px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: var(--t-65);
+  }
+  .aviso-rascunho b { font-weight: 460; color: var(--t-90); }
+  .aviso-rascunho a { color: var(--t-90); margin-left: 6px; }
+
+  /* "editar" navega, "remover" muda dado: um é link, o outro é botão
+     dentro de formulário. O global.css só estiliza o botão. */
+  .comentario .acoes-comentario a {
+    font-size: 12px;
+    color: var(--t-50);
+    text-decoration: underline;
+  }
+  .comentario .acoes-comentario a:hover { color: var(--t-90); }
+
+  .acoes-edicao { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+
+  .convite {
+    margin: 0;
+    font-size: 13px;
+    color: var(--t-50);
+    text-align: center;
+    padding: 6px 0 2px;
+  }
+  .convite a { color: var(--t-90); margin-left: 6px; }
+</style>
+
 <script>
   function ligarEntrada() {
     const olho = new IntersectionObserver((entradas) => {
@@ -250,5 +620,19 @@ const corpoHtml = paraHtml(rfc.body);
       olho.observe(el);
     });
   }
-  document.addEventListener('astro:page-load', ligarEntrada);
+
+  /* Remover comentário não tem desfazer. Sem JS o formulário envia
+     direto — a confirmação é melhoria, não requisito. */
+  function ligarConfirmacao() {
+    document.querySelectorAll<HTMLFormElement>('form[data-confirmar]').forEach((f) => {
+      f.addEventListener('submit', (e) => {
+        if (!confirm(f.dataset.confirmar!)) e.preventDefault();
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    ligarEntrada();
+    ligarConfirmacao();
+  });
 </script>
