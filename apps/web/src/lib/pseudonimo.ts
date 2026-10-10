@@ -38,19 +38,6 @@ export function iniciaisDe(nome: string): string {
   return nome.slice(0, 2).toUpperCase();
 }
 
-/* O pastel do círculo da lista de mãos sai do próprio @username, não de
-   sorteio. Mora aqui junto do resto da leitura porque agora são três
-   lugares que precisam chegar na mesma cor — o cartão de /builders, a
-   prévia de /perfil e a vitrine de /criar-conta, que recalcula a cada
-   tecla. Escrita duas vezes, a conta divergiria na primeira mudança. */
-const PASTEIS = ['educacao', 'cidades', 'saude', 'cultura', 'tec-civica', 'econ-solidaria'];
-
-/** o slug do pastel, pra virar `var(--color-<slug>)` como superfície */
-export function pastelDe(username: string): string {
-  const soma = [...username].reduce((s, c) => s + c.charCodeAt(0), 0);
-  return PASTEIS[soma % PASTEIS.length]!;
-}
-
 export function lerPseudonimo(cru: string, lang: Idioma = 'pt-BR'): LeituraPseudonimo {
   /* a API baixa a caixa e apara o espaço antes de validar; repetir isso
      aqui é o que faz a vitrine mostrar "maiúscula vira minúscula"
