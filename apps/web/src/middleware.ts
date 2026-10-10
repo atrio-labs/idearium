@@ -46,9 +46,11 @@ export const onRequest = defineMiddleware((context, next) => {
     /* Idioma salvo no perfil, só pra decidir a sugestão "Read in
        English" (Nav.astro). /auth/me não traz o campo, então custa uma
        chamada a /users/me — e só acontece quando a sugestão ainda pode
-       aparecer: GET, sem prefixo, logado e sem ter dispensado. */
+       aparecer: GET de página (não /api/*), sem prefixo, logado e sem
+       ter dispensado. O polling de notificações bate em /api a cada 60s. */
     if (
       usuario && lang === 'pt-BR' && context.request.method === 'GET' &&
+      !caminho.startsWith('/api/') &&
       !context.cookies.has(COOKIE_SUGESTAO_DISPENSADA)
     ) {
       const r = await comSessao<{ preferredLocale?: string }>(context.cookies, 'GET', '/users/me');
