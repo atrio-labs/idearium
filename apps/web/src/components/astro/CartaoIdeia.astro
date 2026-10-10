@@ -63,11 +63,10 @@ const lang = idiomaDe(Astro);
       {rfc.status === 'IN_DISCUSSION'
         ? <span class="chip pequeno vivo"><span class="ponto"></span>{rotuloDoStatus(rfc.status, lang)}</span>
         : <span class="chip pequeno">{rotuloDoStatus(rfc.status, lang)}</span>}
-      {/* dentro de um lab o chip do lab é redundante. O fundo inline
-          continua porque /rfcs/nova reescreve ele ao trocar de lab; o
-          token do lab agora é cinza neutro. */}
+      {/* dentro de um lab o chip do lab é redundante. `.pastel` é só o
+          gancho que /rfcs/nova usa pra trocar o nome ao mudar de lab. */}
       {!ocultarLab && (
-        <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>
+        <span class="chip pastel">
           {nomeDoLab(rfc.lab, lang)}
         </span>
       )}

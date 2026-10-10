@@ -7,22 +7,16 @@
 
    Aqui mora:
    1. Import do Tailwind 4 (engine CSS, não JS como na v3)
-   2. Tokens de design (@theme block) — cores, fontes, raios, escala
+   2. Tokens de design (@theme block): cores, fonte, raios, escala
    3. Estilos globais (body reset, tipografia base)
-   4. Peças novas da direção (moldura, título em dois tons, botões,
-      chips, cartão, apoio)
-   5. Peças que as páginas já usam, redesenhadas no idioma novo
+   4. Peças da direção (moldura, título em dois tons, botões, chips,
+      cartão, apoio)
+   5. Peças das páginas (átrio, RFCs, formulários, conta)
    6. Transições de estado (e só elas)
 
    ----------------------------------------------------------------
-   DIREÇÃO: MINIMALISTA (substitui a Matéria)
+   DIREÇÃO: MINIMALISTA
    ----------------------------------------------------------------
-   Decisão da GNIX em 10/10/2026: nada da identidade anterior fica.
-   Saem a mono pixelada, a serifa itálica, os pastéis dos labs como
-   identidade, as micro-animações por peça, o off-white quente e as
-   sombras macias.
-
-   O que entra:
    - Página branca pura dentro de uma moldura cinza muito clara, com
      raio grande e muito espaço em branco.
    - Uma fonte só, Inter. Título grande em peso 500, tracking
@@ -36,6 +30,8 @@
      escala de cinza, e por isso a imagem pode gritar sem disputar
      com ninguém. A exceção é o lilás do chip de destaque, usado só
      pra dizer "isto está acontecendo agora" (RFC em discussão).
+   - Sem sombra difusa e sem micro-animação por peça: só transição de
+     estado, em opacidade e cor.
 
    Divisão de responsabilidade nesta folha:
      Tailwind  →  layout (grid, flex, espaçamento)
@@ -54,9 +50,8 @@
    FONTE SELF-HOSTED — Inter (OFL)
    ----------------------------------------------------------------
    Vem do pacote @fontsource-variable/inter, sem request a Google
-   Fonts (o <link> antigo vazava o IP do visitante). Variável com eixo
-   opsz, só subsets latin e latin-ext. É a única família do site: a
-   serifa e a mono da direção Matéria saíram junto com ela.
+   Fonts. Variável com eixo opsz, só subsets latin e latin-ext. É a
+   única família do site.
    ---------------------------------------------------------------- */
 @font-face {
   font-family: 'Inter';
@@ -82,18 +77,14 @@
    Tailwind 4: cada variável dentro de @theme {} vira classe utility
    (`--color-cartao` gera bg-cartao, text-cartao etc.).
 
-   Os NOMES antigos continuam todos aqui, remapeados pra direção
-   nova. As páginas ainda não foram redesenhadas e leem var(--t-65),
-   var(--color-<lab>), var(--font-mono)... por toda parte; trocar o
-   valor por trás do nome faz a página inteira mudar de pele sem
-   tocar no markup dela. Quando cada página for redesenhada, ela
-   passa a usar os tokens novos e os aliases podem morrer.
+   Os aliases curtos (--t-65, --cartao, --r-fora...) em :root, logo
+   abaixo, são o que o CSS escrito à mão lê.
    ---------------------------------------------------------------- */
 
 /* `static` é obrigatório: por padrão o Tailwind 4 só emite as
-   variáveis que alguma classe utility referencia, e boa parte destas
-   é usada em `style` inline (var(--color-<lab>)) — o scanner não
-   enxerga. Sem `static`, a variável resolve pra vazio. */
+   variáveis que alguma classe utility referencia, e as daqui são lidas
+   por var() nos aliases e nas páginas, que o scanner não enxerga. Sem
+   `static`, a variável resolve pra vazio. */
 @theme static {
 
   /* === SUPERFÍCIES ===
@@ -137,32 +128,8 @@
      da imagem quente. */
   --color-bloco: #2B1416;
 
-  /* === LABS → neutro ===
-     Os seis pastéis eram a identidade dos labs; a GNIX tirou isso.
-     Remover os tokens quebraria as páginas que escrevem
-     `background: var(--color-<slug>)` inline (chip do lab, swatch
-     de filtro, inicial de pessoa, fita de lab): a declaração ficaria
-     inválida e o elemento sumiria. Então todos apontam pro MESMO
-     cinza de chip. O lab continua se distinguindo pelo nome e pelo
-     glyph, que é o que tem significado; cor por lab só ensinava um
-     código que ninguém pediu pra decorar.
-     Efeito colateral aceito: swatches de filtro e fitas de lab
-     ficam todos iguais até as páginas serem redesenhadas. */
-  --color-educacao:       #EBEBEB;
-  --color-cidades:        #EBEBEB;
-  --color-saude:          #EBEBEB;
-  --color-cultura:        #EBEBEB;
-  --color-tec-civica:     #EBEBEB;
-  --color-econ-solidaria: #EBEBEB;
-
-  /* === FONTES — uma família só ===
-     --font-serif e --font-mono continuam existindo porque dezenas de
-     regras de página os leem; apontam pra Inter. O que a mono dava
-     de útil (números alinhados) vem de `font-variant-numeric:
-     tabular-nums` nas classes de número (.mono, .codigo, .contagem). */
+  /* === FONTE — uma família só === */
   --font-ui:    'Inter', system-ui, sans-serif;
-  --font-serif: 'Inter', system-ui, sans-serif;
-  --font-mono:  'Inter', system-ui, sans-serif;
 
   /* === ESCALA TIPOGRÁFICA === */
   --text-apoio:   13.5px;            /* texto de apoio, 13-15 na referência */
@@ -184,7 +151,7 @@
   /* === "SOMBRA" ===
      Não é sombra: é um fio de 1px quase invisível, que só existe pra
      um cartão branco não desaparecer quando estiver sobre a página
-     branca. Sombra difusa era a direção anterior. */
+     branca. */
   --shadow-macia: 0 0 0 1px rgba(17, 17, 17, 0.06);
   --shadow-alta:  0 0 0 1px rgba(17, 17, 17, 0.12);
 
@@ -221,7 +188,6 @@
   --ease:        var(--ease-macio);
 
   /* espaçamento generoso: a referência respira mais do que parece */
-  --espaco-1: 4px;
   --espaco-2: 8px;
   --espaco-3: 12px;
   --espaco-4: 16px;
@@ -262,25 +228,11 @@ body {
 /* título é 500: com uma família só, o peso é metade da hierarquia */
 h1, h2, h3 { font-weight: 500; letter-spacing: -0.02em; }
 
-/* "mono" agora é Inter com números de largura fixa: o que a mono dava
-   de útil era o alinhamento de RFC-0042, v0.3, datas */
+/* números de largura fixa: alinha RFC-0042, v0.3, datas */
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   font-weight: 400;
-}
-
-/* .serif era o itálico da serifa antiga dentro dos títulos. As páginas
-   ainda marcam "a parte de acento" do título com ela, e essa é
-   exatamente a parte que o título em dois tons apaga. Então .serif
-   vira o tom claro: os títulos atuais ganham os dois tons sem mexer
-   no markup. */
-.serif {
-  font-family: inherit;
-  font-style: normal;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  color: var(--t-35);
 }
 
 a:focus-visible,
@@ -293,7 +245,7 @@ button:focus-visible {
 
 
 /* ----------------------------------------------------------------
-   3. PEÇAS NOVAS DA DIREÇÃO
+   3. PEÇAS DA DIREÇÃO
    ---------------------------------------------------------------- */
 
 /* --- moldura: a página branca dentro do cinza ---
@@ -375,12 +327,9 @@ button:focus-visible {
 }
 .botao.bloco:hover { background: #3A1E20; }
 
-/* compat: .botao.leve e .botao.perigo existem nas páginas; viram o
-   secundário. Perigo não ganha vermelho: o texto da ação já diz. */
-.botao.leve,
-.botao.perigo { background: var(--color-botao-2); color: var(--tinta); }
-.botao.leve:hover,
-.botao.perigo:hover { background: var(--color-chip); }
+/* compat: .botao.leve existe nas páginas e vira o secundário */
+.botao.leve { background: var(--color-botao-2); color: var(--tinta); }
+.botao.leve:hover { background: var(--color-chip); }
 .botao:disabled,
 .botao-secundario:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -405,7 +354,6 @@ button:focus-visible {
   white-space: nowrap;
 }
 .chip.pequeno { height: 22px; padding: 0 9px; font-size: 11.5px; }
-.chip-destaque,
 .chip.vivo {
   background: var(--color-destaque-fundo);
   color: var(--color-destaque-texto);
@@ -413,15 +361,11 @@ button:focus-visible {
 /* o ponto existe no markup de estado vivo; fica parado, na cor do
    texto. Respirar era animação decorativa. */
 .chip .ponto { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: .7; }
-.chip.pastel .ponto { background: var(--t-65); }
-/* compat: o chip do lab recebe o fundo inline var(--color-<slug>),
-   que agora é o mesmo cinza do chip */
-.chip.pastel { color: var(--t-100); }
 
 /* código (RFC-0042) solto no texto: metadado com números alinhados.
    Dentro de chip (.chip.codigo) ganha a cara de chip. */
 .codigo {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--t-50);
@@ -604,86 +548,6 @@ button:focus-visible {
 
 
 /* ----------------------------------------------------------------
-   5. ABERTURA
-   ----------------------------------------------------------------
-   A abertura explica o ciclo ensinando o vocabulário (cada etapa
-   mostra o chip que produz). Chapada: sem cartão. O título segue a
-   regra de dois tons via .serif/.apagado.
-   ---------------------------------------------------------------- */
-
-.abertura { padding: 56px 4px 16px; }
-.abertura h1 {
-  font-size: var(--text-titulo-lg);
-  line-height: 1.04;
-  font-weight: 500;
-  letter-spacing: -0.035em;
-  margin: 0 0 20px;
-  max-width: 16ch;
-  color: var(--t-100);
-}
-.abertura .sub { color: var(--t-65); max-width: 46ch; font-size: 15px; line-height: 1.45; margin: 0 0 40px; }
-
-/* linha do chip que demonstra o ciclo andando */
-.demo-ciclo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 0 0 48px;
-  font-size: var(--text-meta);
-  color: var(--t-50);
-}
-
-.fluxo {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 32px 32px;
-  padding-top: 8px;
-}
-@media (max-width: 900px) { .fluxo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .fluxo { grid-template-columns: 1fr; } }
-
-.etapa .n {
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--t-35);
-  display: block;
-  margin-bottom: 12px;
-  line-height: 1;
-}
-.etapa h3 {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
-  margin: 0 0 6px;
-  color: var(--t-100);
-}
-.etapa p { margin: 0 0 12px; font-size: var(--text-apoio); line-height: 1.45; color: var(--t-65); }
-.etapa .vira {
-  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-  font-size: var(--text-meta);
-  color: var(--t-50);
-}
-
-/* rótulo de seção — separa a explicação do conteúdo real */
-.faixa-rotulo {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 14px; flex-wrap: wrap;
-  padding: 72px 4px 16px;
-}
-.faixa-rotulo .r {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--t-100);
-}
-.faixa-rotulo a { font-size: 13px; color: var(--t-65); text-decoration: none; transition: color var(--dur) var(--ease); }
-.faixa-rotulo a:hover { color: var(--t-100); }
-
-
-/* ----------------------------------------------------------------
    6. DESTAQUE (cartão grande do átrio)
    ---------------------------------------------------------------- */
 
@@ -722,28 +586,6 @@ button:focus-visible {
   max-width: 44ch;
 }
 
-
-/* ----------------------------------------------------------------
-   7. TRILHA
-   ----------------------------------------------------------------
-   Barrinhas: cada uma é um passo já dado, não porcentagem (VISAO §9).
-   ---------------------------------------------------------------- */
-
-.trilha {
-  background: var(--rebaixo);
-  border-radius: var(--r-dentro);
-  padding: 18px 20px;
-}
-.trilha .cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
-.trilha .titulo { font-size: 13px; font-weight: 500; color: var(--t-100); }
-.trilha .versao { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); }
-
-.barras { display: flex; gap: 3px; align-items: flex-end; height: 20px; margin-bottom: 14px; }
-.barras i { flex: 1; border-radius: 2px; background: var(--t-12); height: 30%; }
-.barras i.feito { background: var(--t-100); height: 100%; }
-.barras i.meio  { background: var(--t-35); height: 60%; }
-
-.passos { display: grid; gap: 9px; }
 .passo { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--t-65); }
 .passo b { font-weight: 500; color: var(--t-100); }
 
@@ -822,7 +664,7 @@ button:focus-visible {
 
 
 /* ----------------------------------------------------------------
-   9. PEDIDO / AÇÕES / ROSTOS
+   9. PEDIDO / AÇÕES
    ---------------------------------------------------------------- */
 
 .pedido {
@@ -840,25 +682,6 @@ button:focus-visible {
 .pedido p b { font-weight: 500; color: var(--t-100); }
 
 .acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-/* rostos empilhados: o estilo fica neutro pra não quebrar o átrio,
-   mas avatar empilhado é métrica de vaidade (VISAO §9) e deve sair
-   no redesenho da página que o usa */
-.rostos { display: flex; margin-left: 6px; }
-.rostos span {
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  border: 2px solid var(--cartao);
-  margin-left: -8px;
-  font-size: 9.5px;
-  font-weight: 600;
-  color: var(--t-100);
-  background: var(--color-chip);
-  display: grid;
-  place-items: center;
-}
-.rostos span:first-child { margin-left: 0; }
-
 
 /* ----------------------------------------------------------------
    10. GRADE DE IDEIAS (CartaoIdeia)
@@ -912,63 +735,11 @@ a.ideia:hover { box-shadow: var(--sombra-alta); }
 
 
 /* ----------------------------------------------------------------
-   11. LABS
-   ----------------------------------------------------------------
-   A fita era o pastel do lab; agora é cinza neutro (ver tokens) até
-   a página de labs ser redesenhada com uma Materia no lugar.
-   ---------------------------------------------------------------- */
-
-.labs-faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.lab-card {
-  background: var(--cartao);
-  border-radius: 20px;
-  padding: 0 0 16px;
-  text-decoration: none; color: inherit;
-  box-shadow: var(--sombra);
-  overflow: hidden;
-  transition: box-shadow var(--dur) var(--ease);
-}
-.lab-card:hover { box-shadow: var(--sombra-alta); }
-/* display:block é obrigatório — são <span>, e span inline ignora
-   height e padding vertical */
-.lab-card .fita { display: block; height: 54px; }
-.lab-card .txt  { display: block; padding: 14px 16px 0; }
-.lab-card .nome { font-size: 14.5px; font-weight: 500; letter-spacing: -0.015em; display: block; color: var(--t-100); }
-.lab-card .qtd { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); display: block; margin-top: 3px; }
-.lab-card .glyph { color: var(--t-50); margin-right: 5px; }
-
-
-/* ----------------------------------------------------------------
    12. PEÇAS DAS TELAS INTERNAS
    ---------------------------------------------------------------- */
 
-/* --- cabeçalho de página --- */
-.cabecalho-pagina { padding: 48px 4px 16px; }
-.cabecalho-pagina h1 {
-  font-size: var(--text-titulo-md);
-  line-height: 1.05;
-  font-weight: 500;
-  letter-spacing: -0.032em;
-  margin: 12px 0 16px;
-  max-width: 18ch;
-  color: var(--t-100);
-}
-.cabecalho-pagina .sub { color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 46ch; margin: 0 0 32px; }
-.cabecalho-pagina .volta {
-  font-size: 13px;
-  color: var(--t-65);
-  text-decoration: none;
-  transition: color var(--dur) var(--ease);
-}
-.cabecalho-pagina .volta:hover { color: var(--t-100); }
-
 /* --- filtros --- */
-.filtros {
-  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-  padding: 0 4px 24px;
-}
-.filtros .grupo { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.filtros .rotulo { font-size: 12.5px; color: var(--t-50); margin-right: 4px; }
+
 .filtro {
   font-family: inherit;
   font-size: 12.5px;
@@ -984,9 +755,6 @@ a.ideia:hover { box-shadow: var(--sombra-alta); }
 }
 .filtro:hover { color: var(--t-100); background: var(--color-botao-2); }
 .filtro[aria-pressed="true"] { background: var(--tinta); color: #fff; }
-/* a bolinha de cor do lab: com os labs neutros ela não distingue mais
-   nada, então some até a página de filtros ser redesenhada */
-.filtro .swatch { display: none; }
 
 .contagem {
   font-variant-numeric: tabular-nums;
@@ -1022,11 +790,6 @@ a.ideia:hover { box-shadow: var(--sombra-alta); }
 .vazio.falha { background: var(--rebaixo); box-shadow: none; }
 
 /* --- detalhe da RFC --- */
-.rfc-topo { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .rfc-topo { grid-template-columns: 1fr; } }
-
-.rfc-capa { height: 240px; position: relative; margin: 8px 8px 0; border-radius: calc(var(--r-fora) - 8px); overflow: hidden; }
-.rfc-capa canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .corpo-rfc { padding: 36px 40px 40px; font-size: 15px; line-height: 1.6; }
 .corpo-rfc h2 {
@@ -1184,24 +947,6 @@ a.ideia:hover { box-shadow: var(--sombra-alta); }
 }
 .comentario .acoes-comentario button:hover { color: var(--t-100); }
 
-/* --- perfil --- */
-.perfil-topo {
-  background: var(--cartao);
-  border-radius: var(--r-fora);
-  box-shadow: var(--sombra);
-  padding: 36px 40px;
-  margin-bottom: 16px;
-}
-.perfil-topo h1 {
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  margin: 0 0 8px;
-  color: var(--t-100);
-}
-.perfil-topo .headline { margin: 0 0 16px; color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 46ch; }
-.perfil-topo .meta { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); }
-
 /* --- aviso de API fora --- */
 .aviso-api {
   background: var(--cartao);
@@ -1217,8 +962,6 @@ a.ideia:hover { box-shadow: var(--sombra-alta); }
 .grade-builders { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 
 /* --- busca --- */
-.caixa-busca { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.caixa-busca .entrada { font-size: 16px; height: 48px; padding: 0 20px; border-radius: var(--r-pilula); }
 
 
 /* ----------------------------------------------------------------
@@ -1354,34 +1097,21 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
 /* ================================================================
    15. TRANSIÇÕES DE ESTADO
    ================================================================
-   A direção anterior tinha uma micro-animação nomeada por peça
-   (barra enche, rosto entra, fita abre, chip respira). Saíram todas.
-   O que fica é o mínimo funcional:
+   Só o mínimo funcional, por opacidade:
    - .vem → .veio: o conteúdo aparece por opacidade quando entra na
      tela. As páginas ainda põem .vem e o observador ainda põe .veio;
      sem a regra de volta, tudo que tem .vem ficaria invisível.
-   - cartao-sobe: keyframe mantido SÓ por compat. As prévias de
-     /rfcs/nova e /rfcs/:slug/editar chamam `animation: cartao-sobe
-     ... both` pra tirar o cartão do opacity 0 do .vem; sem o keyframe
-     a animação não existe e o cartão fica invisível. Agora é só
-     opacidade.
    - .rotulo-estado: troca de texto do chip de estado por opacidade.
    ================================================================ */
 
 .vem { opacity: 0; transition: opacity 200ms var(--ease); }
 .vem.veio { opacity: 1; }
 
-@keyframes cartao-sobe {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
 /* --- swap de estado em três fases (chip demonstrativo) ---
    Fase 1  .saindo               some
    Fase 2  troca o texto + .entrando-de-baixo (sem transição)
    Fase 3  reflow, tira a classe, volta com a transição normal
-   O movimento vertical e o desfoque saíram; a coreografia em três
-   fases ficou porque os scripts das páginas dependem dela. */
+   Só opacidade; os scripts das páginas dependem das três fases. */
 .rotulo-estado {
   --swap-dur: 150ms;
   display: inline-block;

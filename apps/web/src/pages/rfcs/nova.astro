@@ -524,11 +524,6 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
      aqui não existe: a prévia é o que precisa estar visível primeiro */
   .previa-nova .ideia { opacity: 1; margin-bottom: 0; }
 
-  /* Sem slug o CartaoIdeia escreve `background: var(--color-)`, que
-     apaga o fundo do chip. O !important é o preço de não reimplementar
-     o componente: só uma declaração importante vence uma inline. */
-  .previa-nova .chip.pastel { background: var(--color-chip) !important; }
-
   /* placeholder no idioma do produto, nunca esqueleto cinza: é a
      primeira coisa que a pessoa vê e já ensina o formato. O estado
      mora no invólucro pra valer já no HTML servido. */
