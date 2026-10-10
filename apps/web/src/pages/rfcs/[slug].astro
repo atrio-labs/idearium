@@ -42,10 +42,11 @@ import Vazio from '../../components/astro/Vazio.astro';
 import { comSessao } from '../../lib/sessao';
 import { cachePublico } from '../../lib/cache';
 import {
-  LIMITE_API, statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
+  LIMITE_API, rotuloDoStatus, nomeDoLab, codigoRfc, haQuantoTempo,
   materiaDaRfc,
   type Rfc, type Versao, type Inscricao, type Comentario, type Tag, type Pagina,
 } from '../../lib/api';
+import { idiomaDe, rota, separarIdioma, t } from '../../lib/i18n';
 import { renderizarMarkdown } from '../../lib/markdown';
 
 /* Esta é a única página pública em SSR. Motivo: ela precisa saber
@@ -56,10 +57,15 @@ import { renderizarMarkdown } from '../../lib/markdown';
    SSR não prejudica indexação: o crawler recebe o mesmo HTML completo.
    O que se perde é cache, não conteúdo. */
 
+const lang = idiomaDe(Astro);
 const { slug } = Astro.params;
 const usuario = Astro.locals.usuario;
-const voltar = Astro.url.pathname;
-const paraEntrar = `/entrar?voltar=${encodeURIComponent(voltar)}`;
+/* O caminho de volta leva o prefixo do idioma: redirect e ?voltar= que
+   perdessem o /en jogariam quem lê em inglês de volta pro português.
+   Astro.url pode vir com ou sem o prefixo (depende da reescrita do
+   middleware), então o prefixo é tirado e posto de novo. */
+const voltar = rota(lang, separarIdioma(Astro.url.pathname).caminho);
+const paraEntrar = `${rota(lang, '/entrar')}?voltar=${encodeURIComponent(voltar)}`;
 
 /* A discussão é paginada e a página escolhida vive na querystring, do
    mesmo jeito que o modo de edição: editar, cancelar e remover têm que
@@ -101,23 +107,15 @@ async function ler<T>(caminho: string, aoFalhar: T): Promise<Leitura<T>> {
 const leituraRfc = await ler<Rfc | null>(`/rfcs/${slug}`, null);
 const rfc = leituraRfc.dado;
 
+/* Ideia que não existe pra quem pede é 404 de verdade, com a tela de
+   vazio, e não redirect pra lista: redirect esconderia de quem mandou o
+   link que o endereço está errado. Servidor fora é 503 e é outra coisa:
+   mandar pra /rfcs, que é servida de cache e parece saudável, faria a
+   pessoa concluir que a ideia foi apagada. */
+const semRede = !rfc && leituraRfc.falhou;
 if (!rfc) {
-  /* A ideia não existe pra quem está pedindo: a lista é o lugar certo
-     pra voltar. */
-  if (!leituraRfc.falhou) return Astro.redirect('/rfcs');
-
-  /* Servidor fora é outra história. Mandar pra /rfcs, que é
-     servida de cache e parece saudável, faria a pessoa concluir que a
-     ideia foi apagada. Sem a RFC não há página pra desenhar, então
-     respondemos o erro que de fato aconteceu. */
-  return new Response(
-    'Não consegui falar com o servidor para carregar esta ideia. ' +
-    'Ela continua onde estava; tente de novo em instantes.',
-    {
-      status: 503,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '30' },
-    },
-  );
+  Astro.response.status = semRede ? 503 : 404;
+  if (semRede) Astro.response.headers.set('Retry-After', '30');
 }
 
 /* Erro fica onde a ação foi disparada: quem errou no comentário não
@@ -131,7 +129,7 @@ let acaoFalha: string | null = null;
 let corpoEnviado: string | null = null;
 let alvoEnviado = '';
 
-if (Astro.request.method === 'POST') {
+if (rfc && Astro.request.method === 'POST') {
   if (!usuario) return Astro.redirect(paraEntrar);
 
   const dados = await Astro.request.formData();
@@ -145,47 +143,41 @@ if (Astro.request.method === 'POST') {
        servidor na mesma transação da inscrição. Por isso recarregamos e
        mostramos o que a API disser: o frontend não opina sobre status. */
     if (r.ok) return Astro.redirect(voltar);
-    erroParticipacao = r.status === 409
-      ? 'Essa inscrição não vale mais. Recarregue a página para ver como a ideia está agora.'
-      : 'Não consegui te inscrever agora. Tente de novo em instantes.';
+    erroParticipacao = t(lang, r.status === 409 ? 'rfcs.det.erro.inscricao.conflito' : 'rfcs.det.erro.inscricao');
 
   } else if (acao === 'sair-da-ideia') {
     const r = await comSessao(Astro.cookies, 'DELETE', `/rfcs/${rfc.id}/enroll`);
     if (r.ok) return Astro.redirect(voltar);
-    erroParticipacao = r.status === 404
-      ? 'Você já não estava nesta ideia.'
-      : 'Não consegui te tirar daqui agora. Tente de novo em instantes.';
+    erroParticipacao = t(lang, r.status === 404 ? 'rfcs.det.erro.sair.naoestava' : 'rfcs.det.erro.sair');
 
   } else if (acao === 'comentar') {
     if (!corpo) {
-      erroDiscussao = 'Comentário vazio não vai. Escreva alguma coisa.';
+      erroDiscussao = t(lang, 'rfcs.det.erro.comentar.vazio');
     } else {
       const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/comments`, { body: corpo });
       /* Sem página na volta: o padrão é a última, que é onde o
          comentário recém-publicado está. */
       if (r.ok) return Astro.redirect(`${voltar}#discussao`);
-      erroDiscussao = r.status === 403
-        ? 'Esta ideia foi arquivada. A discussão não recebe comentário novo.'
-        : 'Não consegui publicar seu comentário agora. Tente de novo em instantes.';
+      erroDiscussao = t(lang, r.status === 403 ? 'rfcs.det.erro.comentar.arquivada' : 'rfcs.det.erro.comentar');
     }
 
   } else if (acao === 'editar-comentario') {
     if (!corpo) {
-      erroDiscussao = 'Comentário vazio não vai. Para tirar o texto do ar, use remover.';
+      erroDiscussao = t(lang, 'rfcs.det.erro.editar.vazio');
     } else {
       const r = await comSessao(Astro.cookies, 'PATCH', `/comments/${alvo}`, { body: corpo });
       if (r.ok) return Astro.redirect(`${voltar}${comPagina()}#c-${alvo}`);
-      erroDiscussao = r.status === 403 || r.status === 404
-        ? 'Só quem escreveu o comentário pode editar.'
-        : 'Não consegui salvar a edição agora. Tente de novo em instantes.';
+      erroDiscussao = t(lang, r.status === 403 || r.status === 404
+        ? 'rfcs.det.erro.editar.alheio'
+        : 'rfcs.det.erro.editar');
     }
 
   } else if (acao === 'remover-comentario') {
     const r = await comSessao(Astro.cookies, 'DELETE', `/comments/${alvo}`);
     if (r.ok) return Astro.redirect(`${voltar}${comPagina()}#c-${alvo}`);
-    erroDiscussao = r.status === 403 || r.status === 404
-      ? 'Só quem escreveu o comentário pode remover.'
-      : 'Não consegui remover o comentário agora. Tente de novo em instantes.';
+    erroDiscussao = t(lang, r.status === 403 || r.status === 404
+      ? 'rfcs.det.erro.remover.alheio'
+      : 'rfcs.det.erro.remover');
   }
 
   if (erroDiscussao) {
@@ -204,14 +196,25 @@ const semComentarios: Pagina<Comentario> = {
    próprio, recém-publicado — que cai na última página. Por isso o
    padrão aqui é a ÚLTIMA página; as anteriores ficam a um link. */
 const caminhoComentarios = (p: number) =>
-  `/rfcs/${rfc.id}/comments?page=${p}&limit=${LIMITE_API}`;
+  `/rfcs/${rfc?.id}/comments?page=${p}&limit=${LIMITE_API}`;
 
-const [leituraVersoes, leituraInscricoes, primeiraLeitura, leituraTags] = await Promise.all([
-  ler<Versao[]>(`/rfcs/${rfc.id}/versions`, []),
-  ler<Inscricao[]>(`/rfcs/${rfc.id}/enrollments`, []),
-  ler<Pagina<Comentario>>(caminhoComentarios(paginaPedida ?? 1), semComentarios),
-  ler<Tag[]>(`/rfcs/${rfc.id}/tags`, []),
-]);
+/* Sem ideia não há o que ler: a tela de vazio não faz quatro chamadas
+   a um id que não existe. */
+const semLeitura = <T,>(dado: T): Leitura<T> => ({ dado, falhou: false });
+
+const [leituraVersoes, leituraInscricoes, primeiraLeitura, leituraTags] = rfc
+  ? await Promise.all([
+    ler<Versao[]>(`/rfcs/${rfc.id}/versions`, []),
+    ler<Inscricao[]>(`/rfcs/${rfc.id}/enrollments`, []),
+    ler<Pagina<Comentario>>(caminhoComentarios(paginaPedida ?? 1), semComentarios),
+    ler<Tag[]>(`/rfcs/${rfc.id}/tags`, []),
+  ])
+  : [
+    semLeitura<Versao[]>([]),
+    semLeitura<Inscricao[]>([]),
+    semLeitura(semComentarios),
+    semLeitura<Tag[]>([]),
+  ];
 
 /* Só a primeira leitura sabe quantas páginas existem. A segunda ida à
    API acontece apenas na discussão longa de quem não pediu página. */
@@ -230,18 +233,18 @@ const paginaAtual = comentarios.meta.page;
 const totalPaginas = comentarios.meta.totalPages;
 
 const ativos = inscricoes.filter((i) => i.leftAt == null);
-const m = materiaDaRfc(rfc);
+const m = rfc ? materiaDaRfc(rfc) : null;
 
 const inscrito = usuario != null && ativos.some((i) => i.user.id === usuario.id);
-const rascunhoMeu = rfc.status === 'DRAFT' && usuario?.id === rfc.author.id;
+const rascunhoMeu = rfc?.status === 'DRAFT' && usuario?.id === rfc.author.id;
 
 /* Rascunho e ideia arquivada não recebem inscrição — a API recusa com
    409, então o botão nem aparece. */
-const aberta = rfc.status !== 'DRAFT' && rfc.status !== 'ARCHIVED';
+const aberta = rfc != null && rfc.status !== 'DRAFT' && rfc.status !== 'ARCHIVED';
 
 /* Arquivada também não recebe comentário: a API responde 403 sempre.
    Deixar o campo na tela seria oferecer um caminho que nunca dá certo. */
-const discussaoAberta = rfc.status !== 'ARCHIVED';
+const discussaoAberta = rfc?.status !== 'ARCHIVED';
 
 /* ---------------- o que cada ato vai causar ----------------
    Esta tela mostra a consequência do ato enquanto o ato acontece, então
@@ -267,9 +270,9 @@ const podeSair = aberta && inscrito;
 const souUltimoConstrutor =
   usuario != null && construtores.length === 1 && construtores[0].user.id === usuario.id;
 
-const estadoPrevisto = podeEntrar && rfc.status === 'IN_DISCUSSION'
+const estadoPrevisto = podeEntrar && rfc?.status === 'IN_DISCUSSION'
   ? 'IN_BUILDING'
-  : podeSair && rfc.status === 'IN_BUILDING' && souUltimoConstrutor
+  : podeSair && rfc?.status === 'IN_BUILDING' && souUltimoConstrutor
     ? 'IN_DISCUSSION'
     : null;
 
@@ -297,30 +300,31 @@ const erroSolto = erroDiscussao && !erroNovoComentario && !erroEdicao ? erroDisc
 const textoNovoFalha = acaoFalha === 'comentar' ? corpoEnviado : null;
 const textoEdicaoFalha = acaoFalha === 'editar-comentario' ? corpoEnviado : null;
 
-const tituloDiscussaoVazia = falhaComentarios
-  ? 'Não consegui carregar a discussão'
-  : 'Ninguém comentou ainda';
+const tituloDiscussaoVazia = t(lang, falhaComentarios
+  ? 'rfcs.det.vazio.falha.titulo'
+  : 'rfcs.det.vazio.titulo');
 
-const textoDiscussaoVazia = falhaComentarios
-  ? 'O servidor não respondeu. Pode haver conversa aqui: recarregue em instantes.'
+const textoDiscussaoVazia = t(lang, falhaComentarios
+  ? 'rfcs.det.vazio.falha.texto'
   : !discussaoAberta
-    ? 'A ideia foi arquivada sem discussão. O que está escrito continua aqui pra leitura.'
+    ? 'rfcs.det.vazio.arquivada'
     : usuario
-      ? 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comece você, logo abaixo.'
-      : 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comentar exige conta.';
+      ? 'rfcs.det.vazio.logado'
+      : 'rfcs.det.vazio.anonimo');
 
 /* O corpo vem em markdown escrito por qualquer pessoa. O renderer e as
    regras de segurança dele moram em lib/markdown.ts, o mesmo que o
    editor usa na prévia: o que se vê ao escrever é o que se lê aqui. */
-const corpoHtml = renderizarMarkdown(rfc.body);
+const corpoHtml = rfc ? renderizarMarkdown(rfc.body) : '';
 
 cachePublico(
   Astro,
-  leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou,
+  semRede || leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou,
 );
 ---
 
-<Layout title={`${codigoRfc(rfc.number)} · ${rfc.title}`} description={rfc.summary}>
+{rfc ? (
+<Layout title={`${codigoRfc(rfc.number, lang)} · ${rfc.title}`} description={rfc.summary}>
   {/* data-previa é o interruptor da vitrine: o botão de participação o
       liga, e daqui pra baixo cada peça que vai mudar se mostra mudando.
       Fica no palco porque o chip está no cabeçalho e os círculos na
@@ -329,14 +333,14 @@ cachePublico(
     <Nav atual="rfcs" />
 
     <header class="cabecalho-pagina">
-      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+      <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
       <div class="chips" style="margin-top:14px">
         <a
           class="chip pastel"
-          href={`/labs/${rfc.lab.slug}`}
+          href={rota(lang, `/labs/${rfc.lab.slug}`)}
           style={`background: var(--color-${rfc.lab.slug}); text-decoration:none`}
         >
-          <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeCurtoDoLab(rfc.lab.name)}
+          <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeDoLab(rfc.lab, lang)}
         </a>
         {/* O chip é o mesmo objeto antes e depois do ato: o ponto vive
             sempre no markup e só aparece em "em discussão", pra troca de
@@ -346,15 +350,15 @@ cachePublico(
           id="chip-estado"
           data-estado={rfc.status}
         >
-          <span class="ponto"></span><span class="rotulo-estado">{statusLabel[rfc.status]}</span>
+          <span class="ponto"></span><span class="rotulo-estado">{rotuloDoStatus(rfc.status, lang)}</span>
         </span>
         {estadoPrevisto && (
           <span class="virando" id="chip-virando" aria-hidden="true">
             <span class="seta">&rarr;</span>
-            <span class="chip">{statusLabel[estadoPrevisto]}</span>
+            <span class="chip">{rotuloDoStatus(estadoPrevisto, lang)}</span>
           </span>
         )}
-        <span class="codigo">{codigoRfc(rfc.number)}</span>
+        <span class="codigo">{codigoRfc(rfc.number, lang)}</span>
       </div>
       <h1>{rfc.title}</h1>
       <p class="sub">{rfc.summary}</p>
@@ -362,9 +366,7 @@ cachePublico(
 
     {rascunhoMeu && (
       <p class="aviso-rascunho">
-        <b>Este rascunho só aparece pra você.</b> Enquanto não for publicado,
-        ninguém mais lê, comenta nem se inscreve. Publicar é o que dá número
-        à ideia. <a href={`/rfcs/${rfc.slug}/editar`}>editar e publicar</a>
+        <b>{t(lang, 'rfcs.det.rascunho.negrito')}</b>{t(lang, 'rfcs.det.rascunho.texto')}<a href={rota(lang, `/rfcs/${rfc.slug}/editar`)}>{t(lang, 'rfcs.det.rascunho.acao')}</a>
       </p>
     )}
 
@@ -373,10 +375,10 @@ cachePublico(
         <article class="cartao vem">
           <figure class="rfc-capa">
             <Materia
-              tipo={m.tipo}
+              tipo={m!.tipo}
               lab={rfc.lab.slug}
-              semente={m.semente}
-              alt={`Campo de dados em dithering, ${codigoRfc(rfc.number)}`}
+              semente={m!.semente}
+              alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
             />
           </figure>
           <div class="corpo-rfc" set:html={corpoHtml}></div>
@@ -384,10 +386,10 @@ cachePublico(
 
         {/* ---------- discussão ---------- */}
         <div class="faixa-rotulo" id="discussao">
-          <span class="r">discussão</span>
+          <span class="r">{t(lang, 'rfcs.det.discussao')}</span>
           <span class="mono" style="font-size:11px; color:var(--t-35)">
-            {comentarios.meta.total} {comentarios.meta.total === 1 ? 'comentário' : 'comentários'}
-            {totalPaginas > 1 && ` · página ${paginaAtual} de ${totalPaginas}`}
+            {t(lang, comentarios.meta.total === 1 ? 'rfcs.det.comentarios.um' : 'rfcs.det.comentarios.varios', { n: comentarios.meta.total })}
+            {totalPaginas > 1 && t(lang, 'rfcs.det.pagina', { p: paginaAtual, n: totalPaginas })}
           </span>
         </div>
 
@@ -396,7 +398,7 @@ cachePublico(
 
           {paginaAtual > 1 && (
             <p class="convite">
-              <a href={`?p=${paginaAtual - 1}#discussao`}>ver comentários anteriores</a>
+              <a href={`?p=${paginaAtual - 1}#discussao`}>{t(lang, 'rfcs.det.anteriores')}</a>
             </p>
           )}
 
@@ -409,9 +411,9 @@ cachePublico(
                   <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`} aria-hidden="true">
                     {iniciais(c.author.username)}
                   </span>
-                  <a href={`/users/${c.author.username}`}>@{c.author.username}</a>
-                  <span class="quando">{haQuantoTempo(c.createdAt)}</span>
-                  {c.isEdited && <span class="quando">· editado</span>}
+                  <a href={rota(lang, `/users/${c.author.username}`)}>@{c.author.username}</a>
+                  <span class="quando">{haQuantoTempo(c.createdAt, lang)}</span>
+                  {c.isEdited && <span class="quando">{t(lang, 'rfcs.det.editado')}</span>}
                 </div>
 
                 {emEdicao ? (
@@ -422,7 +424,7 @@ cachePublico(
                       <p class="aviso-erro" role="alert" id={`erro-edicao-${c.id}`}>{erroEdicao}</p>
                     )}
                     <div class:list={['campo', erroEdicao && 'com-erro']} style="margin-bottom:0">
-                      <label class="rotulo" for={`edicao-${c.id}`}>editar seu comentário</label>
+                      <label class="rotulo" for={`edicao-${c.id}`}>{t(lang, 'rfcs.det.editar.rotulo')}</label>
                       <textarea
                         class="entrada"
                         id={`edicao-${c.id}`}
@@ -434,8 +436,8 @@ cachePublico(
                       >{alvoEnviado === c.id && textoEdicaoFalha != null ? textoEdicaoFalha : c.body}</textarea>
                     </div>
                     <div class="acoes-edicao">
-                      <button class="botao" type="submit">salvar</button>
-                      <a class="botao leve" href={`${voltar}${comPagina()}#c-${c.id}`}>cancelar</a>
+                      <button class="botao" type="submit">{t(lang, 'rfcs.det.salvar')}</button>
+                      <a class="botao leve" href={`${voltar}${comPagina()}#c-${c.id}`}>{t(lang, 'rfcs.det.cancelar')}</a>
                     </div>
                   </form>
                 ) : (
@@ -444,14 +446,14 @@ cachePublico(
 
                 {meu && !emEdicao && (
                   <div class="acoes-comentario">
-                    <a href={`${comPagina(`editar=${c.id}`)}#c-${c.id}`}>editar</a>
+                    <a href={`${comPagina(`editar=${c.id}`)}#c-${c.id}`}>{t(lang, 'rfcs.det.editar')}</a>
                     <form
                       method="post"
-                      data-confirmar="Remover deixa a marca [removido] no lugar do texto, e isso não volta atrás. Remover mesmo assim?"
+                      data-confirmar={t(lang, 'rfcs.det.remover.confirmar')}
                     >
                       <input type="hidden" name="acao" value="remover-comentario" />
                       <input type="hidden" name="comentario" value={c.id} />
-                      <button type="submit">remover</button>
+                      <button type="submit">{t(lang, 'rfcs.det.remover')}</button>
                     </form>
                   </div>
                 )}
@@ -463,19 +465,19 @@ cachePublico(
               titulo={tituloDiscussaoVazia}
               texto={textoDiscussaoVazia}
               acaoHref={!falhaComentarios && !usuario ? paraEntrar : undefined}
-              acaoTexto={!falhaComentarios && !usuario ? 'entrar para comentar' : undefined}
+              acaoTexto={!falhaComentarios && !usuario ? t(lang, 'rfcs.det.vazio.entrar') : undefined}
             />
           )}
 
           {paginaAtual < totalPaginas && (
             <p class="convite">
-              <a href={`?p=${paginaAtual + 1}#discussao`}>ver comentários seguintes</a>
+              <a href={`?p=${paginaAtual + 1}#discussao`}>{t(lang, 'rfcs.det.seguintes')}</a>
             </p>
           )}
 
           {!discussaoAberta ? (
             <p class="convite">
-              Ideia arquivada: a discussão fica pra leitura e não recebe comentário novo.
+              {t(lang, 'rfcs.det.arquivada.convite')}
             </p>
           ) : usuario ? (
             /* O campo de escrever É o comentário: mesma classe, mesma
@@ -498,12 +500,12 @@ cachePublico(
                 <span class="quem">@{usuario.username}</span>
                 {/* "hoje" é o que haQuantoTempo devolve pra um comentário
                     recém-publicado: a prévia diz a data que vai aparecer. */}
-                <span class="quando">hoje</span>
+                <span class="quando">{t(lang, 'comum.tempo.hoje')}</span>
               </div>
               {erroNovoComentario && (
                 <p class="aviso-erro" role="alert" id="erro-novo-comentario">{erroNovoComentario}</p>
               )}
-              <label class="so-leitor" for="novo-comentario">escrever na discussão</label>
+              <label class="so-leitor" for="novo-comentario">{t(lang, 'rfcs.det.novo.rotulo')}</label>
               <textarea
                 class="entrada corpo-nascendo"
                 id="novo-comentario"
@@ -511,7 +513,7 @@ cachePublico(
                 rows="3"
                 required
                 maxlength="5000"
-                placeholder="o que ainda falta pra isso sair do papel?"
+                placeholder={t(lang, 'rfcs.det.novo.placeholder')}
                 aria-describedby={erroNovoComentario
                   ? 'erro-novo-comentario ajuda-novo-comentario'
                   : 'ajuda-novo-comentario'}
@@ -519,16 +521,15 @@ cachePublico(
               >{textoNovoFalha ?? ''}</textarea>
               <div class="pe-nascendo">
                 <span class="ajuda" id="ajuda-novo-comentario">
-                  Comentário é público e fica no histórico. Editar marca "editado";
-                  remover deixa "[removido]" no lugar do texto.
+                  {t(lang, 'rfcs.det.novo.ajuda')}
                 </span>
-                <button class="botao" type="submit">comentar</button>
+                <button class="botao" type="submit">{t(lang, 'rfcs.det.novo.acao')}</button>
               </div>
             </form>
           ) : comentarios.data.length > 0 && (
             <p class="convite">
-              A discussão é aberta pra leitura e exige conta pra escrever.
-              <a href={paraEntrar}>entrar</a>
+              {t(lang, 'rfcs.det.anonimo.convite')}
+              <a href={paraEntrar}>{t(lang, 'comum.nav.entrar')}</a>
             </p>
           )}
         </div>
@@ -537,40 +538,37 @@ cachePublico(
       {/* ---------- coluna lateral ---------- */}
       <aside class="lado-rfc">
         <div class="bloco vem">
-          <p class="titulo-bloco">para sair do papel</p>
+          <p class="titulo-bloco">{t(lang, 'rfcs.det.lado.titulo')}</p>
           <p style="margin:0 0 16px; font-size:14px; color:var(--t-75)">
             {falhaInscricoes
-              ? 'Não consegui carregar quem está construindo: o servidor não respondeu. Pode haver gente aqui.'
+              ? t(lang, 'rfcs.det.lado.falha')
               : ativos.length === 0
-                ? 'Ninguém se inscreveu ainda. Quem sabe fazer entra sem aprovação e sem contrato.'
-                : `${ativos.length} ${ativos.length === 1 ? 'pessoa está' : 'pessoas estão'} construindo. Cabe mais.`}
+                ? t(lang, 'rfcs.det.lado.ninguem')
+                : t(lang, ativos.length === 1 ? 'rfcs.det.lado.um' : 'rfcs.det.lado.varios', { n: ativos.length })}
           </p>
 
           {erroParticipacao && <p class="aviso-erro" role="alert">{erroParticipacao}</p>}
 
           {!aberta ? (
             <p style="margin:0; font-size:12.5px; color:var(--t-50)">
-              {rfc.status === 'DRAFT'
-                ? 'Rascunho não recebe inscrição. Publicar é o que abre a ideia pra quem quiser construir.'
-                : 'Ideia arquivada. O que foi escrito continua aqui, mas não entra mais gente.'}
+              {t(lang, rfc.status === 'DRAFT' ? 'rfcs.det.lado.rascunho' : 'rfcs.det.lado.arquivada')}
             </p>
           ) : !usuario ? (
-            <a class="botao" href={paraEntrar}>quero construir</a>
+            <a class="botao" href={paraEntrar}>{t(lang, 'rfcs.det.construir')}</a>
           ) : inscrito ? (
             <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="sair-da-ideia" />
-              <button class="botao perigo" type="submit" data-previa-de="sair">sair desta ideia</button>
+              <button class="botao perigo" type="submit" data-previa-de="sair">{t(lang, 'rfcs.det.sair')}</button>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                Sair tira seu nome de quem está construindo, e a discussão que você
-                escreveu continua onde está. Voltar depois é entrar de novo.
+                {t(lang, 'rfcs.det.sair.nota')}
               </p>
             </form>
           ) : (
             <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="entrar-na-ideia" />
-              <button class="botao" type="submit" data-previa-de="entrar">quero construir</button>
+              <button class="botao" type="submit" data-previa-de="entrar">{t(lang, 'rfcs.det.construir')}</button>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                Sem aprovação e sem contrato. Sair depois também é um clique.
+                {t(lang, 'rfcs.det.entrar.nota')}
               </p>
             </form>
           )}
@@ -578,12 +576,12 @@ cachePublico(
 
         {(ativos.length > 0 || (podeEntrar && usuario)) && (
           <div class="bloco vem">
-            <p class="titulo-bloco">construindo</p>
+            <p class="titulo-bloco">{t(lang, 'rfcs.det.construindo')}</p>
             <div class="lista-pessoas">
               {ativos.map((i) => (
                 <a
                   class:list={['pessoa', usuario?.id === i.user.id && 'sou-eu']}
-                  href={`/users/${i.user.username}`}
+                  href={rota(lang, `/users/${i.user.username}`)}
                 >
                   <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
                     {iniciais(i.user.username)}
@@ -601,7 +599,7 @@ cachePublico(
                     {iniciais(usuario.username)}
                   </span>
                   @{usuario.username}
-                  <em class="nota">você, se entrar</em>
+                  <em class="nota">{t(lang, 'rfcs.det.voce.se.entrar')}</em>
                 </span>
               )}
             </div>
@@ -615,10 +613,10 @@ cachePublico(
             verdade é a de cima: seu círculo deixando a fila. */}
         {quemSaiu.length > 0 && (
           <div class="bloco vem">
-            <p class="titulo-bloco">passaram por aqui</p>
+            <p class="titulo-bloco">{t(lang, 'rfcs.det.passaram')}</p>
             <div class="lista-pessoas">
               {quemSaiu.map((i) => (
-                <a class="pessoa" href={`/users/${i.user.username}`}>
+                <a class="pessoa" href={rota(lang, `/users/${i.user.username}`)}>
                   <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
                     {iniciais(i.user.username)}
                   </span>
@@ -630,25 +628,25 @@ cachePublico(
         )}
 
         <div class="bloco vem">
-          <p class="titulo-bloco">histórico</p>
-          <div class="linha"><span>escrita por</span><a href={`/users/${rfc.author.username}`} style="color:var(--t-90)"><b>@{rfc.author.username}</b></a></div>
+          <p class="titulo-bloco">{t(lang, 'rfcs.det.historico')}</p>
+          <div class="linha"><span>{t(lang, 'rfcs.det.escrita.por')}</span><a href={rota(lang, `/users/${rfc.author.username}`)} style="color:var(--t-90)"><b>@{rfc.author.username}</b></a></div>
           {rfc.publishedAt && (
-            <div class="linha"><span>publicada</span><b>{haQuantoTempo(rfc.publishedAt)}</b></div>
+            <div class="linha"><span>{t(lang, 'rfcs.det.publicada')}</span><b>{haQuantoTempo(rfc.publishedAt, lang)}</b></div>
           )}
-          <div class="linha"><span>última mudança</span><b>{haQuantoTempo(rfc.updatedAt)}</b></div>
-          <div class="linha"><span>versões</span>{versoes.length > 1 ? <a href={`/rfcs/${rfc.slug}/versoes`} style="color:var(--t-90)"><b>{versoes.length}</b></a> : <b>{versoes.length || 1}</b>}</div>
+          <div class="linha"><span>{t(lang, 'rfcs.det.ultima.mudanca')}</span><b>{haQuantoTempo(rfc.updatedAt, lang)}</b></div>
+          <div class="linha"><span>{t(lang, 'rfcs.det.versoes')}</span>{versoes.length > 1 ? <a href={rota(lang, `/rfcs/${rfc.slug}/versoes`)} style="color:var(--t-90)"><b>{versoes.length}</b></a> : <b>{versoes.length || 1}</b>}</div>
           {versoes.length > 1 && (
             <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-              Nada é apagado: cada edição do corpo vira uma versão nova.
+              {t(lang, 'rfcs.det.versoes.nota')}
             </p>
           )}
         </div>
 
         {tags.length > 0 && (
           <div class="bloco vem">
-            <p class="titulo-bloco">tags</p>
+            <p class="titulo-bloco">{t(lang, 'rfcs.det.tags')}</p>
             <div class="nuvem-tags">
-              {tags.map((t) => <a class="tag" href={`/rfcs?tag=${t.slug}`}>{t.name}</a>)}
+              {tags.map((tg) => <a class="tag" href={rota(lang, `/rfcs?tag=${tg.slug}`)}>{tg.name}</a>)}
             </div>
           </div>
         )}
@@ -658,6 +656,27 @@ cachePublico(
     <Rodape />
   </div>
 </Layout>
+) : (
+<Layout title={`Idearium · ${t(lang, semRede ? 'rfcs.det.falha.titulo' : 'rfcs.det.inexistente.titulo')}`}>
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    <header class="cabecalho-pagina">
+      <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
+    </header>
+
+    <Vazio
+      falha={semRede}
+      titulo={t(lang, semRede ? 'rfcs.det.falha.titulo' : 'rfcs.det.inexistente.titulo')}
+      texto={t(lang, semRede ? 'rfcs.det.falha.texto' : 'rfcs.det.inexistente.texto')}
+      acaoHref={semRede ? undefined : rota(lang, '/rfcs')}
+      acaoTexto={semRede ? undefined : t(lang, 'rfcs.det.inexistente.acao')}
+    />
+
+    <Rodape />
+  </div>
+</Layout>
+)}
 
 <style>
   /* aviso de rascunho: mesma superfície rebaixada dos outros avisos,

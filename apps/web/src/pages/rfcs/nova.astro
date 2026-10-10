@@ -27,12 +27,18 @@ import Vazio from '../../components/astro/Vazio.astro';
    adaptação: a prévia precisa ser o objeto que vai existir. */
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import EditorCorpo from '../../components/astro/EditorCorpo.astro';
-import { listarLabs, apiIndisponivel, nomeCurtoDoLab, type Rfc } from '../../lib/api';
-import { comSessao, exigirSessao } from '../../lib/sessao';
+import { listarLabs, apiIndisponivel, nomeDoLab, rotuloDoStatus, type Rfc } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+import { comSessao } from '../../lib/sessao';
 
+const lang = idiomaDe(Astro);
+const loc = lang === 'en' ? 'en' : 'pt-BR';
 const usuario = Astro.locals.usuario;
-const destino = exigirSessao(usuario, Astro.url);
-if (destino) return Astro.redirect(destino);
+/* Sem sessão, entrar e voltar pra cá, no mesmo idioma. O ?voltar= leva o
+   caminho já com o prefixo (exigirSessao não sabe do idioma). */
+if (!usuario) {
+  return Astro.redirect(`${rota(lang, '/entrar')}?voltar=${encodeURIComponent(rota(lang, '/rfcs/nova'))}`);
+}
 
 /* Os mesmos números do CreateRfcDto da API, repetidos aqui de
    propósito: a pessoa precisa saber o limite antes de escrever, não
@@ -67,14 +73,14 @@ function separarTags(bruto: string) {
   const repetidas: string[] = [];
 
   for (const parte of bruto.split(',')) {
-    const t = parte.trim();
-    if (!t) continue;
-    const slug = slugDaTag(t);
-    if (slug.length < LIMITE.tag.min) { semLetras.push(t); continue; }
+    const item = parte.trim();
+    if (!item) continue;
+    const slug = slugDaTag(item);
+    if (slug.length < LIMITE.tag.min) { semLetras.push(item); continue; }
     const anterior = porSlug.get(slug);
-    if (anterior) { repetidas.push(`${t} e ${anterior}`); continue; }
-    porSlug.set(slug, t);
-    tags.push(t);
+    if (anterior) { repetidas.push(t(lang, 'rfcs.erro.tags.par', { a: item, b: anterior })); continue; }
+    porSlug.set(slug, item);
+    tags.push(item);
   }
   return { tags, semLetras, repetidas };
 }
@@ -87,24 +93,24 @@ interface Campos { title: string; summary: string; body: string; labId: string; 
 function validar(v: Campos, tags: ReturnType<typeof separarTags>) {
   const e: Record<string, string> = {};
 
-  if (v.title.length < LIMITE.titulo.min) e.title = `O título precisa de pelo menos ${LIMITE.titulo.min} caracteres.`;
-  else if (v.title.length > LIMITE.titulo.max) e.title = `O título passou de ${LIMITE.titulo.max} caracteres.`;
+  if (v.title.length < LIMITE.titulo.min) e.title = t(lang, 'rfcs.erro.titulo.min', { min: LIMITE.titulo.min });
+  else if (v.title.length > LIMITE.titulo.max) e.title = t(lang, 'rfcs.erro.titulo.max', { max: LIMITE.titulo.max });
 
-  if (v.summary.length < LIMITE.resumo.min) e.summary = `O resumo precisa de pelo menos ${LIMITE.resumo.min} caracteres.`;
-  else if (v.summary.length > LIMITE.resumo.max) e.summary = `O resumo passou de ${LIMITE.resumo.max} caracteres.`;
+  if (v.summary.length < LIMITE.resumo.min) e.summary = t(lang, 'rfcs.erro.resumo.min', { min: LIMITE.resumo.min });
+  else if (v.summary.length > LIMITE.resumo.max) e.summary = t(lang, 'rfcs.erro.resumo.max', { max: LIMITE.resumo.max });
 
-  if (v.body.length < LIMITE.corpo.min) e.body = `O corpo precisa de pelo menos ${LIMITE.corpo.min} caracteres. Descreva o problema antes da solução.`;
-  else if (v.body.length > LIMITE.corpo.max) e.body = `O corpo passou de ${LIMITE.corpo.max} caracteres.`;
+  if (v.body.length < LIMITE.corpo.min) e.body = t(lang, 'rfcs.nova.erro.corpo.min', { min: LIMITE.corpo.min });
+  else if (v.body.length > LIMITE.corpo.max) e.body = t(lang, 'rfcs.erro.corpo.max', { max: LIMITE.corpo.max });
 
-  if (!v.labId) e.labId = 'Escolha o laboratório onde a ideia vive.';
+  if (!v.labId) e.labId = t(lang, 'rfcs.nova.erro.lab');
 
-  if (tags.tags.length > LIMITE.tags.max) e.tags = `No máximo ${LIMITE.tags.max} tags.`;
-  else if (tags.tags.some((t) => t.length < LIMITE.tag.min || t.length > LIMITE.tag.max))
-    e.tags = `Cada tag precisa ter de ${LIMITE.tag.min} a ${LIMITE.tag.max} caracteres.`;
+  if (tags.tags.length > LIMITE.tags.max) e.tags = t(lang, 'rfcs.erro.tags.max', { max: LIMITE.tags.max });
+  else if (tags.tags.some((tag) => tag.length < LIMITE.tag.min || tag.length > LIMITE.tag.max))
+    e.tags = t(lang, 'rfcs.erro.tags.tamanho', { min: LIMITE.tag.min, max: LIMITE.tag.max });
   else if (tags.semLetras.length)
-    e.tags = `Tag é guardada só por letras e números, e de ${tags.semLetras.join(', ')} não sobra nada. Reescreva com pelo menos ${LIMITE.tag.min} letras ou números.`;
+    e.tags = t(lang, 'rfcs.erro.tags.semletras', { lista: tags.semLetras.join(', '), min: LIMITE.tag.min });
   else if (tags.repetidas.length)
-    e.tags = `Acento e pontuação não separam tags: ${tags.repetidas.join('; ')} são a mesma. Deixe uma só.`;
+    e.tags = t(lang, 'rfcs.erro.tags.repetidas', { lista: tags.repetidas.join('; ') });
 
   return e;
 }
@@ -146,13 +152,13 @@ if (Astro.request.method === 'POST') {
          de perder o texto ou fingir que deu tudo certo. */
       let tagsOk = true;
       if (tags.tags.length > 0) {
-        const t = await comSessao(Astro.cookies, 'POST', `/rfcs/${r.dado.id}/tags`, { tags: tags.tags });
-        tagsOk = t.ok;
+        const rt = await comSessao(Astro.cookies, 'POST', `/rfcs/${r.dado.id}/tags`, { tags: tags.tags });
+        tagsOk = rt.ok;
       }
-      return Astro.redirect(`/rfcs/${r.dado.slug}/editar?criada=1${tagsOk ? '' : '&tags=falhou'}`);
+      return Astro.redirect(rota(lang, `/rfcs/${r.dado.slug}/editar?criada=1${tagsOk ? '' : '&tags=falhou'}`));
     }
 
-    avisoGeral = r.erro ?? 'Não consegui salvar o rascunho agora.';
+    avisoGeral = r.erro ?? t(lang, 'rfcs.nova.erro.salvar');
   }
 }
 
@@ -174,9 +180,9 @@ const descreve = (campo: string) =>
    a versão 1 que o POST cria junto — daí o `v0.1` no pé.
    ================================================================ */
 const VAZIO = {
-  titulo: 'Sua ideia aparece aqui',
-  resumo: 'E o resumo dela aqui — uma frase que diga o que está em jogo.',
-  lab:    'escolha o laboratório',
+  titulo: t(lang, 'rfcs.nova.previa.titulo'),
+  resumo: t(lang, 'rfcs.nova.previa.resumo'),
+  lab:    t(lang, 'rfcs.nova.previa.lab'),
 };
 
 const labEscolhido = labs.find((l) => l.id === valores.labId) ?? null;
@@ -212,45 +218,45 @@ const rascunhoProvisorio = {
    medida abaixo do cartão diz com todas as letras. */
 const resumoPrevia = valores.summary.trim();
 const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
+
+/* Textos que o script monta no cliente: chegam prontos, com o marcador
+   no lugar do número, e o script só troca o marcador. */
+const medidaOk = t(lang, 'rfcs.nova.medida.ok', { atual: '{atual}', max: LIMITE.resumo.max });
+const medidaFora = t(lang, 'rfcs.nova.medida.fora', { atual: '{atual}', max: LIMITE.resumo.max, sobra: '{sobra}' });
+const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
 ---
 
 <Layout
-  title="Escrever uma ideia · Idearium"
-  description="Escreva uma proposta. Salvar cria um rascunho; publicar é um segundo passo."
+  title={t(lang, 'rfcs.nova.titulo')}
+  description={t(lang, 'rfcs.nova.descricao')}
 >
   <div class="palco">
     <Nav atual="rfcs" />
 
     <header class="cabecalho-pagina">
-      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
-      <h1>Escrever uma <span class="serif">ideia</span>.</h1>
-      <p class="sub">
-        Você está começando um rascunho. Salvar não publica nada: o texto fica
-        só com você até decidir publicar, num segundo passo deliberado.
-      </p>
+      <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
+      <h1>{t(lang, 'rfcs.nova.h1.antes')}<span class="serif">{t(lang, 'rfcs.nova.h1.serif')}</span>{t(lang, 'rfcs.nova.h1.depois')}</h1>
+      <p class="sub">{t(lang, 'rfcs.nova.sub')}</p>
     </header>
 
     {semLabs ? (
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : 'Nenhum laboratório cadastrado'}
-        texto={semRede
-          ? 'Toda ideia pertence a um laboratório, e não consegui carregar a lista. Sem ela não dá pra começar o rascunho. Tente de novo em instantes.'
-          : 'Toda ideia pertence a um laboratório, e ainda não existe nenhum. Fale com quem mantém o Idearium.'}
-        acaoHref="/rfcs"
-        acaoTexto="voltar para as ideias"
+        titulo={semRede ? t(lang, 'comum.vazio.falha.titulo') : t(lang, 'rfcs.nova.semlabs.titulo')}
+        texto={semRede ? t(lang, 'rfcs.nova.semlabs.falha') : t(lang, 'rfcs.nova.semlabs.texto')}
+        acaoHref={rota(lang, '/rfcs')}
+        acaoTexto={t(lang, 'rfcs.nova.semlabs.acao')}
       />
     ) : (
       <form method="post" novalidate>
         {avisoGeral && (
           <p class="aviso-erro" role="alert">
-            <b>Não consegui salvar.</b> {avisoGeral}
+            <b>{t(lang, 'rfcs.nova.erro.salvar.negrito')}</b> {avisoGeral}
           </p>
         )}
         {Object.keys(erros).length > 0 && (
           <p class="aviso-erro" role="alert">
-            <b>Falta ajustar alguma coisa.</b> Os campos com problema estão
-            marcados abaixo. Nada do que você escreveu se perdeu.
+            <b>{t(lang, 'rfcs.form.falta.negrito')}</b>{t(lang, 'rfcs.form.falta.texto')}
           </p>
         )}
 
@@ -261,8 +267,8 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
 
                 <div class:list={['campo', erros.title && 'com-erro']}>
                   <div class="linha-rotulo">
-                    <label class="rotulo" for="title">título</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="title" data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
+                    <label class="rotulo" for="title">{t(lang, 'rfcs.form.titulo')}</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="title" data-texto-min={textoMin} data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
                   </div>
                   <input
                     class="entrada"
@@ -272,18 +278,18 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                     value={valores.title}
                     aria-describedby={descreve('title')}
                     aria-invalid={erros.title ? 'true' : undefined}
-                    placeholder="Biblioteca cooperativa de bairro"
+                    placeholder={t(lang, 'rfcs.nova.titulo.placeholder')}
                   />
                   <span class="ajuda" id="ajuda-title">
-                    De {LIMITE.titulo.min} a {LIMITE.titulo.max} caracteres. Nomeie o problema, não a solução.
+                    {t(lang, 'rfcs.form.faixa', { min: LIMITE.titulo.min, max: LIMITE.titulo.max })}{t(lang, 'rfcs.nova.titulo.ajuda')}
                   </span>
                   {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
                 </div>
 
                 <div class:list={['campo', erros.summary && 'com-erro']}>
                   <div class="linha-rotulo">
-                    <label class="rotulo" for="summary">resumo</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="summary" data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
+                    <label class="rotulo" for="summary">{t(lang, 'rfcs.form.resumo')}</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="summary" data-texto-min={textoMin} data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
                   </div>
                   <textarea
                     class="entrada"
@@ -292,17 +298,16 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                     rows="3"
                     aria-describedby={descreve('summary')}
                     aria-invalid={erros.summary ? 'true' : undefined}
-                    placeholder="Uma frase que faça alguém que não conhece o assunto entender o que está em jogo."
+                    placeholder={t(lang, 'rfcs.nova.resumo.placeholder')}
                   >{valores.summary}</textarea>
                   <span class="ajuda" id="ajuda-summary">
-                    De {LIMITE.resumo.min} a {LIMITE.resumo.max} caracteres. É o que aparece no cartão da
-                    listagem, então é por ele que a ideia é escolhida ou ignorada.
+                    {t(lang, 'rfcs.form.faixa', { min: LIMITE.resumo.min, max: LIMITE.resumo.max })}{t(lang, 'rfcs.nova.resumo.ajuda')}
                   </span>
                   {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
                 </div>
 
                 <div class:list={['campo', erros.labId && 'com-erro']}>
-                  <label class="rotulo" for="labId">laboratório</label>
+                  <label class="rotulo" for="labId">{t(lang, 'rfcs.nova.lab.rotulo')}</label>
                   <select
                     class="entrada"
                     id="labId"
@@ -310,7 +315,7 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                     aria-describedby={descreve('labId')}
                     aria-invalid={erros.labId ? 'true' : undefined}
                   >
-                    <option value="">escolha um laboratório</option>
+                    <option value="">{t(lang, 'rfcs.nova.lab.escolha')}</option>
                     {/* slug e nome curto viajam no <option> porque é o
                         cartão ao lado que precisa deles: o value é o id,
                         e id não pinta capa nem escreve chip */}
@@ -319,23 +324,22 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                         value={l.id}
                         selected={valores.labId === l.id}
                         data-slug={l.slug}
-                        data-nome={nomeCurtoDoLab(l.name)}
+                        data-nome={nomeDoLab(l, lang)}
                       >
-                        {l.glyph} {nomeCurtoDoLab(l.name)}
+                        {l.glyph} {nomeDoLab(l, lang)}
                       </option>
                     ))}
                   </select>
                   <span class="ajuda" id="ajuda-labId">
-                    O laboratório é o recorte temático, não um silo: quem transita
-                    por outros labs continua enxergando a ideia.
+                    {t(lang, 'rfcs.nova.lab.ajuda')}
                   </span>
                   {erros.labId && <span class="erro-campo" id="erro-labId">{erros.labId}</span>}
                 </div>
 
                 <div class:list={['campo', erros.body && 'com-erro']}>
                   <div class="linha-rotulo">
-                    <label class="rotulo" for="body">corpo</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
+                    <label class="rotulo" for="body">{t(lang, 'rfcs.form.corpo')}</label>
+                    <span class="mono contador" aria-hidden="true" data-contador="body" data-texto-min={textoMin} data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
                   </div>
                   <EditorCorpo campo="body">
                     <textarea
@@ -344,19 +348,17 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                       name="body"
                       aria-describedby={descreve('body')}
                       aria-invalid={erros.body ? 'true' : undefined}
-                      placeholder={'## O problema\n\nQuem sente, onde, com que frequência.\n\n## O que eu proponho\n\n- primeiro passo\n- segundo passo\n\n## O que ainda não sei\n\nSeja honesto aqui. É o que atrai quem sabe fazer.'}
+                      placeholder={t(lang, 'rfcs.nova.corpo.placeholder')}
                     >{valores.body}</textarea>
                   </EditorCorpo>
                   <span class="ajuda" id="ajuda-body">
-                    Mínimo de {LIMITE.corpo.min} caracteres, máximo de {LIMITE.corpo.max.toLocaleString('pt-BR')}.
-                    Aceita markdown — o quadro ao lado lista o que é reconhecido, e
-                    "ver como fica" mostra o texto como a página da ideia vai mostrar.
+                    {t(lang, 'rfcs.nova.corpo.ajuda', { min: LIMITE.corpo.min, max: LIMITE.corpo.max.toLocaleString(loc) })}
                   </span>
                   {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
                 </div>
 
                 <div class:list={['campo', erros.tags && 'com-erro']}>
-                  <label class="rotulo" for="tags">tags</label>
+                  <label class="rotulo" for="tags">{t(lang, 'rfcs.form.tags')}</label>
                   <input
                     class="entrada mono"
                     id="tags"
@@ -365,20 +367,18 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                     value={valores.tags}
                     aria-describedby={descreve('tags')}
                     aria-invalid={erros.tags ? 'true' : undefined}
-                    placeholder="mobilidade, praça, orçamento participativo"
+                    placeholder={t(lang, 'rfcs.nova.tags.placeholder')}
                   />
                   <span class="ajuda" id="ajuda-tags">
-                    Opcional. Separe por vírgula, até {LIMITE.tags.max} tags de {LIMITE.tag.min} a {LIMITE.tag.max}
-                    caracteres cada. Só letras e números contam, então "praça" e
-                    "praca" são a mesma tag. Dá pra mudar depois.
+                    {t(lang, 'rfcs.nova.tags.ajuda', { max: LIMITE.tags.max, min: LIMITE.tag.min, tam: LIMITE.tag.max })}
                   </span>
                   {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
                 </div>
 
                 <div class="acoes-form">
-                  <button class="botao" type="submit">salvar como rascunho</button>
+                  <button class="botao" type="submit">{t(lang, 'rfcs.nova.salvar')}</button>
                   <span class="separador"></span>
-                  <a class="botao leve" href="/rfcs">descartar</a>
+                  <a class="botao leve" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.nova.descartar')}</a>
                 </div>
 
               </div>
@@ -399,8 +399,10 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
               data-vazio-resumo={VAZIO.resumo}
               data-vazio-lab={VAZIO.lab}
               data-max={LIMITE.resumo.max}
+              data-medida-ok={medidaOk}
+              data-medida-fora={medidaFora}
             >
-              <p class="rotulo-previa">o que você está fabricando</p>
+              <p class="rotulo-previa">{t(lang, 'rfcs.nova.previa.rotulo')}</p>
 
               <CartaoIdeia rfc={rascunhoProvisorio} comoLink={false} />
 
@@ -409,59 +411,49 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                 id="previa-medida"
                 aria-hidden="true"
               >{resumoSobra
-                ? `${resumoPrevia.length}/${LIMITE.resumo.max} · ${resumoSobra.length} a mais do que cabe; não dá pra salvar assim`
-                : `${resumoPrevia.length}/${LIMITE.resumo.max}`}</p>
+                ? t(lang, 'rfcs.nova.medida.fora', { atual: resumoPrevia.length, max: LIMITE.resumo.max, sobra: resumoSobra.length })
+                : t(lang, 'rfcs.nova.medida.ok', { atual: resumoPrevia.length, max: LIMITE.resumo.max })}</p>
 
               <p class="nota-previa">
-                O chip fica em <b>rascunho</b> e o cartão não tem número: ele só
-                é atribuído na publicação, e esta tela não publica. A capa é
-                desenhada a partir da identidade e do número da ideia, então
-                este desenho é provisório — o laboratório é a única parte dela
-                que você escolhe aqui.
+                {t(lang, 'rfcs.nova.previa.nota.antes')}<b>{t(lang, 'rfcs.nova.previa.nota.negrito')}</b>{t(lang, 'rfcs.nova.previa.nota.depois')}
               </p>
             </section>
 
             <div class="bloco">
-              <p class="titulo-bloco">salvar não publica</p>
+              <p class="titulo-bloco">{t(lang, 'rfcs.nova.bloco.titulo')}</p>
               <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
-                Por isso o chip do cartão está travado em <b>rascunho</b>: o que
-                você salvar aqui não aparece em nenhuma listagem, ninguém além
-                de você abre, e ainda não tem número.
+                {t(lang, 'rfcs.nova.bloco.texto.antes')}<b>{t(lang, 'rfcs.nova.bloco.texto.negrito')}</b>{t(lang, 'rfcs.nova.bloco.texto.depois')}
               </p>
-              <div class="linha"><span>ao salvar</span><b>rascunho</b></div>
-              <div class="linha"><span>ao publicar</span><b>em discussão</b></div>
+              <div class="linha"><span>{t(lang, 'rfcs.nova.bloco.aosalvar')}</span><b>{rotuloDoStatus('DRAFT', lang)}</b></div>
+              <div class="linha"><span>{t(lang, 'rfcs.nova.bloco.aopublicar')}</span><b>{rotuloDoStatus('IN_DISCUSSION', lang)}</b></div>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                Publicar é um botão separado, na tela de edição. É lá que a ideia
-                ganha o número permanente.
+                {t(lang, 'rfcs.nova.bloco.nota')}
               </p>
             </div>
 
             <div class="bloco">
-              <p class="titulo-bloco">markdown reconhecido</p>
-              <div class="linha"><span class="codigo">## título</span><b>seção</b></div>
-              <div class="linha"><span class="codigo">### título</span><b>subseção</b></div>
-              <div class="linha"><span class="codigo">**texto**</span><b>negrito</b></div>
-              <div class="linha"><span class="codigo">*texto*</span><b>itálico</b></div>
-              <div class="linha"><span class="codigo">[texto](https://…)</span><b>link</b></div>
-              <div class="linha"><span class="codigo">- item</span><b>lista</b></div>
-              <div class="linha"><span class="codigo">1. item</span><b>lista numerada</b></div>
-              <div class="linha"><span class="codigo">&gt; texto</span><b>citação</b></div>
-              <div class="linha"><span class="codigo">`código`</span><b>código</b></div>
-              <div class="linha"><span class="codigo">```</span><b>bloco de código</b></div>
-              <div class="linha"><span class="codigo">---</span><b>divisória</b></div>
-              <div class="linha"><span class="codigo">| a | b |</span><b>tabela</b></div>
+              <p class="titulo-bloco">{t(lang, 'rfcs.nova.md.titulo')}</p>
+              <div class="linha"><span class="codigo">## título</span><b>{t(lang, 'rfcs.nova.md.secao')}</b></div>
+              <div class="linha"><span class="codigo">### título</span><b>{t(lang, 'rfcs.nova.md.subsecao')}</b></div>
+              <div class="linha"><span class="codigo">**texto**</span><b>{t(lang, 'rfcs.nova.md.negrito')}</b></div>
+              <div class="linha"><span class="codigo">*texto*</span><b>{t(lang, 'rfcs.nova.md.italico')}</b></div>
+              <div class="linha"><span class="codigo">[texto](https://…)</span><b>{t(lang, 'rfcs.nova.md.link')}</b></div>
+              <div class="linha"><span class="codigo">- item</span><b>{t(lang, 'rfcs.nova.md.lista')}</b></div>
+              <div class="linha"><span class="codigo">1. item</span><b>{t(lang, 'rfcs.nova.md.numerada')}</b></div>
+              <div class="linha"><span class="codigo">&gt; texto</span><b>{t(lang, 'rfcs.nova.md.citacao')}</b></div>
+              <div class="linha"><span class="codigo">`código`</span><b>{t(lang, 'rfcs.nova.md.codigo')}</b></div>
+              <div class="linha"><span class="codigo">```</span><b>{t(lang, 'rfcs.nova.md.bloco')}</b></div>
+              <div class="linha"><span class="codigo">---</span><b>{t(lang, 'rfcs.nova.md.divisoria')}</b></div>
+              <div class="linha"><span class="codigo">| a | b |</span><b>{t(lang, 'rfcs.nova.md.tabela')}</b></div>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                HTML aparece como texto. Imagem não entra: vira link, porque
-                imagem de fora entrega o endereço de quem lê ao dono dela.
+                {t(lang, 'rfcs.nova.md.nota')}
               </p>
             </div>
 
             <div class="bloco">
-              <p class="titulo-bloco">como se escreve aqui</p>
+              <p class="titulo-bloco">{t(lang, 'rfcs.nova.como.titulo')}</p>
               <p style="margin:0; font-size:13px; color:var(--t-65)">
-                Comece pelo problema e por quem o sente. Diga o que você não sabe
-                fazer: é isso que faz alguém se inscrever. Não precisa estar
-                pronta — precisa estar clara.
+                {t(lang, 'rfcs.nova.como.texto')}
               </p>
             </div>
           </aside>
@@ -632,7 +624,7 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
         const n = campo.value.trim().length;
         const curto = n > 0 && n < min;
         marcador.textContent = curto
-          ? `${n} / mínimo ${min}`
+          ? marcador.dataset.textoMin!.replace('{n}', String(n)).replace('{min}', String(min))
           : `${n} / ${max}`;
         marcador.classList.toggle('fora', curto || n > max);
       };
@@ -702,8 +694,8 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
          seria ensinar uma consequência que o sistema não produz. */
       previa.dataset.cabe = sobra > 0 ? 'nao' : 'sim';
       medida.textContent = sobra > 0
-        ? `${r.length}/${max} · ${sobra} a mais do que cabe; não dá pra salvar assim`
-        : `${r.length}/${max}`;
+        ? previa.dataset.medidaFora!.replace('{atual}', String(r.length)).replace('{sobra}', String(sobra))
+        : previa.dataset.medidaOk!.replace('{atual}', String(r.length));
       medida.classList.toggle('fora', sobra > 0);
     };
 

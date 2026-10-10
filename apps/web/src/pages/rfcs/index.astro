@@ -20,10 +20,13 @@ import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import {
-  listarTodasRfcs, listarLabs, apiIndisponivel, statusLabel, nomeCurtoDoLab,
+  listarTodasRfcs, listarLabs, apiIndisponivel, rotuloDoStatus, nomeDoLab,
   type RfcStatus,
 } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
+
+const lang = idiomaDe(Astro);
 
 const [labs, rfcs] = await Promise.all([
   listarLabs(),
@@ -39,36 +42,32 @@ const estadosPresentes = estados.filter((e) => rfcs.some((r) => r.status === e))
 const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug));
 ---
 
-<Layout title="Idearium · Ideias">
+<Layout title={t(lang, 'rfcs.lista.titulo')}>
   <div class="palco">
     <Nav atual="rfcs" />
 
     <header class="cabecalho-pagina">
       <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        todas as ideias
+        {t(lang, 'rfcs.lista.rotulo')}
       </span>
-      <h1>Ideias abertas, <span class="serif">esperando</span>.</h1>
-      <p class="sub">
-        Cada uma é uma proposta numerada, escrita por alguém que conhece o
-        problema. Filtre por domínio ou por momento do ciclo.
-      </p>
+      <h1>{t(lang, 'rfcs.lista.h1.antes')}<span class="serif">{t(lang, 'rfcs.lista.h1.serif')}</span>{t(lang, 'rfcs.lista.h1.depois')}</h1>
+      <p class="sub">{t(lang, 'rfcs.lista.sub')}</p>
     </header>
 
     {semRede && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
-        incompleta ou vazia por isso, não por falta de ideias.
+        <b>{t(lang, 'comum.api.aviso')}</b>{t(lang, 'rfcs.lista.aviso')}
       </p>
     )}
 
     {rfcs.length > 0 && (
       <div class="filtros">
         <div class="grupo">
-          <span class="rotulo">laboratório</span>
-          <button class="filtro" type="button" data-filtro="lab" data-valor="" aria-pressed="true">todos</button>
+          <span class="rotulo">{t(lang, 'rfcs.lista.filtro.lab')}</span>
+          <button class="filtro" type="button" data-filtro="lab" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.todos')}</button>
           {labsPresentes.map((l) => (
             <button class="filtro" type="button" data-filtro="lab" data-valor={l.slug} aria-pressed="false">
-              <span class="swatch" style={`background: var(--color-${l.slug})`}></span>{nomeCurtoDoLab(l.name)}
+              <span class="swatch" style={`background: var(--color-${l.slug})`}></span>{nomeDoLab(l, lang)}
             </button>
           ))}
         </div>
@@ -78,19 +77,25 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
     {rfcs.length > 0 && (
       <div class="filtros" style="padding-top:0">
         <div class="grupo">
-          <span class="rotulo">momento</span>
-          <button class="filtro" type="button" data-filtro="status" data-valor="" aria-pressed="true">qualquer</button>
+          <span class="rotulo">{t(lang, 'rfcs.lista.filtro.momento')}</span>
+          <button class="filtro" type="button" data-filtro="status" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.qualquer')}</button>
           {estadosPresentes.map((e) => (
             <button class="filtro" type="button" data-filtro="status" data-valor={e} aria-pressed="false">
-              {statusLabel[e]}
+              {rotuloDoStatus(e, lang)}
             </button>
           ))}
         </div>
       </div>
     )}
 
-    <p class="contagem" id="contagem" data-total={rfcs.length}>
-      {rfcs.length} {rfcs.length === 1 ? 'ideia' : 'ideias'}
+    <p
+      class="contagem"
+      id="contagem"
+      data-total={rfcs.length}
+      data-um={t(lang, 'rfcs.lista.qtd.filtrada.um', { visiveis: '{visiveis}', total: '{total}' })}
+      data-varios={t(lang, 'rfcs.lista.qtd.filtrada.varios', { visiveis: '{visiveis}', total: '{total}' })}
+    >
+      {t(lang, rfcs.length === 1 ? 'rfcs.lista.qtd.um' : 'rfcs.lista.qtd.varios', { n: rfcs.length })}
     </p>
 
     {rfcs.length > 0 ? (
@@ -102,20 +107,18 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
         {/* aparece só quando o filtro zera o resultado */}
         <div id="vazio-filtro" hidden>
           <Vazio
-            titulo="Nenhuma ideia com esse recorte"
-            texto="Nenhuma ideia combina o laboratório e o momento escolhidos. Tente afrouxar um dos dois."
+            titulo={t(lang, 'rfcs.lista.filtro.vazio.titulo')}
+            texto={t(lang, 'rfcs.lista.filtro.vazio.texto')}
           />
         </div>
       </>
     ) : (
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : 'Nenhuma ideia publicada ainda'}
-        texto={semRede
-          ? 'Assim que a API voltar, a lista aparece aqui.'
-          : 'Ninguém publicou nada por enquanto. A primeira pode ser sua.'}
-        acaoHref={semRede ? undefined : '/rfcs/nova'}
-        acaoTexto={semRede ? undefined : 'escrever uma ideia'}
+        titulo={semRede ? t(lang, 'comum.vazio.falha.titulo') : t(lang, 'rfcs.lista.vazio.titulo')}
+        texto={semRede ? t(lang, 'rfcs.lista.falha.texto') : t(lang, 'rfcs.lista.vazio.texto')}
+        acaoHref={semRede ? undefined : rota(lang, '/rfcs/nova')}
+        acaoTexto={semRede ? undefined : t(lang, 'rfcs.lista.vazio.acao')}
       />
     )}
 
@@ -132,6 +135,8 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
     const cartoes = [...grade.querySelectorAll<HTMLElement>('.ideia')];
     const contagem = document.getElementById('contagem');
     const vazio = document.getElementById('vazio-filtro');
+    /* a contagem sem filtro já vem escrita pelo servidor, no idioma certo */
+    const textoSemFiltro = contagem?.textContent ?? '';
 
     const estado = { lab: '', status: '' };
 
@@ -160,8 +165,10 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
         const total = Number(contagem.dataset.total ?? 0);
         const filtrando = estado.lab || estado.status;
         contagem.textContent = filtrando
-          ? `${visiveis} de ${total} ${total === 1 ? 'ideia' : 'ideias'}`
-          : `${total} ${total === 1 ? 'ideia' : 'ideias'}`;
+          ? (total === 1 ? contagem.dataset.um! : contagem.dataset.varios!)
+              .replace('{visiveis}', String(visiveis))
+              .replace('{total}', String(total))
+          : textoSemFiltro;
       }
 
       if (vazio) vazio.hidden = visiveis > 0;

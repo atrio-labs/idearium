@@ -29,7 +29,10 @@ import Vazio from '../../../components/astro/Vazio.astro';
 import { comSessao } from '../../../lib/sessao';
 import { compararVersoes } from '../../../lib/diff';
 import { haQuantoTempo, codigoRfc, type Rfc, type Versao } from '../../../lib/api';
+import { idiomaDe, rota, t, type Chave } from '../../../lib/i18n';
 
+const lang = idiomaDe(Astro);
+const loc = lang === 'en' ? 'en' : 'pt-BR';
 const { slug } = Astro.params;
 const usuario = Astro.locals.usuario;
 
@@ -45,7 +48,7 @@ const rfc = leituraRfc.ok ? leituraRfc.dado : null;
 /* 404 é "não existe pra você"; qualquer outra falha é servidor fora. */
 const semRede = !rfc && leituraRfc.status !== 404;
 
-if (!rfc && !semRede) return Astro.redirect('/rfcs');
+if (!rfc && !semRede) return Astro.redirect(rota(lang, '/rfcs'));
 if (semRede) Astro.response.status = 503;
 
 let versoes: Versao[] = [];
@@ -79,7 +82,7 @@ function autoria(v: Versao): string | null {
 }
 
 const dataLonga = (iso: string) =>
-  new Date(iso).toLocaleString('pt-BR', {
+  new Date(iso).toLocaleString(loc, {
     day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
   });
@@ -104,7 +107,10 @@ if (falhaVersoes) {
     modo = 'texto';
   } else {
     modo = 'invalido';
-    mensagemInvalida = `Não existe a versão “${Astro.url.searchParams.get('v')}” desta ideia. As versões vão de v1 a v${maisNova.version}.`;
+    mensagemInvalida = t(lang, 'rfcs.versoes.invalida.v', {
+      v: Astro.url.searchParams.get('v') ?? '',
+      max: maisNova.version,
+    });
   }
 } else if (!haComparacao) {
   modo = 'unica';
@@ -113,7 +119,7 @@ if (falhaVersoes) {
   para = pedidoPara.dado != null ? porNumero.get(pedidoPara.dado) : undefined;
   if (!de || !para) {
     modo = 'invalido';
-    mensagemInvalida = `Não consegui comparar essas versões. Escolha duas entre v1 e v${maisNova.version}.`;
+    mensagemInvalida = t(lang, 'rfcs.versoes.invalida.par', { max: maisNova.version });
   }
 } else {
   para = versoes[0];
@@ -126,8 +132,8 @@ const mesmaVersao = modo === 'diff' && de && para && de.version === para.version
 /* A versão anterior à N na lista, pra "ver o que mudou". */
 const anteriorDe = (n: number) => versoes.find((v) => v.version < n);
 
-const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
-const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
+const plural = (n: number, um: Chave, varios: Chave) => t(lang, n === 1 ? um : varios, { n });
+const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(lang, 'rfcs.versoes.titulo.padrao');
 ---
 
 <Layout title={titulo}>
@@ -137,58 +143,53 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
     {!rfc ? (
       <>
         <header class="cabecalho-pagina">
-          <a class="volta" href="/rfcs">&larr; todas as ideias</a>
-          <h1>Não consegui abrir esta <span class="serif">ideia</span>.</h1>
+          <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
+          <h1>{t(lang, 'rfcs.versoes.falha.antes')}<span class="serif">{t(lang, 'rfcs.versoes.falha.serif')}</span>{t(lang, 'rfcs.versoes.falha.depois')}</h1>
         </header>
         <Vazio
           falha
-          titulo="O servidor não respondeu"
-          texto="Não consegui falar com a API. A ideia e as versões dela continuam onde estavam; tente de novo em instantes."
-          acaoHref="/rfcs"
-          acaoTexto="ver as ideias abertas"
+          titulo={t(lang, 'rfcs.versoes.falha.titulo')}
+          texto={t(lang, 'rfcs.versoes.falha.texto')}
+          acaoHref={rota(lang, '/rfcs')}
+          acaoTexto={t(lang, 'rfcs.versoes.falha.acao')}
         />
       </>
     ) : (
       <>
         <header class="cabecalho-pagina">
-          <a class="volta" href={`/rfcs/${rfc.slug}`}>&larr; voltar para a ideia</a>
-          <p class="mono" style="margin:14px 0 0; font-size:11px; color:var(--t-35)">{codigoRfc(rfc.number)}</p>
-          <h1>Versões de <span class="serif">{rfc.title}</span></h1>
-          <p class="sub">
-            Nada é apagado: cada edição do corpo vira uma versão nova, e dá para comparar
-            quaisquer duas. Só o corpo é versionado; o título e o resumo mostram sempre o
-            estado de agora.
-          </p>
+          <a class="volta" href={rota(lang, `/rfcs/${rfc.slug}`)}>{t(lang, 'rfcs.versoes.volta')}</a>
+          <p class="mono" style="margin:14px 0 0; font-size:11px; color:var(--t-35)">{codigoRfc(rfc.number, lang)}</p>
+          <h1>{t(lang, 'rfcs.versoes.h1')}<span class="serif">{rfc.title}</span></h1>
+          <p class="sub">{t(lang, 'rfcs.versoes.sub')}</p>
         </header>
 
         {falhaVersoes && (
           <p class="aviso-api" role="status">
-            <b>Não consegui carregar as versões.</b> A API não respondeu. A ideia está
-            intacta; recarregue em instantes.
+            <b>{t(lang, 'rfcs.versoes.aviso.negrito')}</b>{t(lang, 'rfcs.versoes.aviso.texto')}
           </p>
         )}
 
         {modo === 'sem-versao' && (
           <Vazio
-            titulo="Esta ideia ainda está na primeira versão"
-            texto="Quando o corpo for editado, a versão anterior fica guardada aqui e dá para ver o que mudou."
-            acaoHref={`/rfcs/${rfc.slug}`}
-            acaoTexto="voltar para a ideia"
+            titulo={t(lang, 'rfcs.versoes.primeira.titulo')}
+            texto={t(lang, 'rfcs.versoes.primeira.texto')}
+            acaoHref={rota(lang, `/rfcs/${rfc.slug}`)}
+            acaoTexto={t(lang, 'rfcs.versoes.primeira.acao')}
           />
         )}
 
         {modo === 'unica' && (
           <Vazio
-            titulo="Esta ideia ainda está na primeira versão"
-            texto="Quando o corpo for editado, a versão anterior fica guardada aqui e dá para ver o que mudou. Por enquanto, só existe o texto original."
-            acaoHref={`/rfcs/${rfc.slug}/versoes?v=${maisNova.version}`}
-            acaoTexto="ler o texto da v1"
+            titulo={t(lang, 'rfcs.versoes.primeira.titulo')}
+            texto={t(lang, 'rfcs.versoes.unica.texto')}
+            acaoHref={rota(lang, `/rfcs/${rfc.slug}/versoes?v=${maisNova.version}`)}
+            acaoTexto={t(lang, 'rfcs.versoes.unica.acao')}
           />
         )}
 
         {modo === 'invalido' && (
           <p class="aviso-erro" role="alert">
-            <b>Versão não encontrada.</b> {mensagemInvalida}
+            <b>{t(lang, 'rfcs.versoes.invalida.negrito')}</b> {mensagemInvalida}
           </p>
         )}
 
@@ -196,11 +197,11 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
           <div class="versoes-layout">
             <div class="versoes-principal">
               {haComparacao && (
-                <form class="comparar bloco" method="get" action={`/rfcs/${rfc.slug}/versoes`}>
-                  <p class="titulo-bloco">comparar</p>
+                <form class="comparar bloco" method="get" action={rota(lang, `/rfcs/${rfc.slug}/versoes`)}>
+                  <p class="titulo-bloco">{t(lang, 'rfcs.versoes.comparar')}</p>
                   <div class="comparar-campos">
                     <label class="campo">
-                      <span class="rotulo">de (antes)</span>
+                      <span class="rotulo">{t(lang, 'rfcs.versoes.de')}</span>
                       <select class="entrada" name="de">
                         {versoes.map((v) => (
                           <option value={v.version} selected={v.version === (de?.version ?? versoes[1]?.version)}>
@@ -210,7 +211,7 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
                       </select>
                     </label>
                     <label class="campo">
-                      <span class="rotulo">para (depois)</span>
+                      <span class="rotulo">{t(lang, 'rfcs.versoes.para')}</span>
                       <select class="entrada" name="para">
                         {versoes.map((v) => (
                           <option value={v.version} selected={v.version === (para?.version ?? versoes[0].version)}>
@@ -219,7 +220,7 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
                         ))}
                       </select>
                     </label>
-                    <button class="botao" type="submit">comparar</button>
+                    <button class="botao" type="submit">{t(lang, 'rfcs.versoes.comparar')}</button>
                   </div>
                 </form>
               )}
@@ -227,14 +228,14 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
               {modo === 'texto' && versaoTexto && (
                 <section class="bloco" aria-labelledby="titulo-texto">
                   <p class="titulo-bloco" id="titulo-texto">
-                    texto da v{versaoTexto.version} · {haQuantoTempo(versaoTexto.createdAt)}
+                    {t(lang, 'rfcs.versoes.texto.titulo', { n: versaoTexto.version, quando: haQuantoTempo(versaoTexto.createdAt, lang) })}
                   </p>
                   <pre class="texto-versao">{versaoTexto.body}</pre>
                   <p class="nota-versao">
-                    Este é o markdown como foi escrito, sem formatação aplicada.
+                    {t(lang, 'rfcs.versoes.texto.nota')}
                     {anteriorDe(versaoTexto.version) && (
                       <>
-                        {' '}<a href={`/rfcs/${rfc.slug}/versoes?de=${anteriorDe(versaoTexto.version)!.version}&para=${versaoTexto.version}`}>Ver o que mudou em relação à v{anteriorDe(versaoTexto.version)!.version}</a>.
+                        {' '}<a href={rota(lang, `/rfcs/${rfc.slug}/versoes?de=${anteriorDe(versaoTexto.version)!.version}&para=${versaoTexto.version}`)}>{t(lang, 'rfcs.versoes.texto.mudou', { n: anteriorDe(versaoTexto.version)!.version })}</a>.
                       </>
                     )}
                   </p>
@@ -244,27 +245,27 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
               {modo === 'diff' && de && para && (
                 <section class="bloco" aria-labelledby="titulo-diff">
                   <p class="titulo-bloco" id="titulo-diff">
-                    o que mudou · v{de.version} → v{para.version}
+                    {t(lang, 'rfcs.versoes.diff.titulo', { de: de.version, para: para.version })}
                   </p>
 
                   {mesmaVersao ? (
-                    <p class="nota-versao">Você escolheu a mesma versão dos dois lados, então não há o que comparar.</p>
+                    <p class="nota-versao">{t(lang, 'rfcs.versoes.diff.mesma')}</p>
                   ) : resumo && resumo.identico ? (
-                    <p class="nota-versao">Essas duas versões têm o corpo idêntico.</p>
+                    <p class="nota-versao">{t(lang, 'rfcs.versoes.diff.identico')}</p>
                   ) : resumo && (
                     <>
                       <p class="resumo-diff">
-                        <span class="chip pequeno"><span aria-hidden="true">−</span> {plural(resumo.removidas, 'linha tirada', 'linhas tiradas')}</span>
-                        <span class="chip pequeno"><span aria-hidden="true">+</span> {plural(resumo.acrescidas, 'linha acrescentada', 'linhas acrescentadas')}</span>
+                        <span class="chip pequeno"><span aria-hidden="true">−</span> {plural(resumo.removidas, 'rfcs.versoes.diff.tiradas.um', 'rfcs.versoes.diff.tiradas.varios')}</span>
+                        <span class="chip pequeno"><span aria-hidden="true">+</span> {plural(resumo.acrescidas, 'rfcs.versoes.diff.acrescentadas.um', 'rfcs.versoes.diff.acrescentadas.varios')}</span>
                       </p>
-                      <div class="diff" role="group" aria-label={`Diferença entre a v${de.version} e a v${para.version}`}>
+                      <div class="diff" role="group" aria-label={t(lang, 'rfcs.versoes.diff.rotulo', { de: de.version, para: para.version })}>
                         {resumo.blocos.map((b) => {
                           if (b.tipo === 'recolhido') {
                             return (
                               <div class="errata trecho" data-aberta="nao">
                                 <button class="gatilho" type="button" aria-expanded="false">
                                   <span class="chevron" aria-hidden="true"></span>
-                                  {plural(b.linhas.length, 'linha igual', 'linhas iguais')}
+                                  {plural(b.linhas.length, 'rfcs.versoes.diff.iguais.um', 'rfcs.versoes.diff.iguais.varios')}
                                 </button>
                                 <div class="fole"><div>
                                   {b.linhas.map((l) => (
@@ -286,7 +287,7 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
                             return (
                               <Marca class={`dl ${b.tipo}`}>
                                 <span class="sinal" aria-hidden="true">{removido ? '−' : '+'}</span>
-                                <span class="so-leitor">{removido ? 'removido: ' : 'acrescentado: '}</span>
+                                <span class="so-leitor">{t(lang, removido ? 'rfcs.versoes.diff.removido' : 'rfcs.versoes.diff.acrescentado')}</span>
                                 <span class="txt">{pedacos.map((p) => p.mudou ? <span class="palavra">{p.texto}</span> : p.texto)}</span>
                               </Marca>
                             );
@@ -302,7 +303,7 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
 
             <aside class="versoes-lado">
               <div class="bloco">
-                <p class="titulo-bloco">todas as versões</p>
+                <p class="titulo-bloco">{t(lang, 'rfcs.versoes.lado.titulo')}</p>
                 <ol class="lista-versoes">
                   {versoes.map((v) => {
                     const ant = anteriorDe(v.version);
@@ -312,16 +313,16 @@ const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
                     return (
                       <li class={aberta ? 'atual' : undefined}>
                         <div class="v-linha">
-                          <a class="v-num" href={`/rfcs/${rfc.slug}/versoes?v=${v.version}`}>v{v.version}</a>
-                          {v.version === maisNova.version && <span class="chip pequeno">atual</span>}
+                          <a class="v-num" href={rota(lang, `/rfcs/${rfc.slug}/versoes?v=${v.version}`)}>v{v.version}</a>
+                          {v.version === maisNova.version && <span class="chip pequeno">{t(lang, 'rfcs.versoes.atual')}</span>}
                         </div>
                         <time class="v-data" datetime={v.createdAt} title={dataLonga(v.createdAt)}>
-                          {haQuantoTempo(v.createdAt)} · {dataLonga(v.createdAt)}
+                          {haQuantoTempo(v.createdAt, lang)} · {dataLonga(v.createdAt)}
                         </time>
-                        {quem && <span class="v-data">por @{quem}</span>}
+                        {quem && <span class="v-data">{t(lang, 'rfcs.versoes.por', { nome: quem })}</span>}
                         <span class="v-acoes">
-                          <a href={`/rfcs/${rfc.slug}/versoes?v=${v.version}`}>ler texto</a>
-                          {ant && <a href={`/rfcs/${rfc.slug}/versoes?de=${ant.version}&para=${v.version}`}>o que mudou</a>}
+                          <a href={rota(lang, `/rfcs/${rfc.slug}/versoes?v=${v.version}`)}>{t(lang, 'rfcs.versoes.ler')}</a>
+                          {ant && <a href={rota(lang, `/rfcs/${rfc.slug}/versoes?de=${ant.version}&para=${v.version}`)}>{t(lang, 'rfcs.versoes.omudou')}</a>}
                         </span>
                       </li>
                     );

@@ -27,14 +27,20 @@ import Vazio from '../../../components/astro/Vazio.astro';
 import CartaoIdeia from '../../../components/astro/CartaoIdeia.astro';
 import EditorCorpo from '../../../components/astro/EditorCorpo.astro';
 import {
-  statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
+  rotuloDoStatus, nomeDoLab, codigoRfc, haQuantoTempo,
   type Rfc, type Tag,
 } from '../../../lib/api';
-import { comSessao, exigirSessao } from '../../../lib/sessao';
+import { idiomaDe, rota, separarIdioma, t } from '../../../lib/i18n';
+import { comSessao } from '../../../lib/sessao';
 
+const lang = idiomaDe(Astro);
 const usuario = Astro.locals.usuario;
-const destino = exigirSessao(usuario, Astro.url);
-if (destino) return Astro.redirect(destino);
+/* Sem sessão, entrar e voltar pra cá, no mesmo idioma. O ?voltar= leva o
+   caminho já com o prefixo (exigirSessao não sabe do idioma). */
+if (!usuario) {
+  const aqui = rota(lang, separarIdioma(Astro.url.pathname).caminho) + Astro.url.search;
+  return Astro.redirect(`${rota(lang, '/entrar')}?voltar=${encodeURIComponent(aqui)}`);
+}
 
 /* Os mesmos números do UpdateRfcDto da API. */
 const LIMITE = {
@@ -65,27 +71,27 @@ function separarTags(bruto: string) {
   const repetidas: string[] = [];
 
   for (const parte of bruto.split(',')) {
-    const t = parte.trim();
-    if (!t) continue;
-    const slug = slugDaTag(t);
-    if (slug.length < LIMITE.tag.min) { semLetras.push(t); continue; }
+    const item = parte.trim();
+    if (!item) continue;
+    const slug = slugDaTag(item);
+    if (slug.length < LIMITE.tag.min) { semLetras.push(item); continue; }
     const anterior = porSlug.get(slug);
-    if (anterior) { repetidas.push(`${t} e ${anterior}`); continue; }
-    porSlug.set(slug, t);
-    tags.push(t);
+    if (anterior) { repetidas.push(t(lang, 'rfcs.erro.tags.par', { a: item, b: anterior })); continue; }
+    porSlug.set(slug, item);
+    tags.push(item);
   }
   return { tags, semLetras, repetidas };
 }
 
 /** Devolve a mensagem de erro do campo, ou string vazia se está tudo bem. */
 function erroDeTags(s: ReturnType<typeof separarTags>) {
-  if (s.tags.length > LIMITE.tags.max) return `No máximo ${LIMITE.tags.max} tags.`;
-  if (s.tags.some((t) => t.length < LIMITE.tag.min || t.length > LIMITE.tag.max))
-    return `Cada tag precisa ter de ${LIMITE.tag.min} a ${LIMITE.tag.max} caracteres.`;
+  if (s.tags.length > LIMITE.tags.max) return t(lang, 'rfcs.erro.tags.max', { max: LIMITE.tags.max });
+  if (s.tags.some((tag) => tag.length < LIMITE.tag.min || tag.length > LIMITE.tag.max))
+    return t(lang, 'rfcs.erro.tags.tamanho', { min: LIMITE.tag.min, max: LIMITE.tag.max });
   if (s.semLetras.length)
-    return `Tag é guardada só por letras e números, e de ${s.semLetras.join(', ')} não sobra nada. Reescreva com pelo menos ${LIMITE.tag.min} letras ou números.`;
+    return t(lang, 'rfcs.erro.tags.semletras', { lista: s.semLetras.join(', '), min: LIMITE.tag.min });
   if (s.repetidas.length)
-    return `Acento e pontuação não separam tags: ${s.repetidas.join('; ')} são a mesma. Deixe uma só.`;
+    return t(lang, 'rfcs.erro.tags.repetidas', { lista: s.repetidas.join('; ') });
   return '';
 }
 
@@ -94,14 +100,14 @@ interface Campos { title: string; summary: string; body: string }
 function validar(v: Campos) {
   const e: Record<string, string> = {};
 
-  if (v.title.length < LIMITE.titulo.min) e.title = `O título precisa de pelo menos ${LIMITE.titulo.min} caracteres.`;
-  else if (v.title.length > LIMITE.titulo.max) e.title = `O título passou de ${LIMITE.titulo.max} caracteres.`;
+  if (v.title.length < LIMITE.titulo.min) e.title = t(lang, 'rfcs.erro.titulo.min', { min: LIMITE.titulo.min });
+  else if (v.title.length > LIMITE.titulo.max) e.title = t(lang, 'rfcs.erro.titulo.max', { max: LIMITE.titulo.max });
 
-  if (v.summary.length < LIMITE.resumo.min) e.summary = `O resumo precisa de pelo menos ${LIMITE.resumo.min} caracteres.`;
-  else if (v.summary.length > LIMITE.resumo.max) e.summary = `O resumo passou de ${LIMITE.resumo.max} caracteres.`;
+  if (v.summary.length < LIMITE.resumo.min) e.summary = t(lang, 'rfcs.erro.resumo.min', { min: LIMITE.resumo.min });
+  else if (v.summary.length > LIMITE.resumo.max) e.summary = t(lang, 'rfcs.erro.resumo.max', { max: LIMITE.resumo.max });
 
-  if (v.body.length < LIMITE.corpo.min) e.body = `O corpo precisa de pelo menos ${LIMITE.corpo.min} caracteres.`;
-  else if (v.body.length > LIMITE.corpo.max) e.body = `O corpo passou de ${LIMITE.corpo.max} caracteres.`;
+  if (v.body.length < LIMITE.corpo.min) e.body = t(lang, 'rfcs.erro.corpo.min', { min: LIMITE.corpo.min });
+  else if (v.body.length > LIMITE.corpo.max) e.body = t(lang, 'rfcs.erro.corpo.max', { max: LIMITE.corpo.max });
 
   return e;
 }
@@ -135,8 +141,8 @@ if (Astro.request.method === 'POST' && rfc) {
 
   if (acao === 'publicar') {
     const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/publish`);
-    if (r.ok) return Astro.redirect(`/rfcs/${rfc.slug}`);
-    avisoGeral = r.erro ?? 'Não consegui publicar agora.';
+    if (r.ok) return Astro.redirect(rota(lang, `/rfcs/${rfc.slug}`));
+    avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.publicar');
 
   } else if (acao === 'arquivar') {
     /* Arquivar um rascunho tira dele o sigilo: a API só esconde de
@@ -144,13 +150,13 @@ if (Astro.request.method === 'POST' && rfc) {
        publicado passaria a abrir para qualquer visitante — e publicar
        depois deixa de ser possível, porque publish exige DRAFT. */
     if (rfc.status === 'DRAFT') {
-      avisoGeral = 'Rascunho não se arquiva: ele já está fora de todas as listagens. Ou publique, ou deixe onde está.';
+      avisoGeral = t(lang, 'rfcs.editar.erro.arquivar.rascunho');
     } else if (!f.get('confirmo')) {
-      avisoGeral = 'Marque a confirmação antes de arquivar.';
+      avisoGeral = t(lang, 'rfcs.editar.erro.arquivar.confirmar');
     } else {
       const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/archive`);
-      if (r.ok) return Astro.redirect(`/rfcs/${rfc.slug}`);
-      avisoGeral = r.erro ?? 'Não consegui arquivar agora.';
+      if (r.ok) return Astro.redirect(rota(lang, `/rfcs/${rfc.slug}`));
+      avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.arquivar');
     }
 
   } else if (acao === 'tags') {
@@ -164,12 +170,10 @@ if (Astro.request.method === 'POST' && rfc) {
       const tags = separadas.tags;
       const r = await comSessao(Astro.cookies, 'POST', `/rfcs/${rfc.id}/tags`, { tags });
       if (r.ok) {
-        avisoOk = tags.length
-          ? 'Tags trocadas. O conjunto agora é exatamente o que está no campo.'
-          : 'Tags removidas: a ideia ficou sem nenhuma.';
+        avisoOk = t(lang, tags.length ? 'rfcs.editar.ok.tags' : 'rfcs.editar.ok.tags.vazio');
         valorTags = null;
       } else {
-        avisoGeral = r.erro ?? 'Não consegui trocar as tags agora.';
+        avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.tags');
       }
     }
 
@@ -189,10 +193,10 @@ if (Astro.request.method === 'POST' && rfc) {
         rfc = r.dado;
         valores = { title: rfc.title, summary: rfc.summary, body: rfc.body };
         avisoOk = corpoMudou
-          ? `Salvo. O corpo mudou, então nasceu a versão ${rfc._count.versions} — a anterior continua no histórico.`
-          : 'Salvo. O corpo não mudou, então nenhuma versão nova foi criada.';
+          ? t(lang, 'rfcs.editar.ok.versao', { n: rfc._count.versions })
+          : t(lang, 'rfcs.editar.ok.semversao');
       } else {
-        avisoGeral = r.erro ?? 'Não consegui salvar agora.';
+        avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.salvar');
       }
     }
   }
@@ -211,7 +215,7 @@ const leituraTags = rfc
   : null;
 const tagsIlegiveis = !!leituraTags && !leituraTags.ok;
 const tags = leituraTags?.dado ?? [];
-const campoTags = valorTags ?? tags.map((t) => t.name).join(', ');
+const campoTags = valorTags ?? tags.map((tg) => tg.name).join(', ');
 
 if (!rfc) Astro.response.status = semRede ? 503 : 404;
 
@@ -236,67 +240,66 @@ const CODIGO_VAGO = 'RFC-____';
 
 const descreve = (campo: string) =>
   [`ajuda-${campo}`, erros[campo] && `erro-${campo}`].filter(Boolean).join(' ');
+
+/* Texto que o script monta no cliente: chega pronto, com o marcador no
+   lugar do número, e o script só troca o marcador. */
+const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
 ---
 
-<Layout title={ideia ? `Editar · ${ideia.title}` : 'Não encontrei essa ideia · Idearium'}>
+<Layout title={ideia ? t(lang, 'rfcs.editar.titulo', { titulo: ideia.title }) : t(lang, 'rfcs.editar.titulo.inexistente')}>
   <div class="palco">
     <Nav atual="rfcs" />
 
     {!ideia ? (
       <>
         <header class="cabecalho-pagina">
-          <a class="volta" href="/rfcs">&larr; todas as ideias</a>
-          <h1>Não encontrei essa <span class="serif">ideia</span>.</h1>
+          <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
+          <h1>{t(lang, 'rfcs.editar.inexistente.antes')}<span class="serif">{t(lang, 'rfcs.editar.inexistente.serif')}</span>{t(lang, 'rfcs.editar.inexistente.depois')}</h1>
         </header>
         <Vazio
           falha={semRede}
-          titulo={semRede ? 'O servidor não respondeu' : 'Nada para editar neste endereço'}
-          texto={semRede
-            ? 'Não consegui falar com a API, então não sei nem se essa ideia existe. Tente de novo em instantes.'
-            : 'Ou o endereço está errado, ou essa ideia não é sua para editar. Rascunho só existe para quem escreveu.'}
-          acaoHref="/rfcs"
-          acaoTexto="ver as ideias abertas"
+          titulo={t(lang, semRede ? 'rfcs.editar.inexistente.falha.titulo' : 'rfcs.editar.inexistente.titulo')}
+          texto={t(lang, semRede ? 'rfcs.editar.inexistente.falha.texto' : 'rfcs.editar.inexistente.texto')}
+          acaoHref={rota(lang, '/rfcs')}
+          acaoTexto={t(lang, 'rfcs.editar.inexistente.acao')}
         />
       </>
     ) : (
       <>
         <header class="cabecalho-pagina">
-          <a class="volta" href={`/rfcs/${ideia.slug}`}>&larr; ver a ideia</a>
+          <a class="volta" href={rota(lang, `/rfcs/${ideia.slug}`)}>{t(lang, 'rfcs.editar.volta')}</a>
           <div class="chips" style="margin-top:14px">
             <span class="chip pastel" style={`background: var(--color-${ideia.lab.slug})`}>
-              <span aria-hidden="true">{ideia.lab.glyph}</span> {nomeCurtoDoLab(ideia.lab.name)}
+              <span aria-hidden="true">{ideia.lab.glyph}</span> {nomeDoLab(ideia.lab, lang)}
             </span>
-            <span class="chip">{statusLabel[ideia.status]}</span>
-            <span class="codigo">{codigoRfc(ideia.number)}</span>
+            <span class="chip">{rotuloDoStatus(ideia.status, lang)}</span>
+            <span class="codigo">{codigoRfc(ideia.number, lang)}</span>
           </div>
-          <h1>Editando <span class="serif">{ideia.title}</span></h1>
+          <h1>{t(lang, 'rfcs.editar.h1')}<span class="serif">{ideia.title}</span></h1>
           <p class="sub">
-            {rascunho
-              ? 'Ainda é rascunho: só você enxerga, e ela ainda não tem número. O cartão ao lado é o que o resto do mundo vai ver quando você publicar.'
+            {t(lang, rascunho
+              ? 'rfcs.editar.sub.rascunho'
               : publicada
-                ? 'Já está publicada e tem número permanente. Toda mudança no corpo entra no histórico, à vista de quem lê.'
-                : 'Foi arquivada antes de ser publicada, então nunca recebeu número. O texto continua aqui e continua editável.'}
+                ? 'rfcs.editar.sub.publicada'
+                : 'rfcs.editar.sub.arquivada')}
           </p>
         </header>
 
         {recemCriada && (
           <p class="aviso-ok" role="status">
-            <b>Rascunho criado.</b> Ele existe, mas ninguém além de você o vê.
-            Quando quiser, publique.
+            <b>{t(lang, 'rfcs.editar.criada.negrito')}</b>{t(lang, 'rfcs.editar.criada.texto')}
           </p>
         )}
         {tagsFalharam && (
           <p class="aviso-erro" role="alert">
-            <b>As tags não foram salvas.</b> O rascunho está inteiro, só o
-            conjunto de tags não passou. Tente de novo no bloco de tags.
+            <b>{t(lang, 'rfcs.editar.tagsfalhou.negrito')}</b>{t(lang, 'rfcs.editar.tagsfalhou.texto')}
           </p>
         )}
         {avisoOk && <p class="aviso-ok" role="status">{avisoOk}</p>}
         {avisoGeral && <p class="aviso-erro" role="alert">{avisoGeral}</p>}
         {Object.keys(erros).length > 0 && (
           <p class="aviso-erro" role="alert">
-            <b>Falta ajustar alguma coisa.</b> Os campos com problema estão
-            marcados abaixo. Nada do que você escreveu se perdeu.
+            <b>{t(lang, 'rfcs.form.falta.negrito')}</b>{t(lang, 'rfcs.form.falta.texto')}
           </p>
         )}
 
@@ -309,8 +312,8 @@ const descreve = (campo: string) =>
 
                   <div class:list={['campo', erros.title && 'com-erro']}>
                     <div class="linha-rotulo">
-                      <label class="rotulo" for="title">título</label>
-                      <span class="mono contador" aria-hidden="true" data-contador="title" data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
+                      <label class="rotulo" for="title">{t(lang, 'rfcs.form.titulo')}</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="title" data-texto-min={textoMin} data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
                     </div>
                     <input
                       class="entrada"
@@ -322,16 +325,15 @@ const descreve = (campo: string) =>
                       aria-invalid={erros.title ? 'true' : undefined}
                     />
                     <span class="ajuda" id="ajuda-title">
-                      De {LIMITE.titulo.min} a {LIMITE.titulo.max} caracteres. O endereço da ideia não muda
-                      quando o título muda.
+                      {t(lang, 'rfcs.form.faixa', { min: LIMITE.titulo.min, max: LIMITE.titulo.max })}{t(lang, 'rfcs.editar.titulo.ajuda')}
                     </span>
                     {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
                   </div>
 
                   <div class:list={['campo', erros.summary && 'com-erro']}>
                     <div class="linha-rotulo">
-                      <label class="rotulo" for="summary">resumo</label>
-                      <span class="mono contador" aria-hidden="true" data-contador="summary" data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
+                      <label class="rotulo" for="summary">{t(lang, 'rfcs.form.resumo')}</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="summary" data-texto-min={textoMin} data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
                     </div>
                     <textarea
                       class="entrada"
@@ -342,15 +344,15 @@ const descreve = (campo: string) =>
                       aria-invalid={erros.summary ? 'true' : undefined}
                     >{valores.summary}</textarea>
                     <span class="ajuda" id="ajuda-summary">
-                      De {LIMITE.resumo.min} a {LIMITE.resumo.max} caracteres. É o que aparece no cartão da listagem.
+                      {t(lang, 'rfcs.form.faixa', { min: LIMITE.resumo.min, max: LIMITE.resumo.max })}{t(lang, 'rfcs.editar.resumo.ajuda')}
                     </span>
                     {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
                   </div>
 
                   <div class:list={['campo', erros.body && 'com-erro']}>
                     <div class="linha-rotulo">
-                      <label class="rotulo" for="body">corpo</label>
-                      <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
+                      <label class="rotulo" for="body">{t(lang, 'rfcs.form.corpo')}</label>
+                      <span class="mono contador" aria-hidden="true" data-contador="body" data-texto-min={textoMin} data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
                     </div>
                     <EditorCorpo campo="body">
                       <textarea
@@ -362,19 +364,16 @@ const descreve = (campo: string) =>
                       >{valores.body}</textarea>
                     </EditorCorpo>
                     <span class="ajuda" id="ajuda-body">
-                      Mínimo de {LIMITE.corpo.min} caracteres. Aceita markdown: seções
-                      (<span class="codigo">##</span>), <span class="codigo">**negrito**</span>,
-                      <span class="codigo">*itálico*</span>, links, listas, citação
-                      (<span class="codigo">&gt;</span>), código, tabela. HTML aparece
-                      como texto e imagem vira link. "Ver como fica" mostra o resultado.
+                      {t(lang, 'rfcs.editar.corpo.ajuda.antes', { min: LIMITE.corpo.min })}<span class="codigo">##</span>), <span class="codigo">**{t(lang, 'rfcs.editar.corpo.ajuda.negrito')}**</span>,
+                      <span class="codigo">*{t(lang, 'rfcs.editar.corpo.ajuda.italico')}*</span>{t(lang, 'rfcs.editar.corpo.ajuda.depois')}<span class="codigo">&gt;</span>{t(lang, 'rfcs.editar.corpo.ajuda.fim')}
                     </span>
                     {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
                   </div>
 
                   <div class="acoes-form">
-                    <button class="botao" type="submit">salvar</button>
+                    <button class="botao" type="submit">{t(lang, 'rfcs.editar.salvar')}</button>
                     <span class="separador"></span>
-                    <a class="botao leve" href={`/rfcs/${ideia.slug}`}>ver como ficou</a>
+                    <a class="botao leve" href={rota(lang, `/rfcs/${ideia.slug}`)}>{t(lang, 'rfcs.editar.vercomo')}</a>
                   </div>
 
                 </div>
@@ -387,72 +386,68 @@ const descreve = (campo: string) =>
             <div
               class="previa-cartao"
               data-quando="agora"
-              data-estado-agora={statusLabel[ideia.status]}
-              data-estado-depois={statusLabel.IN_DISCUSSION}
-              data-codigo-agora={codigoRfc(ideia.number)}
+              data-estado-agora={rotuloDoStatus(ideia.status, lang)}
+              data-estado-depois={rotuloDoStatus('IN_DISCUSSION', lang)}
+              data-codigo-agora={codigoRfc(ideia.number, lang)}
               data-codigo-depois={CODIGO_VAGO}
+              data-vazio-titulo={t(lang, 'rfcs.editar.previa.vazio.titulo')}
+              data-vazio-resumo={t(lang, 'rfcs.editar.previa.vazio.resumo')}
+              data-nota-capa={t(lang, 'rfcs.editar.previa.capa')}
             >
-              <p class="rotulo-previa">o cartão público desta ideia</p>
+              <p class="rotulo-previa">{t(lang, 'rfcs.editar.previa.rotulo')}</p>
 
               <CartaoIdeia rfc={ideia} />
 
               {rascunho && (
-                <div class="troca-quando" role="group" aria-label="o cartão, antes e depois de publicar">
-                  <button class="filtro" type="button" data-quando="agora" aria-pressed="true">agora</button>
-                  <button class="filtro" type="button" data-quando="depois" aria-pressed="false">depois de publicar</button>
+                <div class="troca-quando" role="group" aria-label={t(lang, 'rfcs.editar.previa.grupo')}>
+                  <button class="filtro" type="button" data-quando="agora" aria-pressed="true">{t(lang, 'rfcs.editar.previa.agora')}</button>
+                  <button class="filtro" type="button" data-quando="depois" aria-pressed="false">{t(lang, 'rfcs.editar.previa.depois')}</button>
                 </div>
               )}
 
               <p class="nota-previa">
-                Título e resumo acompanham o formulário enquanto você escreve.
-                {rascunho
-                  ? ' O chip e o número só mudam quando você publicar — e a capa é desenhada a partir do número, então ela nasce junto com ele.'
+                {t(lang, 'rfcs.editar.previa.nota')}
+                {t(lang, rascunho
+                  ? 'rfcs.editar.previa.nota.rascunho'
                   : publicada
-                    ? ' O número já é permanente e não acompanha nada.'
-                    : ' Ela nunca recebeu número, então o cartão mostra "rascunho" no lugar dele.'}
+                    ? 'rfcs.editar.previa.nota.publicada'
+                    : 'rfcs.editar.previa.nota.arquivada')}
               </p>
             </div>
 
             {rascunho ? (
               <div class="bloco">
-                <p class="titulo-bloco">publicar</p>
+                <p class="titulo-bloco">{t(lang, 'rfcs.editar.publicar.titulo')}</p>
                 <p class="texto-bloco">
-                  Publicar tira a ideia da gaveta: ela entra nas listagens, abre
-                  para discussão e para quem quiser construir. É este botão que
-                  troca o chip do cartão acima.
+                  {t(lang, 'rfcs.editar.publicar.texto')}
                 </p>
                 <p class="texto-bloco fraco">
-                  No mesmo instante o banco atribui o número, em sequência. Nem
-                  esta tela sabe qual será — por isso a vaga aparece em branco.
-                  Depois de atribuído ele nunca muda, e publicar não tem desfazer.
+                  {t(lang, 'rfcs.editar.publicar.fraco')}
                 </p>
                 <form method="post">
                   <input type="hidden" name="acao" value="publicar" />
-                  <button class="botao" type="submit" data-botao-publicar>publicar</button>
+                  <button class="botao" type="submit" data-botao-publicar>{t(lang, 'rfcs.editar.publicar.acao')}</button>
                 </form>
               </div>
             ) : publicada ? (
               <div class="bloco">
-                <p class="titulo-bloco">já publicada</p>
-                <div class="linha"><span>número</span><b>{codigoRfc(ideia.number)}</b></div>
-                <div class="linha"><span>publicada</span><b>{haQuantoTempo(ideia.publishedAt)}</b></div>
+                <p class="titulo-bloco">{t(lang, 'rfcs.editar.publicada.titulo')}</p>
+                <div class="linha"><span>{t(lang, 'rfcs.editar.publicada.numero')}</span><b>{codigoRfc(ideia.number, lang)}</b></div>
+                <div class="linha"><span>{t(lang, 'rfcs.editar.publicada.quando')}</span><b>{haQuantoTempo(ideia.publishedAt, lang)}</b></div>
                 <p class="texto-bloco fraco" style="margin-top:12px">
-                  O número é permanente. Ele identifica a ideia mesmo depois de
-                  o título mudar.
+                  {t(lang, 'rfcs.editar.publicada.nota')}
                 </p>
               </div>
             ) : (
               <div class="bloco">
-                <p class="titulo-bloco">nunca publicada</p>
+                <p class="titulo-bloco">{t(lang, 'rfcs.editar.nunca.titulo')}</p>
                 <p class="texto-bloco">
-                  Ela foi arquivada enquanto ainda era rascunho: não recebeu
-                  número e não passou por nenhuma listagem.
+                  {t(lang, 'rfcs.editar.nunca.texto')}
                 </p>
-                <div class="linha"><span>número</span><b>nenhum</b></div>
-                <div class="linha"><span>arquivada</span><b>{haQuantoTempo(ideia.archivedAt)}</b></div>
+                <div class="linha"><span>{t(lang, 'rfcs.editar.publicada.numero')}</span><b>{t(lang, 'rfcs.editar.nunca.nenhum')}</b></div>
+                <div class="linha"><span>{t(lang, 'rfcs.editar.nunca.quando')}</span><b>{haQuantoTempo(ideia.archivedAt, lang)}</b></div>
                 <p class="texto-bloco fraco" style="margin-top:12px">
-                  Publicar exige rascunho, e ela deixou de ser um ao ser
-                  arquivada. Hoje não existe caminho de volta.
+                  {t(lang, 'rfcs.editar.nunca.nota')}
                 </p>
               </div>
             )}
@@ -462,37 +457,32 @@ const descreve = (campo: string) =>
                 quebras de linha: atributo data-* teria que escapar tudo
                 e ainda assim chegaria colado. */}
             <div class="bloco" id="errata-viva" data-estado="igual">
-              <p class="titulo-bloco">a errata que nasce</p>
+              <p class="titulo-bloco">{t(lang, 'rfcs.editar.errata.titulo')}</p>
 
-              <div class="linha"><span>versões hoje</span><b>{ideia._count.versions}</b></div>
-              <div class="linha"><span>última mudança</span><b>{haQuantoTempo(ideia.updatedAt)}</b></div>
+              <div class="linha"><span>{t(lang, 'rfcs.editar.errata.versoes')}</span><b>{ideia._count.versions}</b></div>
+              <div class="linha"><span>{t(lang, 'rfcs.editar.errata.ultima')}</span><b>{haQuantoTempo(ideia.updatedAt, lang)}</b></div>
 
               <p class="texto-bloco so-igual" style="margin-top:12px">
-                O corpo está igual ao que já foi salvo. Salvar agora não cria
-                versão nova, e nada aparece no histórico.
+                {t(lang, 'rfcs.editar.errata.igual')}
               </p>
 
               <p class="texto-bloco so-acrescido" style="margin-top:12px">
-                O corpo mudou, mas nenhum trecho foi trocado: o que você fez foi
-                acrescentar ou cortar. A <b>v0.{proximaVersao}</b> nasce do mesmo
-                jeito, e o texto anterior continua no histórico.
+                {t(lang, 'rfcs.editar.errata.acrescido.antes')}<b>v0.{proximaVersao}</b>{t(lang, 'rfcs.editar.errata.acrescido.depois')}
               </p>
 
               <div class="errata" data-aberta="sim">
                 <button class="gatilho" type="button" aria-expanded="true">
-                  <span class="chevron"></span> errata · o trecho que você trocou
+                  <span class="chevron"></span> {t(lang, 'rfcs.editar.errata.gatilho')}
                 </button>
                 <div class="fole"><div><div class="corpo">
                   <span class="riscado"></span>
                   <span class="para"></span>
-                  <span class="data">vai nascer como v0.{proximaVersao} quando você salvar</span>
+                  <span class="data">{t(lang, 'rfcs.editar.errata.data', { n: proximaVersao })}</span>
                 </div></div></div>
               </div>
 
               <p class="texto-bloco fraco" style="margin-top:14px">
-                Errata é isto: o trecho antigo continua legível, riscado, com a
-                correção ao lado e datada. Editar não sobrescreve — nada se perde.
-                Só o corpo cria versão; título e resumo mudam em silêncio.
+                {t(lang, 'rfcs.editar.errata.fraco')}
               </p>
 
               <script type="application/json" id="corpo-salvo" is:inline set:html={
@@ -501,20 +491,17 @@ const descreve = (campo: string) =>
             </div>
 
             <div class="bloco">
-              <p class="titulo-bloco">tags</p>
+              <p class="titulo-bloco">{t(lang, 'rfcs.editar.tags.titulo')}</p>
               {tagsIlegiveis ? (
                 <p class="aviso-erro" role="alert" style="margin:0">
-                  <b>Não consegui ler as tags desta ideia.</b> O formulário fica
-                  fora do ar de propósito: campo vazio aqui significa apagar
-                  todas, e eu não sei o que há para apagar. Recarregue em
-                  instantes.
+                  <b>{t(lang, 'rfcs.editar.tags.ilegiveis.negrito')}</b>{t(lang, 'rfcs.editar.tags.ilegiveis.texto')}
                 </p>
               ) : (
                 <>
                   <form method="post">
                     <input type="hidden" name="acao" value="tags" />
                     <div class:list={['campo', erros.tags && 'com-erro']} style="margin-bottom:12px">
-                      <label class="rotulo" for="tags">o conjunto inteiro</label>
+                      <label class="rotulo" for="tags">{t(lang, 'rfcs.editar.tags.rotulo')}</label>
                       <input
                         class="entrada mono"
                         id="tags"
@@ -523,22 +510,19 @@ const descreve = (campo: string) =>
                         value={campoTags}
                         aria-describedby={descreve('tags')}
                         aria-invalid={erros.tags ? 'true' : undefined}
-                        placeholder="mobilidade, praça"
+                        placeholder={t(lang, 'rfcs.editar.tags.placeholder')}
                       />
                       <span class="ajuda" id="ajuda-tags">
-                        Separe por vírgula, até {LIMITE.tags.max} tags. O que você enviar
-                        <b> substitui todas as tags de uma vez</b>: o que sair do campo
-                        sai da ideia. Campo vazio remove todas. Só letras e números
-                        contam, então "praça" e "praca" são a mesma tag.
+                        {t(lang, 'rfcs.editar.tags.ajuda.antes', { max: LIMITE.tags.max })}<b>{t(lang, 'rfcs.editar.tags.ajuda.negrito')}</b>{t(lang, 'rfcs.editar.tags.ajuda.depois')}
                       </span>
                       {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
                     </div>
-                    <button class="botao leve" type="submit">trocar tags</button>
+                    <button class="botao leve" type="submit">{t(lang, 'rfcs.editar.tags.acao')}</button>
                   </form>
 
                   {tags.length > 0 && (
                     <div class="nuvem-tags" style="margin-top:14px">
-                      {tags.map((t) => <span class="tag">{t.name}</span>)}
+                      {tags.map((tg) => <span class="tag">{tg.name}</span>)}
                     </div>
                   )}
                 </>
@@ -550,27 +534,19 @@ const descreve = (campo: string) =>
                 disputar peso com publicar. */}
             {arquivada ? (
               <div class="bloco discreto">
-                <p class="titulo-bloco">arquivada</p>
+                <p class="titulo-bloco">{t(lang, 'rfcs.editar.arquivada.titulo')}</p>
                 <p class="texto-bloco">
-                  Foi arquivada {haQuantoTempo(ideia.archivedAt)}. Nada foi deletado: o
-                  texto continua legível no endereço dela, com a discussão, as
-                  inscrições e todas as versões. Tirar do arquivo ainda não
-                  existe — nenhuma tela e nenhuma rota devolvem a ideia ao
-                  estado anterior.
+                  {t(lang, 'rfcs.editar.arquivada.texto', { quando: haQuantoTempo(ideia.archivedAt, lang) })}
                 </p>
               </div>
             ) : rascunho ? null : (
               <div class="bloco discreto">
-                <p class="titulo-bloco">arquivar</p>
+                <p class="titulo-bloco">{t(lang, 'rfcs.editar.arquivar.titulo')}</p>
                 <p class="texto-bloco">
-                  Arquivar diz que a ideia esfriou, e só isso. <b>Não deleta.</b> Ela
-                  sai das listagens, mas continua legível no endereço dela, com o
-                  texto, a discussão, as inscrições e todas as versões de pé.
+                  {t(lang, 'rfcs.editar.arquivar.antes')}<b>{t(lang, 'rfcs.editar.arquivar.negrito')}</b>{t(lang, 'rfcs.editar.arquivar.depois')}
                 </p>
                 <p class="texto-bloco fraco">
-                  Voltar do arquivo é previsto no desenho do produto, mas ainda não
-                  existe tela nem rota que desarquive. Hoje, quando arquivar, fica
-                  arquivada.
+                  {t(lang, 'rfcs.editar.arquivar.fraco')}
                 </p>
                 <form method="post">
                   <input type="hidden" name="acao" value="arquivar" />
@@ -579,9 +555,9 @@ const descreve = (campo: string) =>
                     <span class="caixa" aria-hidden="true">
                       <svg viewBox="0 0 12 12"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
                     </span>
-                    <span style="font-size:13px">entendo que a ideia sai das listagens e que hoje não há como desarquivar</span>
+                    <span style="font-size:13px">{t(lang, 'rfcs.editar.arquivar.confirmo')}</span>
                   </label>
-                  <button class="botao perigo" type="submit">arquivar</button>
+                  <button class="botao perigo" type="submit">{t(lang, 'rfcs.editar.arquivar.acao')}</button>
                 </form>
               </div>
             )}
@@ -713,7 +689,9 @@ const descreve = (campo: string) =>
       const atualizar = () => {
         const n = campo.value.trim().length;
         const curto = n > 0 && n < min;
-        marcador.textContent = curto ? `${n} / mínimo ${min}` : `${n} / ${max}`;
+        marcador.textContent = curto
+          ? marcador.dataset.textoMin!.replace('{n}', String(n)).replace('{min}', String(min))
+          : `${n} / ${max}`;
         marcador.classList.toggle('fora', curto || n > max);
       };
 
@@ -767,9 +745,9 @@ const descreve = (campo: string) =>
     const espelhar = () => {
       const t = campoTitulo.value.trim();
       const r = campoResumo.value.trim();
-      titulo.textContent = t || 'sua ideia aparece aqui';
+      titulo.textContent = t || previa.dataset.vazioTitulo!;
       titulo.classList.toggle('vago', !t);
-      resumo.textContent = r || 'e o resumo, aqui — é por ele que alguém escolhe entrar';
+      resumo.textContent = r || previa.dataset.vazioResumo!;
       resumo.classList.toggle('vago', !r);
     };
     campoTitulo.addEventListener('input', espelhar);
@@ -802,7 +780,7 @@ const descreve = (campo: string) =>
     if (capa) {
       const notaCapa = document.createElement('span');
       notaCapa.className = 'nota-capa';
-      notaCapa.textContent = 'a capa nasce com o número';
+      notaCapa.textContent = previa.dataset.notaCapa!;
       capa.append(notaCapa);
     }
 

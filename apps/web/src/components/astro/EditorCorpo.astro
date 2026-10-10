@@ -16,18 +16,31 @@
    Sem JS a troca não aparece e o campo funciona como sempre: a
    prévia é melhoria, não caminho obrigatório.
    ================================================================ */
+import { idiomaDe, t } from '../../lib/i18n';
+
 interface Props {
   /** id do <textarea> que está no slot */
   campo: string;
 }
 const { campo } = Astro.props;
+const lang = idiomaDe(Astro);
 const idPrevia = `previa-${campo}`;
 ---
 
-<div class="editor-corpo" data-editor-corpo data-campo={campo}>
-  <div class="troca-corpo" role="group" aria-label="modo do corpo" hidden>
-    <button class="filtro" type="button" data-modo="escrever" aria-pressed="true" aria-controls={campo}>escrever</button>
-    <button class="filtro" type="button" data-modo="ver" aria-pressed="false" aria-controls={idPrevia}>ver como fica</button>
+{/* as mensagens do script vêm prontas no idioma da página */}
+<div
+  class="editor-corpo"
+  data-editor-corpo
+  data-campo={campo}
+  data-idioma={lang}
+  data-msg-carregando={t(lang, 'rfcs.editor.carregando')}
+  data-msg-vazio={t(lang, 'rfcs.editor.vazio')}
+  data-msg-rede={t(lang, 'rfcs.editor.rede')}
+  data-msg-padrao={t(lang, 'rfcs.editor.padrao')}
+>
+  <div class="troca-corpo" role="group" aria-label={t(lang, 'rfcs.editor.modo')} hidden>
+    <button class="filtro" type="button" data-modo="escrever" aria-pressed="true" aria-controls={campo}>{t(lang, 'rfcs.editor.escrever')}</button>
+    <button class="filtro" type="button" data-modo="ver" aria-pressed="false" aria-controls={idPrevia}>{t(lang, 'rfcs.editor.ver')}</button>
   </div>
 
   <slot />
@@ -76,13 +89,6 @@ const idPrevia = `previa-${campo}`;
 </style>
 
 <script>
-  const MENSAGEM = {
-    carregando: 'montando a prévia…',
-    vazio: 'Nada escrito ainda. Volte para escrever e o texto aparece aqui como vai ficar na página da ideia.',
-    rede: 'Não consegui falar com o servidor. Seu texto continua no campo; volte para escrever e tente de novo.',
-    padrao: 'Não consegui montar a prévia agora. Seu texto continua no campo.',
-  };
-
   function ligarEditorCorpo(raiz: HTMLElement) {
     const campo = document.getElementById(raiz.dataset.campo!) as HTMLTextAreaElement | null;
     const troca = raiz.querySelector<HTMLElement>('.troca-corpo');
@@ -92,6 +98,13 @@ const idPrevia = `previa-${campo}`;
     if (!campo || !troca || !previa || !estado || !alvo) return;
 
     const botoes = Array.from(troca.querySelectorAll<HTMLButtonElement>('button[data-modo]'));
+    const d = raiz.dataset;
+    const MENSAGEM = {
+      carregando: d.msgCarregando ?? '',
+      vazio: d.msgVazio ?? '',
+      rede: d.msgRede ?? '',
+      padrao: d.msgPadrao ?? '',
+    };
     troca.hidden = false;
 
     /* Só busca de novo se o texto mudou desde a última prévia. O
@@ -122,7 +135,9 @@ const idPrevia = `previa-${campo}`;
       try {
         const r = await fetch('/api/previa', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          /* o idioma vai num header: o endpoint responde as mensagens de
+             erro na língua da tela, sem depender do prefixo do endereço */
+          headers: { 'Content-Type': 'application/json', 'X-Idioma': d.idioma ?? '' },
           body: JSON.stringify({ corpo: texto }),
         });
         const dado = await r.json().catch(() => null);
