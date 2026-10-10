@@ -26,7 +26,7 @@ This text is a draft. The vision document does not define conduct rules, so this
 
 ## How to report
 
-Moderation works through reports, with a report button on content. There is no approval queue before publishing: moderation happens afterwards, based on reports. Describe what happened and where. You do not need to prove anything beyond that.
+Moderation works through reports. The report button on content is still being built. Until it arrives, the contact channel for the maintainers will be published on this page. There is no approval queue before publishing: moderation happens afterwards, based on reports. Describe what happened and where. You do not need to prove anything beyond that.
 
 ## What happens next
 

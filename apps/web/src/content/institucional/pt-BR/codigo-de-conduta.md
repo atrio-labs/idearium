@@ -26,7 +26,7 @@ Este texto é um rascunho. O documento de visão não define regras de conduta, 
 
 ## Como reportar
 
-A moderação funciona por reporte, com um botão de reportar no conteúdo. Não há fila de aprovação antes de publicar: a moderação acontece depois, a partir dos reportes. Descreva o que aconteceu e onde. Você não precisa provar nada além disso.
+A moderação funciona por reporte. O botão de reportar no conteúdo ainda está em construção. Até ele chegar, o canal de contato com os mantenedores será publicado nesta página. Não há fila de aprovação antes de publicar: a moderação acontece depois, a partir dos reportes. Descreva o que aconteceu e onde. Você não precisa provar nada além disso.
 
 ## O que acontece depois
 
