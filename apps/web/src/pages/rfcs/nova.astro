@@ -26,6 +26,7 @@ import Vazio from '../../components/astro/Vazio.astro';
 /* O mesmo componente do átrio, da listagem e da tela de edição, sem
    adaptação: a prévia precisa ser o objeto que vai existir. */
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import EditorCorpo from '../../components/astro/EditorCorpo.astro';
 import { listarLabs, apiIndisponivel, nomeCurtoDoLab, type Rfc } from '../../lib/api';
 import { comSessao, exigirSessao } from '../../lib/sessao';
 
@@ -334,17 +335,20 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
                     <label class="rotulo" for="body">corpo</label>
                     <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
                   </div>
-                  <textarea
-                    class="entrada corpo-longo"
-                    id="body"
-                    name="body"
-                    aria-describedby={descreve('body')}
-                    aria-invalid={erros.body ? 'true' : undefined}
-                    placeholder={'## O problema\n\nQuem sente, onde, com que frequência.\n\n## O que eu proponho\n\n- primeiro passo\n- segundo passo\n\n## O que ainda não sei\n\nSeja honesto aqui. É o que atrai quem sabe fazer.'}
-                  >{valores.body}</textarea>
+                  <EditorCorpo campo="body">
+                    <textarea
+                      class="entrada corpo-longo"
+                      id="body"
+                      name="body"
+                      aria-describedby={descreve('body')}
+                      aria-invalid={erros.body ? 'true' : undefined}
+                      placeholder={'## O problema\n\nQuem sente, onde, com que frequência.\n\n## O que eu proponho\n\n- primeiro passo\n- segundo passo\n\n## O que ainda não sei\n\nSeja honesto aqui. É o que atrai quem sabe fazer.'}
+                    >{valores.body}</textarea>
+                  </EditorCorpo>
                   <span class="ajuda" id="ajuda-body">
                     Mínimo de {LIMITE.corpo.min} caracteres, máximo de {LIMITE.corpo.max.toLocaleString('pt-BR')}.
-                    Aceita markdown simples — o quadro ao lado lista tudo que é reconhecido hoje.
+                    Aceita markdown — o quadro ao lado lista o que é reconhecido, e
+                    "ver como fica" mostra o texto como a página da ideia vai mostrar.
                   </span>
                   {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
                 </div>
@@ -433,12 +437,20 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
             <div class="bloco">
               <p class="titulo-bloco">markdown reconhecido</p>
               <div class="linha"><span class="codigo">## título</span><b>seção</b></div>
-              <div class="linha"><span class="codigo">- item</span><b>lista</b></div>
+              <div class="linha"><span class="codigo">### título</span><b>subseção</b></div>
               <div class="linha"><span class="codigo">**texto**</span><b>negrito</b></div>
+              <div class="linha"><span class="codigo">*texto*</span><b>itálico</b></div>
+              <div class="linha"><span class="codigo">[texto](https://…)</span><b>link</b></div>
+              <div class="linha"><span class="codigo">- item</span><b>lista</b></div>
+              <div class="linha"><span class="codigo">1. item</span><b>lista numerada</b></div>
+              <div class="linha"><span class="codigo">&gt; texto</span><b>citação</b></div>
               <div class="linha"><span class="codigo">`código`</span><b>código</b></div>
+              <div class="linha"><span class="codigo">```</span><b>bloco de código</b></div>
+              <div class="linha"><span class="codigo">---</span><b>divisória</b></div>
+              <div class="linha"><span class="codigo">| a | b |</span><b>tabela</b></div>
               <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                É só isso, e é exatamente o que a página da ideia sabe mostrar
-                hoje. Qualquer outra marcação aparece como texto puro.
+                HTML aparece como texto. Imagem não entra: vira link, porque
+                imagem de fora entrega o endereço de quem lê ao dono dela.
               </p>
             </div>
 

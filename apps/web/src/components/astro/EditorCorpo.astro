@@ -1,0 +1,164 @@
+---
+/* ================================================================
+   EditorCorpo.astro — escrever o corpo e ver como ele fica
+   ================================================================
+   Embrulha o <textarea> do corpo (vem pelo slot, com id e atributos
+   de cada tela) e acrescenta a troca entre "escrever" e "ver como
+   fica". A prévia NÃO é renderizada aqui: o texto vai pro
+   /api/previa, que usa o mesmo lib/markdown.ts da página da RFC. Uma
+   prévia renderizada no cliente seria um segundo renderer, com a
+   segunda chance de divergir — e de deixar passar o que o primeiro
+   barra.
+
+   O HTML devolvido entra no mesmo bloco de leitura da RFC
+   (.corpo-rfc), então a tipografia da prévia é a da página.
+
+   Sem JS a troca não aparece e o campo funciona como sempre: a
+   prévia é melhoria, não caminho obrigatório.
+   ================================================================ */
+interface Props {
+  /** id do <textarea> que está no slot */
+  campo: string;
+}
+const { campo } = Astro.props;
+const idPrevia = `previa-${campo}`;
+---
+
+<div class="editor-corpo" data-editor-corpo data-campo={campo}>
+  <div class="troca-corpo" role="group" aria-label="modo do corpo" hidden>
+    <button class="filtro" type="button" data-modo="escrever" aria-pressed="true" aria-controls={campo}>escrever</button>
+    <button class="filtro" type="button" data-modo="ver" aria-pressed="false" aria-controls={idPrevia}>ver como fica</button>
+  </div>
+
+  <slot />
+
+  <div class="previa-corpo" id={idPrevia} data-estado="vazio" hidden>
+    {/* o estado é anunciado; o texto renderizado não, pra o leitor de
+        tela não despejar a RFC inteira a cada troca */}
+    <p class="estado-previa" role="status" aria-live="polite"></p>
+    <div class="corpo-rfc"></div>
+  </div>
+</div>
+
+<style>
+  .troca-corpo { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+  /* mesma altura mínima do campo: trocar de modo não pode fazer a
+     página pular */
+  .previa-corpo {
+    min-height: 340px;
+    border: 1px solid var(--t-07);
+    border-radius: var(--r-dentro);
+    background: var(--cartao);
+  }
+  .previa-corpo .corpo-rfc {
+    padding: 22px 24px 24px;
+    transition: opacity 200ms var(--ease);
+  }
+
+  .estado-previa {
+    margin: 0;
+    padding: 22px 24px 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--t-50);
+  }
+  .previa-corpo[data-estado="pronto"] .estado-previa { display: none; }
+  .previa-corpo[data-estado="erro"] .estado-previa { color: var(--t-90); }
+
+  /* enquanto monta, a versão anterior fica esmaecida em vez de sumir:
+     o texto não pisca a cada troca */
+  .previa-corpo[data-estado="carregando"] .corpo-rfc { opacity: 0.4; }
+  @media (prefers-reduced-motion: reduce) {
+    .previa-corpo .corpo-rfc { transition: none; }
+  }
+</style>
+
+<script>
+  const MENSAGEM = {
+    carregando: 'montando a prévia…',
+    vazio: 'Nada escrito ainda. Volte para escrever e o texto aparece aqui como vai ficar na página da ideia.',
+    rede: 'Não consegui falar com o servidor. Seu texto continua no campo; volte para escrever e tente de novo.',
+    padrao: 'Não consegui montar a prévia agora. Seu texto continua no campo.',
+  };
+
+  function ligarEditorCorpo(raiz: HTMLElement) {
+    const campo = document.getElementById(raiz.dataset.campo!) as HTMLTextAreaElement | null;
+    const troca = raiz.querySelector<HTMLElement>('.troca-corpo');
+    const previa = raiz.querySelector<HTMLElement>('.previa-corpo');
+    const estado = previa?.querySelector<HTMLElement>('.estado-previa');
+    const alvo = previa?.querySelector<HTMLElement>('.corpo-rfc');
+    if (!campo || !troca || !previa || !estado || !alvo) return;
+
+    const botoes = Array.from(troca.querySelectorAll<HTMLButtonElement>('button[data-modo]'));
+    troca.hidden = false;
+
+    /* Só busca de novo se o texto mudou desde a última prévia. O
+       contador descarta resposta atrasada: trocar de modo duas vezes
+       rápido não pode deixar a prévia velha chegar por último. */
+    let renderizado: string | null = null;
+    let pedido = 0;
+
+    const mostrarEstado = (qual: string, texto = '') => {
+      previa.dataset.estado = qual;
+      estado.textContent = texto;
+    };
+
+    async function renderizar() {
+      const texto = campo!.value;
+      if (!texto.trim()) {
+        alvo!.innerHTML = '';
+        renderizado = null;
+        mostrarEstado('vazio', MENSAGEM.vazio);
+        return;
+      }
+      if (texto === renderizado) { mostrarEstado('pronto'); return; }
+
+      const meu = ++pedido;
+      mostrarEstado('carregando', MENSAGEM.carregando);
+      previa!.setAttribute('aria-busy', 'true');
+
+      try {
+        const r = await fetch('/api/previa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ corpo: texto }),
+        });
+        const dado = await r.json().catch(() => null);
+        if (meu !== pedido) return;
+
+        if (!r.ok || typeof dado?.html !== 'string') {
+          mostrarEstado('erro', typeof dado?.erro === 'string' ? dado.erro : MENSAGEM.padrao);
+          return;
+        }
+        /* HTML vindo de lib/markdown.ts no servidor: html:false, links
+           filtrados, imagem desligada. É o mesmo que a página da RFC
+           injeta com set:html. */
+        alvo!.innerHTML = dado.html;
+        renderizado = texto;
+        mostrarEstado('pronto');
+      } catch {
+        if (meu === pedido) mostrarEstado('erro', MENSAGEM.rede);
+      } finally {
+        if (meu === pedido) previa!.removeAttribute('aria-busy');
+      }
+    }
+
+    const mudarPara = (modo: string) => {
+      const ver = modo === 'ver';
+      for (const b of botoes) b.setAttribute('aria-pressed', String(b.dataset.modo === modo));
+      /* hidden não tira o campo do formulário: o texto continua indo
+         no POST mesmo com a prévia aberta */
+      campo.hidden = ver;
+      previa.hidden = !ver;
+      if (ver) renderizar();
+    };
+
+    for (const b of botoes) b.addEventListener('click', () => mudarPara(b.dataset.modo!));
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<HTMLElement>('[data-editor-corpo]').forEach(ligarEditorCorpo);
+  });
+</script>

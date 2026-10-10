@@ -25,6 +25,7 @@ import Vazio from '../../../components/astro/Vazio.astro';
 /* O mesmo componente da listagem e do átrio, sem adaptação: a prévia
    precisa ser o objeto que vai existir, não uma imitação dele. */
 import CartaoIdeia from '../../../components/astro/CartaoIdeia.astro';
+import EditorCorpo from '../../../components/astro/EditorCorpo.astro';
 import {
   statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
   type Rfc, type Tag,
@@ -351,18 +352,21 @@ const descreve = (campo: string) =>
                       <label class="rotulo" for="body">corpo</label>
                       <span class="mono contador" aria-hidden="true" data-contador="body" data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
                     </div>
-                    <textarea
-                      class="entrada corpo-longo"
-                      id="body"
-                      name="body"
-                      aria-describedby={descreve('body')}
-                      aria-invalid={erros.body ? 'true' : undefined}
-                    >{valores.body}</textarea>
+                    <EditorCorpo campo="body">
+                      <textarea
+                        class="entrada corpo-longo"
+                        id="body"
+                        name="body"
+                        aria-describedby={descreve('body')}
+                        aria-invalid={erros.body ? 'true' : undefined}
+                      >{valores.body}</textarea>
+                    </EditorCorpo>
                     <span class="ajuda" id="ajuda-body">
-                      Mínimo de {LIMITE.corpo.min} caracteres. Aceita markdown simples:
-                      <span class="codigo">## título</span>, <span class="codigo">- lista</span>,
-                      <span class="codigo">**negrito**</span> e <span class="codigo">`código`</span>.
-                      Qualquer outra marcação aparece como texto puro.
+                      Mínimo de {LIMITE.corpo.min} caracteres. Aceita markdown: seções
+                      (<span class="codigo">##</span>), <span class="codigo">**negrito**</span>,
+                      <span class="codigo">*itálico*</span>, links, listas, citação
+                      (<span class="codigo">&gt;</span>), código, tabela. HTML aparece
+                      como texto e imagem vira link. "Ver como fica" mostra o resultado.
                     </span>
                     {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
                   </div>
