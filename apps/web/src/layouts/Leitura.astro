@@ -1,0 +1,153 @@
+---
+/* ================================================================
+   Leitura.astro — envelope das páginas institucionais
+   ================================================================
+   Nav + texto longo + índice das quatro páginas + rodapé. O corpo vem
+   do markdown (slot). A tipografia segue o VISAO §12: Inter no corpo,
+   Newsreader só como acento (itálico) e Departure Mono nos metadados.
+   Por isso o texto longo NÃO usa a serifa: ela não é fonte de leitura
+   neste projeto.
+   ================================================================ */
+import Layout from './Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+
+type Pagina = 'sobre' | 'governanca' | 'codigo-de-conduta' | 'transparencia';
+
+interface Props {
+  titulo: string;
+  descricao: string;
+  rascunho: boolean;
+  atualizado: Date;
+  pagina: Pagina;
+  lang: 'pt-BR' | 'en';
+}
+const { titulo, descricao, rascunho, atualizado, pagina, lang } = Astro.props;
+
+const en = lang === 'en';
+const prefixo = en ? '/en' : '';
+
+const indice: { chave: Pagina; texto: string }[] = en
+  ? [
+      { chave: 'sobre', texto: 'about' },
+      { chave: 'governanca', texto: 'governance' },
+      { chave: 'codigo-de-conduta', texto: 'code of conduct' },
+      { chave: 'transparencia', texto: 'transparency' },
+    ]
+  : [
+      { chave: 'sobre', texto: 'sobre' },
+      { chave: 'governanca', texto: 'governança' },
+      { chave: 'codigo-de-conduta', texto: 'código de conduta' },
+      { chave: 'transparencia', texto: 'transparência' },
+    ];
+
+const rotulo = en
+  ? { indice: 'institutional pages', atualizado: 'updated', aviso: 'draft under maintainer review' }
+  : { indice: 'páginas institucionais', atualizado: 'atualizado em', aviso: 'rascunho em revisão pelos mantenedores' };
+
+const data = atualizado.toLocaleDateString(en ? 'en-GB' : 'pt-BR', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+});
+---
+
+<Layout title={`Idearium · ${titulo}`} description={descricao} lang={lang}>
+  <div class="palco">
+    <Nav atual={pagina === 'sobre' ? 'sobre' : undefined} />
+
+    <div class="leitura">
+      <aside class="leitura-indice" aria-label={rotulo.indice}>
+        <span class="leitura-rotulo">{rotulo.indice}</span>
+        <ul>
+          {indice.map((i) => (
+            <li>
+              <a href={`${prefixo}/${i.chave}`} aria-current={i.chave === pagina ? 'page' : undefined}>{i.texto}</a>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <article class="leitura-texto">
+        <header>
+          <h1>{titulo}</h1>
+          <p class="leitura-sub">{descricao}</p>
+          <p class="leitura-meta">{rotulo.atualizado} {data}</p>
+          {rascunho && (
+            <p class="leitura-rascunho" role="note"><b>{rotulo.aviso}</b></p>
+          )}
+        </header>
+        <div class="leitura-corpo"><slot /></div>
+      </article>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .leitura {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 36px;
+    padding: 30px 4px 56px;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .leitura { grid-template-columns: 1fr; gap: 22px; } }
+
+  .leitura-indice { position: sticky; top: 86px; }
+  @media (max-width: 800px) { .leitura-indice { position: static; } }
+  .leitura-rotulo {
+    display: block; margin-bottom: 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--t-35);
+  }
+  .leitura-indice ul { display: grid; gap: 2px; }
+  @media (max-width: 800px) { .leitura-indice ul { display: flex; flex-wrap: wrap; gap: 6px; } }
+  .leitura-indice a {
+    display: block; padding: 6px 12px; border-radius: var(--r-pilula);
+    font-size: 13.5px; color: var(--t-65); text-decoration: none;
+  }
+  .leitura-indice a:hover { background: var(--t-07); color: var(--t-90); }
+  .leitura-indice a[aria-current='page'] { background: var(--t-07); color: var(--t-100); font-weight: 450; }
+
+  .leitura-texto { max-width: 68ch; }
+  .leitura-texto h1 {
+    font-size: clamp(28px, 3.6vw, 42px); line-height: 1.07; font-weight: 420;
+    letter-spacing: -0.03em; margin: 0 0 14px; color: var(--t-100);
+  }
+  .leitura-sub { color: var(--t-65); font-size: 16px; margin: 0 0 12px; }
+  .leitura-meta { font-family: var(--font-mono); font-size: 11px; color: var(--t-50); margin: 0 0 18px; }
+  .leitura-rascunho {
+    background: var(--rebaixo); border: 1px solid var(--t-07);
+    border-radius: var(--r-dentro); padding: 12px 16px; margin: 0 0 8px;
+    font-size: 13px; color: var(--t-65);
+  }
+  .leitura-rascunho b { font-weight: 460; color: var(--t-90); }
+
+  .leitura-corpo { margin-top: 28px; font-size: 16px; line-height: 1.7; color: var(--t-75); }
+  .leitura-corpo :global(h2) {
+    font-size: 20px; font-weight: 460; letter-spacing: -0.02em; line-height: 1.25;
+    margin: 40px 0 12px; color: var(--t-100);
+  }
+  .leitura-corpo :global(h3) { font-size: 16px; font-weight: 460; margin: 26px 0 8px; color: var(--t-90); }
+  .leitura-corpo :global(p) { margin: 0 0 16px; }
+  .leitura-corpo :global(ul),
+  .leitura-corpo :global(ol) { margin: 0 0 16px; padding-left: 22px; }
+  .leitura-corpo :global(ul) { list-style: disc; }
+  .leitura-corpo :global(ol) { list-style: decimal; }
+  .leitura-corpo :global(li) { margin-bottom: 6px; }
+  .leitura-corpo :global(strong) { font-weight: 470; color: var(--t-100); }
+  .leitura-corpo :global(em) { font-family: var(--font-serif); font-size: 1.05em; }
+  .leitura-corpo :global(a) { color: var(--t-90); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
+  .leitura-corpo :global(a:hover) { text-decoration-color: var(--t-90); }
+  .leitura-corpo :global(code) {
+    font-family: var(--font-mono); font-size: 12.5px;
+    background: var(--rebaixo); padding: 1px 5px; border-radius: 5px;
+  }
+  .leitura-corpo :global(blockquote) {
+    margin: 0 0 16px; padding: 4px 0 4px 18px; border-left: 2px solid var(--t-12);
+  }
+  .leitura-corpo :global(blockquote p) {
+    margin: 0; font-family: var(--font-serif); font-style: italic;
+    font-size: 1.2em; line-height: 1.45; color: var(--t-90);
+  }
+</style>
