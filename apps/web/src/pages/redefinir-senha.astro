@@ -60,15 +60,15 @@ if (Astro.request.method === 'POST') {
 ---
 
 <Layout title={t(lang, 'auth.redefinir.titulo')} description={t(lang, 'auth.redefinir.descricao')}>
-  <div class="palco">
+  <div class="palco pagina-conta">
     <Nav />
 
     <div class="form-estreito">
       {linkInvalido ? (
         <Fragment>
-          <header class="cabecalho-pagina">
+          <header class="cabeca-estreita">
             <h1 class="titulo-duplo">{t(lang, 'auth.redefinir.invalido.h1.antes')}<span class="apagado">{t(lang, 'auth.redefinir.invalido.h1.apagado')}</span></h1>
-            <p class="apoio" style="margin-top:16px">{t(lang, 'auth.redefinir.invalido.texto')}</p>
+            <p class="apoio">{t(lang, 'auth.redefinir.invalido.texto')}</p>
           </header>
           <div class="acoes-form">
             <a class="botao" href={rota(lang, '/recuperar-senha')}>{t(lang, 'auth.redefinir.invalido.acao')}</a>
@@ -76,9 +76,9 @@ if (Astro.request.method === 'POST') {
         </Fragment>
       ) : (
         <Fragment>
-          <header class="cabecalho-pagina">
+          <header class="cabeca-estreita">
             <h1 class="titulo-duplo">{t(lang, 'auth.redefinir.h1.antes')}<span class="apagado">{t(lang, 'auth.redefinir.h1.apagado')}</span></h1>
-            <p class="apoio" style="margin-top:16px">{t(lang, 'auth.redefinir.sub')}</p>
+            <p class="apoio">{t(lang, 'auth.redefinir.sub')}</p>
           </header>
 
           <form method="POST">

@@ -67,11 +67,11 @@ const voltarTexto = vinculo ? t(lang, 'auth.callback.voltar.perfil') : t(lang, '
 ---
 
 <Layout title={t(lang, 'auth.callback.titulo')} description={t(lang, 'auth.callback.descricao')}>
-  <div class="palco">
+  <div class="palco pagina-conta">
     <Nav />
 
     <div class="form-estreito">
-      <header class="cabecalho-pagina">
+      <header class="cabeca-estreita">
         <h1 class="titulo-duplo">
           {vinculo ? t(lang, 'auth.callback.h1.vinculo.antes') : t(lang, 'auth.callback.h1.antes')}<span class="apagado">{vinculo ? t(lang, 'auth.callback.h1.vinculo.apagado') : t(lang, 'auth.callback.h1.apagado')}</span>
         </h1>

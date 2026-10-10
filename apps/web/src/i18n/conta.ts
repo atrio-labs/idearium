@@ -9,7 +9,6 @@ const ptBR = {
   /* ---------------- /entrar ---------------- */
   'conta.entrar.titulo': 'Idearium · Entrar',
   'conta.entrar.descricao': 'Entre com email e senha pra escrever, discutir e construir ideias.',
-  'conta.entrar.rotulo': 'entrar',
   'conta.entrar.h1.antes': 'Continue de onde ',
   'conta.entrar.h1.serif': 'parou',
   'conta.entrar.h1.depois': '.',
@@ -25,13 +24,8 @@ const ptBR = {
   'conta.entrar.botao.entrar': 'entrar',
   'conta.entrar.botao.criar': 'criar conta',
 
-  'conta.entrar.aside': 'o que a sessão muda',
-  'conta.entrar.veio.rotulo': 'o que te trouxe',
   'conta.entrar.veio.antes': 'Você ia para ',
   'conta.entrar.veio.depois': '.',
-  'conta.entrar.mais.volta': 'e o que mais a sessão destrava',
-  'conta.entrar.mais.normal': 'a conta não é portão',
-  'conta.entrar.intro': 'O Idearium inteiro se lê sem conta. O que a sessão abre são três atos:',
 
   'conta.entrar.destino.nova': 'Você ia escrever uma ideia.',
   'conta.entrar.destino.perfil': 'Você ia mexer no seu perfil.',
@@ -41,24 +35,12 @@ const ptBR = {
   'conta.entrar.destino.ideia': 'Comentar ou se inscrever nesta ideia pede sessão. Ler, não.',
   'conta.entrar.destino.ideia.falha': 'Você ia para uma ideia que não consegui carregar agora.',
 
-  'conta.entrar.ato.escrever': 'escrever uma ideia',
-  'conta.entrar.ato.escrever.antes': 'vira',
-  'conta.entrar.ato.escrever.gloss': 'não precisa saber fazer. precisa só querer que aconteça.',
-  'conta.entrar.ato.comentar': 'comentar numa ideia',
-  'conta.entrar.ato.comentar.antes': 'acontece de',
-  'conta.entrar.ato.comentar.depois': 'em diante',
-  'conta.entrar.ato.inscrever': 'se inscrever pra construir',
-  'conta.entrar.ato.inscrever.antes': 'vira',
 
-  'conta.entrar.sessao.entra': 'entra como ',
-  'conta.entrar.sessao.vazio': 'seu email',
-  'conta.entrar.sessao.nota': 'No site você aparece pelo seu @, nunca pelo email.',
 
   /* ---------------- /criar-conta ---------------- */
   'conta.criar.titulo': 'Idearium · Criar conta',
   'conta.criar.descricao':
     'Crie uma conta com pseudônimo pra escrever, discutir e construir ideias.',
-  'conta.criar.rotulo': 'criar conta',
   'conta.criar.h1.antes': 'Comece pelo ',
   'conta.criar.h1.serif': 'pseudônimo',
   'conta.criar.h1.depois': '.',
@@ -88,15 +70,8 @@ const ptBR = {
   'conta.criar.nota': 'Ninguém precisa saber quem você é pra levar sua ideia a sério.',
 
   'conta.criar.vitrine.rotulo': 'o que esse nome vira',
-  'conta.criar.vitrine.comentario':
-    'Isso acontece na minha rua toda chuva forte. Sei descrever o problema, não sei construir.',
-  'conta.criar.vitrine.legenda.comentario': 'assinando um comentário na discussão',
-  'conta.criar.vitrine.bloco': 'construindo',
-  'conta.criar.vitrine.legenda.lista':
-    'na lista de quem constrói uma ideia. o pastel é o do lab dela',
   'conta.criar.vitrine.legenda.maos':
-    'em /builders, se um dia você marcar que topa construir. lá o pastel do ' +
-    'círculo sai do próprio nome, e não do lab',
+    'em /builders, se um dia você marcar que topa construir',
 
   /* leitura do @username (lib/pseudonimo.ts) */
   'conta.pseudonimo.exemplo': 'voce',
@@ -159,7 +134,7 @@ const ptBR = {
   'conta.perfil.disponivel': 'estou disponível pra construir agora',
   'conta.perfil.disponivel.ajuda':
     'Desmarque quando estiver sem tempo: você sai da lista de mãos e volta ' +
-    'marcando de novo. O cartão ao lado mostra o que acontece.',
+    'marcando de novo. O cartão de prévia mostra o que acontece.',
   'conta.perfil.oficio.botao': 'salvar o que você sabe fazer',
 
   'conta.perfil.vitrine.rotulo': 'em mãos você aparece assim',
@@ -180,7 +155,6 @@ const ptBR = {
   /* ---------------- /sair ---------------- */
   'conta.sair.titulo': 'Idearium · Sair',
   'conta.sair.descricao': 'Encerrar a sessão neste navegador.',
-  'conta.sair.rotulo': 'sair',
   'conta.sair.falha': 'A API não confirmou a revogação do acesso.',
   'conta.sair.falha.h1.antes': 'Saiu daqui, mas o servidor ',
   'conta.sair.falha.h1.serif': 'não confirmou',
@@ -205,7 +179,6 @@ const en: Record<keyof typeof ptBR, string> = {
   /* ---------------- /entrar ---------------- */
   'conta.entrar.titulo': 'Idearium · Sign in',
   'conta.entrar.descricao': 'Sign in with email and password to write, discuss and build ideas.',
-  'conta.entrar.rotulo': 'sign in',
   'conta.entrar.h1.antes': 'Pick up where you ',
   'conta.entrar.h1.serif': 'left off',
   'conta.entrar.h1.depois': '.',
@@ -221,13 +194,8 @@ const en: Record<keyof typeof ptBR, string> = {
   'conta.entrar.botao.entrar': 'sign in',
   'conta.entrar.botao.criar': 'create account',
 
-  'conta.entrar.aside': 'what a session changes',
-  'conta.entrar.veio.rotulo': 'what brought you here',
   'conta.entrar.veio.antes': 'You were going to ',
   'conta.entrar.veio.depois': '.',
-  'conta.entrar.mais.volta': 'and what else a session unlocks',
-  'conta.entrar.mais.normal': 'an account is not a gate',
-  'conta.entrar.intro': 'All of Idearium can be read without an account. A session opens three acts:',
 
   'conta.entrar.destino.nova': 'You were about to write an idea.',
   'conta.entrar.destino.perfil': 'You were about to edit your profile.',
@@ -237,24 +205,12 @@ const en: Record<keyof typeof ptBR, string> = {
   'conta.entrar.destino.ideia': 'Commenting on or joining this idea needs a session. Reading does not.',
   'conta.entrar.destino.ideia.falha': 'You were headed to an idea I could not load right now.',
 
-  'conta.entrar.ato.escrever': 'write an idea',
-  'conta.entrar.ato.escrever.antes': 'becomes',
-  'conta.entrar.ato.escrever.gloss': 'you do not need to know how. you just need to want it to happen.',
-  'conta.entrar.ato.comentar': 'comment on an idea',
-  'conta.entrar.ato.comentar.antes': 'works from',
-  'conta.entrar.ato.comentar.depois': 'onward',
-  'conta.entrar.ato.inscrever': 'sign up to build',
-  'conta.entrar.ato.inscrever.antes': 'becomes',
 
-  'conta.entrar.sessao.entra': 'signing in as ',
-  'conta.entrar.sessao.vazio': 'your email',
-  'conta.entrar.sessao.nota': 'On the site you appear by your @, never by your email.',
 
   /* ---------------- /criar-conta ---------------- */
   'conta.criar.titulo': 'Idearium · Create account',
   'conta.criar.descricao':
     'Create an account with a pseudonym to write, discuss and build ideas.',
-  'conta.criar.rotulo': 'create account',
   'conta.criar.h1.antes': 'Start with a ',
   'conta.criar.h1.serif': 'pseudonym',
   'conta.criar.h1.depois': '.',
@@ -284,15 +240,8 @@ const en: Record<keyof typeof ptBR, string> = {
   'conta.criar.nota': 'Nobody needs to know who you are to take your idea seriously.',
 
   'conta.criar.vitrine.rotulo': 'what this name becomes',
-  'conta.criar.vitrine.comentario':
-    'This happens on my street every heavy rain. I can describe the problem, I do not know how to build it.',
-  'conta.criar.vitrine.legenda.comentario': 'signing a comment in the discussion',
-  'conta.criar.vitrine.bloco': 'building',
-  'conta.criar.vitrine.legenda.lista':
-    'in the list of people building an idea. the pastel is its lab’s',
   'conta.criar.vitrine.legenda.maos':
-    'in /builders, if you ever mark that you are up for building. there the ' +
-    'circle’s pastel comes from the name itself, not from the lab',
+    'in /builders, if you ever mark that you are up for building',
 
   'conta.pseudonimo.exemplo': 'you',
   'conta.pseudonimo.recado.vazio': 'the one above is an example. yours shows up as soon as you type.',
@@ -354,7 +303,7 @@ const en: Record<keyof typeof ptBR, string> = {
   'conta.perfil.disponivel': 'I am available to build now',
   'conta.perfil.disponivel.ajuda':
     'Uncheck it when you are out of time: you leave the hands list and come ' +
-    'back by checking again. The card beside it shows what happens.',
+    'back by checking again. The preview card shows what happens.',
   'conta.perfil.oficio.botao': 'save what you know how to do',
 
   'conta.perfil.vitrine.rotulo': 'in hands you appear like this',
@@ -375,7 +324,6 @@ const en: Record<keyof typeof ptBR, string> = {
   /* ---------------- /sair ---------------- */
   'conta.sair.titulo': 'Idearium · Sign out',
   'conta.sair.descricao': 'End the session in this browser.',
-  'conta.sair.rotulo': 'sign out',
   'conta.sair.falha': 'The API did not confirm that access was revoked.',
   'conta.sair.falha.h1.antes': 'You are out here, but the server ',
   'conta.sair.falha.h1.serif': 'did not confirm',

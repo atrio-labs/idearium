@@ -9,6 +9,7 @@ const ptBR = {
   /* ---------------- CartaoMao ---------------- */
   'auth.mao.vazio': 'uma linha sobre você aparece aqui',
   'auth.mao.disponivel': 'disponível pra construir',
+  'auth.mao.fantasma': 'seus temas viram etiquetas',
 
   /* ---------------- botões sociais (/entrar e /criar-conta) ---------------- */
   'auth.social.ou': 'ou',
@@ -126,6 +127,7 @@ const en: Record<keyof typeof ptBR, string> = {
   /* ---------------- CartaoMao ---------------- */
   'auth.mao.vazio': 'a line about you shows up here',
   'auth.mao.disponivel': 'available to build',
+  'auth.mao.fantasma': 'your topics become tags',
 
   /* ---------------- social buttons ---------------- */
   'auth.social.ou': 'or',

@@ -41,17 +41,17 @@ const acaoTexto = logado ? t(lang, 'auth.verificar.acao.perfil') : t(lang, 'auth
 ---
 
 <Layout title={t(lang, 'auth.verificar.titulo')} description={t(lang, 'auth.verificar.descricao')}>
-  <div class="palco">
+  <div class="palco pagina-conta">
     <Nav />
 
     <div class="form-estreito">
-      <header class="cabecalho-pagina">
+      <header class="cabeca-estreita">
         {estado === 'ok' && <h1 class="titulo-duplo">{t(lang, 'auth.verificar.ok.h1.antes')}<span class="apagado">{t(lang, 'auth.verificar.ok.h1.apagado')}</span></h1>}
         {estado === 'expirado' && <h1 class="titulo-duplo">{t(lang, 'auth.verificar.expirado.h1.antes')}<span class="apagado">{t(lang, 'auth.verificar.expirado.h1.apagado')}</span></h1>}
         {estado === 'invalido' && <h1 class="titulo-duplo">{t(lang, 'auth.verificar.invalido.h1.antes')}<span class="apagado">{t(lang, 'auth.verificar.invalido.h1.apagado')}</span></h1>}
         {estado === 'falha' && <h1 class="titulo-duplo">{t(lang, 'auth.verificar.falha.h1.antes')}<span class="apagado">{t(lang, 'auth.verificar.falha.h1.apagado')}</span></h1>}
 
-        <p class="apoio" style="margin-top:16px" role={estado === 'ok' ? 'status' : undefined}>
+        <p class="apoio" role={estado === 'ok' ? 'status' : undefined}>
           {estado === 'ok' && t(lang, 'auth.verificar.ok.texto')}
           {estado === 'expirado' && t(lang, 'auth.verificar.expirado.texto')}
           {estado === 'invalido' && t(lang, 'auth.verificar.invalido.texto')}

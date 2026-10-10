@@ -12,6 +12,10 @@
    pessoa na lista de mãos. Aparecer numa lista pública precisa ser
    escolha explícita, então cada bloco tem o seu envio.
 
+   Visual: uma coluna de cartões brancos (dados e idioma, onde constrói,
+   contas conectadas), com a prévia do cartão de mão dentro do bloco de
+   builder. Ações em pílula.
+
    Depois de gravar, redireciono pra própria página com ?salvo=…
    em vez de responder o POST direto. Assim a pessoa continua aqui
    (é o pedido da HU) sem que recarregar reenvie o formulário, e o
@@ -192,24 +196,19 @@ const temasPrevia = builder.topics
 ---
 
 <Layout title={t(lang, 'conta.perfil.titulo')} description={t(lang, 'conta.perfil.descricao')}>
-  <div class="palco">
+  <div class="palco pagina-conta">
     <Nav />
-
-    {/* Marca o documento antes do conteúdo: a entrada animada só pode
-        esconder o formulário e a prévia se houver JS depois pra
-        devolvê-los. Sem JS, a prévia continua lá — ela é a explicação. */}
-    <script is:inline>document.documentElement.classList.add('com-js');</script>
 
     {eu ? (
       <div class="oficina">
-          <header class="cabecalho-pagina cabeca">
-            <a class="volta" href={rota(lang, `/users/${eu.username}`)}>
-              {t(lang, 'conta.perfil.ver')} &rarr;
-            </a>
-            <h1>{t(lang, 'conta.perfil.h1.antes')}<span class="serif">{t(lang, 'conta.perfil.h1.serif')}</span>{t(lang, 'conta.perfil.h1.depois')}</h1>
-            <p class="sub">
+          <header class="cabeca">
+            <h1 class="titulo-duplo">{t(lang, 'conta.perfil.h1.antes')}<span class="apagado">{t(lang, 'conta.perfil.h1.serif')}{t(lang, 'conta.perfil.h1.depois')}</span></h1>
+            <p class="apoio">
               {t(lang, 'conta.perfil.sub.antes')}@{eu.username}{t(lang, 'conta.perfil.sub.depois')}
             </p>
+            <a class="botao-secundario ver" href={rota(lang, `/users/${eu.username}`)}>
+              {t(lang, 'conta.perfil.ver')} &rarr;
+            </a>
 
             {conta === 'reenviada' && <p class="aviso-ok" role="status">{t(lang, 'auth.perfil.email.reenviado')}</p>}
             {erroEmail && <p class="aviso-erro" role="alert">{erroEmail}</p>}
@@ -223,8 +222,8 @@ const temasPrevia = builder.topics
           </header>
 
           {/* ---------- quem você é ---------- */}
-          <section class="bloco vem quem">
-            <p class="titulo-bloco">{t(lang, 'conta.perfil.quem.titulo')}</p>
+          <section class="cartao secao quem">
+            <h2 class="titulo-secao">{t(lang, 'conta.perfil.quem.titulo')}</h2>
 
             {salvo === 'perfil' && <p class="aviso-ok" role="status">{t(lang, 'conta.perfil.quem.salvo')}</p>}
             {erroPerfil && <p class="aviso-erro" role="alert">{erroPerfil}</p>}
@@ -297,17 +296,16 @@ const temasPrevia = builder.topics
               </div>
 
               <div class="acoes-form">
-                <span class="separador"></span>
                 <button class="botao" type="submit">{t(lang, 'conta.perfil.quem.botao')}</button>
               </div>
             </form>
           </section>
 
           {/* ---------- perfil de builder ---------- */}
-          <section class="bloco vem oficio">
-            <p class="titulo-bloco">{t(lang, 'conta.perfil.oficio.titulo')}</p>
+          <section class="cartao secao oficio">
+            <h2 class="titulo-secao">{t(lang, 'conta.perfil.oficio.titulo')}</h2>
 
-            <p class="intro-oficio">
+            <p class="apoio intro">
               {t(lang, 'conta.perfil.oficio.intro.antes')}@{eu.username}{t(lang, 'conta.perfil.oficio.intro.meio')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.oficio.intro.depois')}
             </p>
 
@@ -367,17 +365,47 @@ const temasPrevia = builder.topics
               </div>
 
               <div class="acoes-form">
-                <span class="separador"></span>
                 <button class="botao" type="submit">{t(lang, 'conta.perfil.oficio.botao')}</button>
               </div>
             </form>
+          {/* ---------- a consequência, enquanto o ato acontece ----------
+              Não é ilustração do formulário: é o mesmo componente que a
+              grade de /builders renderiza, com o texto que está sendo
+              digitado agora. Se divergir, o culpado é o CartaoMao. */}
+          <aside class="vitrine" id="vitrine">
+            <p class="rotulo-vitrine">{t(lang, 'conta.perfil.vitrine.rotulo')}</p>
+
+            <CartaoMao
+              previa
+              username={eu.username}
+              headline={builder.headline}
+              topics={temasPrevia}
+              isOpenToWork={builder.isOpenToWork}
+            />
+
+            <p class="apoio nota-vitrine" id="nota-fora" hidden={builder.isOpenToWork}>
+              {t(lang, 'conta.perfil.vitrine.fora')}
+            </p>
+            {/* A nota anuncia recusa, e não corte: passando do limite o
+                envio volta com erro e nada é gravado. Dizer "só os
+                primeiros cabem" ensinaria um truncamento que não existe,
+                e prévia que promete o que o sistema não faz mente. */}
+            <p class="apoio nota-vitrine" id="nota-excesso" hidden>
+              {t(lang, 'conta.perfil.vitrine.excesso', { n: LIMITE_TEMAS })}
+            </p>
+            <p class="apoio nota-vitrine">
+              {bp
+                ? <>{t(lang, 'conta.perfil.vitrine.nota.dentro.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.dentro.depois')}</>
+                : <>{t(lang, 'conta.perfil.vitrine.nota.fora.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.fora.depois')}</>}
+            </p>
+          </aside>
           </section>
 
           {/* ---------- contas conectadas (Etapa 6, atrás da flag) ---------- */}
           {OAUTH_ATIVO && (
-            <section class="bloco vem conexoes">
-              <p class="titulo-bloco">{t(lang, 'auth.perfil.contas.titulo')}</p>
-              <p class="intro-oficio">{t(lang, 'auth.perfil.contas.intro')}</p>
+            <section class="cartao secao conexoes">
+              <h2 class="titulo-secao">{t(lang, 'auth.perfil.contas.titulo')}</h2>
+              <p class="apoio intro">{t(lang, 'auth.perfil.contas.intro')}</p>
 
               {conta === 'conectada' && <p class="aviso-ok" role="status">{t(lang, 'auth.perfil.contas.conectou')}</p>}
               {conta === 'desconectada' && <p class="aviso-ok" role="status">{t(lang, 'auth.perfil.contas.desconectou')}</p>}
@@ -420,42 +448,11 @@ const temasPrevia = builder.topics
             </section>
           )}
 
-          {/* ---------- a consequência, enquanto o ato acontece ----------
-              Não é ilustração do formulário: é o mesmo componente que a
-              grade de /builders renderiza, com o texto que está sendo
-              digitado agora. Se divergir, o culpado é o CartaoMao. */}
-          <aside class="vitrine vem" id="vitrine">
-            <p class="mono rotulo-vitrine">{t(lang, 'conta.perfil.vitrine.rotulo')}</p>
 
-            <CartaoMao
-              previa
-              username={eu.username}
-              headline={builder.headline}
-              topics={temasPrevia}
-              isOpenToWork={builder.isOpenToWork}
-            />
-
-            <p class="nota-vitrine" id="nota-fora" hidden={builder.isOpenToWork}>
-              {t(lang, 'conta.perfil.vitrine.fora')}
-            </p>
-            {/* A nota anuncia recusa, e não corte: passando do limite o
-                envio volta com erro e nada é gravado. Dizer "só os
-                primeiros cabem" ensinaria um truncamento que não existe,
-                e prévia que promete o que o sistema não faz mente. */}
-            <p class="nota-vitrine" id="nota-excesso" hidden>
-              {t(lang, 'conta.perfil.vitrine.excesso', { n: LIMITE_TEMAS })}
-            </p>
-            <p class="nota-vitrine">
-              {bp
-                ? <>{t(lang, 'conta.perfil.vitrine.nota.dentro.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.dentro.depois')}</>
-                : <>{t(lang, 'conta.perfil.vitrine.nota.fora.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.fora.depois')}</>}
-            </p>
-          </aside>
-
-          <div class="conta">
-            <a href={rota(lang, `/users/${eu.username}`)}>{t(lang, 'conta.perfil.link.publico')}</a>
-            <a href={rota(lang, '/sair')}>{t(lang, 'conta.perfil.link.sair')}</a>
-          </div>
+          <nav class="conta" aria-label={t(lang, 'conta.perfil.link.publico')}>
+            <a class="botao-secundario" href={rota(lang, `/users/${eu.username}`)}>{t(lang, 'conta.perfil.link.publico')}</a>
+            <a class="botao-secundario" href={rota(lang, '/sair')}>{t(lang, 'conta.perfil.link.sair')}</a>
+          </nav>
       </div>
     ) : (
       <div class="form-estreito">
@@ -472,104 +469,62 @@ const temasPrevia = builder.topics
 </Layout>
 
 <style>
-  /* ----------------------------------------------------------------
-     A bancada: o formulário à esquerda, a consequência à direita.
-     A coluna do cartão é estreita e nunca é a primeira coisa lida —
-     quem opera é o formulário. As posições são explícitas porque a
-     vitrine acompanha o bloco de builder, não a página inteira:
-     ficar ao lado do bloco errado seria explicar a coisa errada.
-     ---------------------------------------------------------------- */
-  .oficina {
-    max-width: 880px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 296px;
-    gap: 18px;
-    align-items: start;
-  }
-  .cabeca  { grid-column: 1 / -1; grid-row: 1; }
-  .quem    { grid-column: 1; grid-row: 2; }
-  .oficio  { grid-column: 1; grid-row: 3; }
-  .vitrine { grid-column: 2; grid-row: 3; position: sticky; top: 86px; }
-  .conexoes { grid-column: 1; grid-row: 4; }
-  .conta   { grid-column: 1 / -1; grid-row: 5; }
+  /* uma coluna estreita de cartões; muito ar em volta */
+  .oficina { max-width: 760px; margin: 0 auto; padding: 24px 0 48px; }
+  .cabeca { margin-bottom: 40px; }
+  .cabeca .apoio { margin-top: 16px; }
+  .cabeca .ver { margin-top: 20px; }
 
-  /* Em tela estreita a vitrine desce pra logo abaixo do formulário que
-     ela explica, e não some: no celular ela é a explicação. */
+  .secao { padding: 32px; margin-bottom: 16px; }
+  .titulo-secao {
+    font-size: var(--text-titulo-sm);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--t-100);
+    margin: 0 0 20px;
+  }
+  .intro { margin: -8px 0 24px; max-width: 60ch; }
+
+  /* o bloco de builder: formulário à esquerda, prévia à direita */
+  .oficio { display: grid; grid-template-columns: minmax(0, 1fr) 280px; column-gap: 32px; align-items: start; }
+  .oficio > * { grid-column: 1 / -1; }
+  .oficio > form { grid-column: 1; grid-row: 4; }
+  .oficio > .vitrine { grid-column: 2; grid-row: 4; position: sticky; top: 24px; }
+  .oficio > .aviso-ok, .oficio > .aviso-erro { grid-row: 3; }
   @media (max-width: 900px) {
-    .oficina { grid-template-columns: minmax(0, 1fr); }
-    .cabeca, .quem, .oficio, .conexoes, .vitrine, .conta { grid-column: 1; grid-row: auto; }
-    .vitrine { position: static; }
+    .oficio { grid-template-columns: minmax(0, 1fr); }
+    .oficio > form, .oficio > .vitrine { grid-column: 1; grid-row: auto; }
+    .oficio > .vitrine { position: static; margin-top: 8px; }
+    .secao { padding: 24px 20px; }
   }
 
-  /* `.vem` nasce em opacity 0 no global.css e quem devolve é o
-     observador. Aqui o padrão é visível e quem esconde é a classe
-     posta pelo próprio JS. */
-  .oficina .vem { opacity: 1; }
-  @media (prefers-reduced-motion: no-preference) {
-    html.com-js .oficina .vem { opacity: 0; }
-  }
-
-  .rotulo-vitrine {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--t-35);
-    margin: 0 0 10px;
-    padding-left: 2px;
-  }
-  .nota-vitrine {
-    margin: 10px 2px 0;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: var(--t-50);
-  }
-  .nota-vitrine a { color: var(--t-90); }
-  #nota-fora, #nota-excesso { color: var(--t-75); }
-
-  .intro-oficio { margin: 0 0 18px; font-size: 13.5px; color: var(--t-65); }
-  .intro-oficio a { color: var(--t-90); }
+  .rotulo-vitrine { font-size: 13px; font-weight: 500; color: var(--t-100); margin: 0 0 10px; }
+  .nota-vitrine { margin: 10px 2px 0; font-size: 12.5px; }
+  #nota-fora, #nota-excesso { color: var(--t-100); }
+  .nota-vitrine a { color: var(--t-100); text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px; }
+  .vitrine :global(.builder-card) { padding: 22px; }
 
   /* aviso de email não verificado: uma linha discreta sob o cabeçalho */
   .email-aviso {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    margin: -12px 0 0;
-    font-size: 13px;
+    margin-top: 24px;
+    font-size: 13.5px;
     color: var(--t-65);
   }
 
-  .provedores { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .provedores { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
   .provedores li { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
   .provedor-info { display: grid; gap: 2px; max-width: 34ch; }
-  .provedor-nome { font-size: 14px; font-weight: 500; color: var(--t-100); }
-  .provedor-estado { font-size: 12.5px; color: var(--t-50); }
+  .provedor-nome { font-size: 15px; font-weight: 500; color: var(--t-100); }
+  .provedor-estado { font-size: 13px; color: var(--t-65); }
   .provedor-motivo { font-size: 12.5px; line-height: 1.45; color: var(--t-75); margin-top: 4px; }
 
-  /* linha de links de conta: discreta de propósito, e fora do rodapé
-     do site — sair é ação da pessoa, não navegação institucional */
-  .conta {
-    display: flex;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 20px 4px 0;
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-  .conta a { color: var(--t-35); text-decoration: none; }
-  .conta a:hover { color: var(--t-90); }
+  /* links de conta: fora do rodapé do site, sair é ação da pessoa */
+  .conta { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 16px; }
 </style>
 
 <script>
   const LIMITE_TEMAS = 10;
-
-  function ligarEntrada() {
-    const olho = new IntersectionObserver((es) => {
-      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
-      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
-      olho.observe(el);
-    });
-  }
 
   /* ---------- a prévia ao vivo ----------
      Nada aqui salva nada: o cartão só reflete o que os campos têm
@@ -589,13 +544,6 @@ const temasPrevia = builder.topics
     const notaFora = document.getElementById('nota-fora');
     const notaExcesso = document.getElementById('nota-excesso');
     if (!cartao || !alvoHeadline || !listaChips || !chipDisponivel || !notaFora || !notaExcesso) return;
-
-    /* reinicia a animação: sem o reflow o chip que volta entra parado */
-    function nascer(chip: HTMLElement) {
-      chip.classList.remove('nasce');
-      void chip.offsetWidth;
-      chip.classList.add('nasce');
-    }
 
     /* Reaproveita os chips que já estão certos e só cria os que
        faltam. Reconstruir a lista inteira faria todos piscarem a cada
@@ -617,7 +565,6 @@ const temasPrevia = builder.topics
         chip.dataset.tema = '';
         chip.textContent = tema;
         listaChips!.insertBefore(chip, fantasma);
-        nascer(chip);
       });
 
       if (fantasma) fantasma.classList.toggle('escondido', temas.length > 0);
@@ -633,9 +580,7 @@ const temasPrevia = builder.topics
       notaExcesso!.hidden = temas.length <= LIMITE_TEMAS;
 
       const disponivel = campoDisponivel!.checked;
-      const estavaEscondido = chipDisponivel!.classList.contains('escondido');
       chipDisponivel!.classList.toggle('escondido', !disponivel);
-      if (disponivel && estavaEscondido) nascer(chipDisponivel!);
       cartao!.classList.toggle('fora', !disponivel);
       notaFora!.hidden = disponivel;
     }
@@ -649,8 +594,5 @@ const temasPrevia = builder.topics
     pintar();
   }
 
-  document.addEventListener('astro:page-load', () => {
-    ligarEntrada();
-    ligarPrevia();
-  });
+  document.addEventListener('astro:page-load', ligarPrevia);
 </script>

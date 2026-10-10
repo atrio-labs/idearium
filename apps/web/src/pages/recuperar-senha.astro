@@ -43,13 +43,13 @@ if (Astro.request.method === 'POST') {
 ---
 
 <Layout title={t(lang, 'auth.recuperar.titulo')} description={t(lang, 'auth.recuperar.descricao')}>
-  <div class="palco">
+  <div class="palco pagina-conta">
     <Nav />
 
     <div class="form-estreito">
-      <header class="cabecalho-pagina">
+      <header class="cabeca-estreita">
         <h1 class="titulo-duplo">{t(lang, 'auth.recuperar.h1.antes')}<span class="apagado">{t(lang, 'auth.recuperar.h1.apagado')}</span></h1>
-        <p class="apoio" style="margin-top:16px">{t(lang, 'auth.recuperar.sub')}</p>
+        <p class="apoio">{t(lang, 'auth.recuperar.sub')}</p>
       </header>
 
       {enviado ? (
