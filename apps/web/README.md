@@ -81,10 +81,9 @@ página nova aparece quando o cache expira.
 
 ## Fontes
 
-Inter e Newsreader (OFL) vêm dos pacotes `@fontsource-variable/inter` e
-`@fontsource-variable/newsreader`, só com os subsets latin e latin-ext. A
-Departure Mono (MIT) está em `public/fonts/`. Todas são declaradas em
-`src/styles/global.css`, e o app não faz nenhum request a terceiros para fontes.
+Uma família só: Inter (OFL), do pacote `@fontsource-variable/inter`, só com os
+subsets latin e latin-ext. Declarada em `src/styles/global.css`; o app não faz
+nenhum request a terceiros para fontes.
 
 ## Diagramas
 

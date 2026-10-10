@@ -3,10 +3,8 @@
    Leitura.astro — envelope das páginas institucionais
    ================================================================
    Nav + texto longo + índice das quatro páginas + rodapé. O corpo vem
-   do markdown (slot). A tipografia segue o VISAO §12: Inter no corpo,
-   Newsreader só como acento (itálico) e Departure Mono nos metadados.
-   Por isso o texto longo NÃO usa a serifa: ela não é fonte de leitura
-   neste projeto.
+   do markdown (slot). Uma família só, Inter, como no resto do site
+   desde a direção minimalista (10/10/2026).
    ================================================================ */
 import Layout from './Layout.astro';
 import Nav from '../components/astro/Nav.astro';
@@ -84,70 +82,80 @@ const data = atualizado.toLocaleDateString(en ? 'en-GB' : 'pt-BR', {
 </Layout>
 
 <style>
+  /* Direção minimalista: uma fonte só (Inter), título em peso 500 com
+     tracking negativo, apoio em cinza médio, índice em pílulas como a
+     nav. O texto longo é o único lugar do site com corpo 16px e linha
+     larga: aqui a pessoa veio ler, não passar o olho. */
   .leitura {
     display: grid;
     grid-template-columns: 200px minmax(0, 1fr);
-    gap: 36px;
-    padding: 30px 4px 56px;
+    gap: 48px;
+    padding: 48px 4px 72px;
     align-items: start;
   }
-  @media (max-width: 800px) { .leitura { grid-template-columns: 1fr; gap: 22px; } }
+  @media (max-width: 800px) { .leitura { grid-template-columns: 1fr; gap: 24px; } }
 
   .leitura-indice { position: sticky; top: 86px; }
   @media (max-width: 800px) { .leitura-indice { position: static; } }
   .leitura-rotulo {
-    display: block; margin-bottom: 10px;
-    font-family: var(--font-mono); font-size: 10px;
-    text-transform: uppercase; letter-spacing: 0.12em; color: var(--t-35);
+    display: block; margin-bottom: 10px; padding-left: 12px;
+    font-size: 12.5px; color: var(--t-50);
   }
   .leitura-indice ul { display: grid; gap: 2px; }
   @media (max-width: 800px) { .leitura-indice ul { display: flex; flex-wrap: wrap; gap: 6px; } }
   .leitura-indice a {
-    display: block; padding: 6px 12px; border-radius: var(--r-pilula);
-    font-size: 13.5px; color: var(--t-65); text-decoration: none;
+    display: block; padding: 7px 12px; border-radius: var(--r-pilula);
+    font-size: 13.5px; font-weight: 450; color: var(--t-65); text-decoration: none;
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
   }
-  .leitura-indice a:hover { background: var(--t-07); color: var(--t-90); }
-  .leitura-indice a[aria-current='page'] { background: var(--t-07); color: var(--t-100); font-weight: 450; }
+  .leitura-indice a:hover { background: var(--t-07); color: var(--t-100); }
+  .leitura-indice a[aria-current='page'] { background: var(--color-chip); color: var(--t-100); font-weight: 500; }
 
-  .leitura-texto { max-width: 68ch; }
+  .leitura-texto { max-width: 66ch; }
   .leitura-texto h1 {
-    font-size: clamp(28px, 3.6vw, 42px); line-height: 1.07; font-weight: 420;
-    letter-spacing: -0.03em; margin: 0 0 14px; color: var(--t-100);
+    font-size: var(--text-titulo-md); line-height: 1.05; font-weight: 500;
+    letter-spacing: -0.032em; margin: 0 0 16px; max-width: 18ch; color: var(--t-100);
+    text-wrap: balance;
   }
-  .leitura-sub { color: var(--t-65); font-size: 16px; margin: 0 0 12px; }
-  .leitura-meta { font-family: var(--font-mono); font-size: 11px; color: var(--t-50); margin: 0 0 18px; }
+  .leitura-sub { color: var(--t-65); font-size: 15px; line-height: 1.45; max-width: 46ch; margin: 0 0 14px; }
+  .leitura-meta { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--t-50); margin: 0 0 20px; }
   .leitura-rascunho {
-    background: var(--rebaixo); border: 1px solid var(--t-07);
-    border-radius: var(--r-dentro); padding: 12px 16px; margin: 0 0 8px;
-    font-size: 13px; color: var(--t-65);
+    background: var(--color-destaque-fundo);
+    border-radius: var(--r-bloco); padding: 12px 16px; margin: 0 0 8px;
+    font-size: 13px; color: var(--color-destaque-texto);
   }
-  .leitura-rascunho b { font-weight: 460; color: var(--t-90); }
+  .leitura-rascunho b { font-weight: 500; }
 
-  .leitura-corpo { margin-top: 28px; font-size: 16px; line-height: 1.7; color: var(--t-75); }
+  .leitura-corpo { margin-top: 40px; font-size: 16px; line-height: 1.65; color: var(--t-75); }
   .leitura-corpo :global(h2) {
-    font-size: 20px; font-weight: 460; letter-spacing: -0.02em; line-height: 1.25;
-    margin: 40px 0 12px; color: var(--t-100);
+    font-size: 22px; font-weight: 500; letter-spacing: -0.025em; line-height: 1.2;
+    margin: 48px 0 12px; color: var(--t-100);
   }
-  .leitura-corpo :global(h3) { font-size: 16px; font-weight: 460; margin: 26px 0 8px; color: var(--t-90); }
+  .leitura-corpo :global(h3) { font-size: 16px; font-weight: 500; margin: 28px 0 8px; color: var(--t-100); }
   .leitura-corpo :global(p) { margin: 0 0 16px; }
   .leitura-corpo :global(ul),
   .leitura-corpo :global(ol) { margin: 0 0 16px; padding-left: 22px; }
   .leitura-corpo :global(ul) { list-style: disc; }
   .leitura-corpo :global(ol) { list-style: decimal; }
   .leitura-corpo :global(li) { margin-bottom: 6px; }
-  .leitura-corpo :global(strong) { font-weight: 470; color: var(--t-100); }
-  .leitura-corpo :global(em) { font-family: var(--font-serif); font-size: 1.05em; }
-  .leitura-corpo :global(a) { color: var(--t-90); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
-  .leitura-corpo :global(a:hover) { text-decoration-color: var(--t-90); }
+  .leitura-corpo :global(strong) { font-weight: 550; color: var(--t-100); }
+  .leitura-corpo :global(em) { font-style: italic; }
+  .leitura-corpo :global(a) {
+    color: var(--t-100); text-decoration: underline; text-underline-offset: 3px;
+    text-decoration-color: var(--t-35); transition: text-decoration-color var(--dur) var(--ease);
+  }
+  .leitura-corpo :global(a:hover) { text-decoration-color: var(--t-100); }
   .leitura-corpo :global(code) {
-    font-family: var(--font-mono); font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
     background: var(--rebaixo); padding: 1px 5px; border-radius: 5px;
   }
+  /* citação: o tom apagado do título em dois tons, em tamanho maior.
+     Era o itálico da serifa antiga. */
   .leitura-corpo :global(blockquote) {
-    margin: 0 0 16px; padding: 4px 0 4px 18px; border-left: 2px solid var(--t-12);
+    margin: 0 0 20px; padding: 2px 0 2px 18px; border-left: 2px solid var(--t-12);
   }
   .leitura-corpo :global(blockquote p) {
-    margin: 0; font-family: var(--font-serif); font-style: italic;
-    font-size: 1.2em; line-height: 1.45; color: var(--t-90);
+    margin: 0; font-size: 1.2em; font-weight: 500; letter-spacing: -0.015em;
+    line-height: 1.4; color: var(--t-50);
   }
 </style>

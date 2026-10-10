@@ -1,40 +1,72 @@
 ---
 /* ================================================================
-   Materia.astro — o dado da RFC em dithering ordenado (Bayer 8×8)
+   Materia.astro — a imagem da RFC: gradiente quente, vidro canelado
+   e grão
    ================================================================
-   Cada RFC exibe o SEU dado como imagem, 1 bit por pixel. É o achado
-   central da direção: onde as referências do polo macio põem pintura
-   decorativa (ou hero gerado por IA), aqui entra a densidade de
-   relatos de alagamento, o campo de pontos de doação, o grafo de
-   empréstimos. Assim a estética e o sinal de "tech" param de ser
-   duas coisas — resolve o escopo travado em 24.07 sem ícone de
-   engrenagem.
+   Na direção minimalista a interface é escala de cinza, e a ÚNICA
+   cor viva do site vem daqui. Cada RFC ganha uma imagem própria:
+   manchas grandes e borradas numa paleta quente fixa (laranja, rosa
+   quente, azul médio, areia, um toque de oliva), vistas através de
+   um vidro canelado — faixas verticais onduladas que deslocam o
+   gradiente — com grão fino por cima.
 
-   O pastel do lab é o FUNDO; o dither é desenhado na tinta única.
-   Pastel dessaturado não teria contraste pra ser o traço.
+   A paleta é UMA só pra todo mundo. `tipo` e `lab` não mudam cor:
+   mudam a composição (quantas manchas, onde, quão largas são as
+   caneluras, quanto elas entortam). Assim duas RFCs do mesmo lab se
+   parecem sem que o lab vire código de cor de novo.
 
-   Determinístico: mesma semente, mesma imagem, em qualquer máquina,
-   sem guardar nada e sem requisição. Quando o campo vier da API, só
-   a origem de `tipo` e `semente` muda — o resto do código, não.
+   Determinístico: mesma semente, mesmo lab e mesmo tipo dão a mesma
+   imagem em qualquer máquina, sem guardar nada e sem requisição.
 
-   O <script> abaixo é hoisted e deduplicado pelo Astro: aparece uma
-   vez no bundle mesmo com N instâncias do componente na página.
+   POR QUE CANVAS E NÃO SVG NO SERVIDOR
+   A primeira ideia era SVG com feGaussianBlur + feTurbulence +
+   feDisplacementMap, sem JS. Dois motivos levaram ao canvas:
+   1. Custo: filtro SVG de blur grande e displacement é refeito pelo
+      navegador a cada repintura da área (scroll, hover no cartão).
+      Numa grade com 20 cartões isso pesa. O canvas é pintado UMA vez
+      por elemento e depois é só bitmap.
+   2. Contrato: /rfcs/nova e /rfcs/:slug/editar procuram o <canvas>
+      dentro da .capa (a prévia ao vivo troca data-lab e pede
+      repintura por um evento `resize`). Trocar o elemento quebraria
+      essas páginas, que não são deste trabalho.
+   Sem JS, o canvas mostra um fundo em CSS gerado aqui no servidor
+   com a mesma semente: não é a imagem final, mas é quente, tem as
+   mesmas manchas grosseiras e nunca fica um buraco cinza.
+
+   Estático de propósito: animar a ondulação exigiria refazer o
+   deslocamento por pixel a cada quadro, e o ganho não paga.
    ================================================================ */
 
 interface Props {
-  /** que tipo de dado a RFC produz */
+  /** que composição usar; vem de materiaDaRfc() */
   tipo: 'mancha' | 'pontos' | 'grafo' | 'serie';
-  /** slug do lab, como vem da API — vira a cor via var(--color-<slug>) */
+  /** slug do lab, como vem da API — varia a composição, não a cor */
   lab: string;
   /** mesma semente, mesma imagem */
   semente: number;
   /** legenda opcional, sobreposta no canto inferior */
   legenda?: string;
-  /** rótulo pra leitores de tela — o canvas é conteúdo, não enfeite */
+  /** rótulo pra leitores de tela — a imagem é conteúdo, não enfeite */
   alt: string;
 }
 
 const { tipo, lab, semente, legenda, alt } = Astro.props;
+
+/* Fundo de primeira pintura (e de quem está sem JS). Um hash barato
+   da semente posiciona três manchas em radial-gradient sobre a areia.
+   Não precisa bater pixel a pixel com o canvas: ele cobre isto assim
+   que pinta. */
+const h = (n: number) => {
+  const x = Math.sin(semente * 12.9898 + n * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const pct = (n: number) => Math.round(10 + h(n) * 80);
+const fundo = [
+  `radial-gradient(70% 80% at ${pct(1)}% ${pct(2)}%, #FF5A1F 0%, rgba(255,90,31,0) 70%)`,
+  `radial-gradient(60% 70% at ${pct(3)}% ${pct(4)}%, #FF4FA3 0%, rgba(255,79,163,0) 70%)`,
+  `radial-gradient(70% 80% at ${pct(5)}% ${pct(6)}%, #5B8FD6 0%, rgba(91,143,214,0) 70%)`,
+  '#D9C3A5',
+].join(', ');
 ---
 
 <canvas
@@ -43,16 +75,34 @@ const { tipo, lab, semente, legenda, alt } = Astro.props;
   data-semente={semente}
   role="img"
   aria-label={alt}
+  style={`background: ${fundo}`}
 ></canvas>
 {legenda && <figcaption>{legenda}</figcaption>}
 
 <script>
-  const BAYER8 = [
-    [ 0,32, 8,40, 2,34,10,42],[48,16,56,24,50,18,58,26],
-    [12,44, 4,36,14,46, 6,38],[60,28,52,20,62,30,54,22],
-    [ 3,35,11,43, 1,33, 9,41],[51,19,59,27,49,17,57,25],
-    [15,47, 7,39,13,45, 5,37],[63,31,55,23,61,29,53,21]
-  ];
+  /* ---------- paleta única, em RGB ---------- */
+  const LARANJA: Rgb = [255, 90, 31];
+  const ROSA: Rgb = [255, 79, 163];
+  const AZUL: Rgb = [91, 143, 214];
+  const AREIA: Rgb = [217, 195, 165];
+  const OLIVA: Rgb = [78, 82, 44];
+  const QUENTES: Rgb[] = [LARANJA, ROSA, AZUL, LARANJA, AREIA];
+
+  type Rgb = [number, number, number];
+
+  interface Mancha { x: number; y: number; r: number; cor: Rgb; a: number }
+  interface Composicao {
+    manchas: Mancha[];
+    /** largura de cada canelura, em CSS px */
+    canelura: number;
+    /** quanto a canelura entorta a imagem, 0..1 */
+    forca: number;
+    /** amplitude da ondulação vertical das faixas, em larguras de canelura */
+    onda: number;
+    /** quantas ondas cabem na altura */
+    ondaFreq: number;
+    fase: number;
+  }
 
   function prng(seed: number) {
     let a = (seed * 2654435761) >>> 0;
@@ -65,102 +115,195 @@ const { tipo, lab, semente, legenda, alt } = Astro.props;
     };
   }
 
-  /* cada campo devolve (x,y) -> intensidade 0..1 */
-  function campo(tipo: string, r: () => number, L: number, A: number) {
-    if (tipo === 'mancha') {
-      const focos = Array.from({ length: 7 }, () => ({
-        x: r() * L, y: r() * A, s: (0.10 + r() * 0.22) * Math.min(L, A), p: 0.5 + r()
-      }));
-      return (x: number, y: number) => {
-        let v = 0;
-        for (const f of focos) v += f.p * Math.exp(-(((x - f.x) ** 2 + (y - f.y) ** 2) / (f.s * f.s)));
-        return Math.min(1, v * 0.62);
-      };
-    }
-    if (tipo === 'pontos') {
-      const pts = Array.from({ length: 22 }, () => ({
-        x: r() * L, y: r() * A, s: (0.05 + r() * 0.07) * Math.min(L, A)
-      }));
-      return (x: number, y: number) => {
-        let v = 0;
-        for (const p of pts) {
-          const d = Math.hypot(x - p.x, y - p.y) / p.s;
-          v = Math.max(v, Math.exp(-d * d * 0.8));
-        }
-        return Math.min(1, v * 0.95);
-      };
-    }
-    if (tipo === 'grafo') {
-      const nos = Array.from({ length: 11 }, () => ({
-        x: 0.1 * L + r() * 0.8 * L, y: 0.1 * A + r() * 0.8 * A
-      }));
-      const arestas: Array<[typeof nos[0], typeof nos[0]]> = [];
-      for (let i = 0; i < nos.length; i++) {
-        const j = Math.floor(r() * nos.length);
-        if (i !== j) arestas.push([nos[i], nos[j]]);
-      }
-      return (x: number, y: number) => {
-        let v = 0;
-        for (const n of nos) v = Math.max(v, Math.exp(-(((x - n.x) ** 2 + (y - n.y) ** 2)) / 90));
-        for (const [a, b] of arestas) {
-          const dx = b.x - a.x, dy = b.y - a.y;
-          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
-          const d = Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy));
-          v = Math.max(v, Math.exp(-(d * d) / 5) * 0.62);
-        }
-        return Math.min(1, v);
-      };
-    }
-    const n = 26;
-    const alt = Array.from({ length: n }, (_, i) =>
-      0.32 + 0.42 * Math.abs(Math.sin(i * 0.55 + r())) * (0.6 + r() * 0.6));
-    return (x: number, y: number) => {
-      const i = Math.min(n - 1, Math.floor((x / L) * n));
-      const topo = A * (1 - alt[i]);
-      if (y < topo) return 0;
-      return 0.30 + 0.62 * (1 - (y - topo) / (A - topo));
-    };
+  function hashTexto(s: string) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return h >>> 0;
   }
+
+  /* Coordenadas normalizadas (0..1) e raio relativo ao maior lado:
+     a mesma composição serve pra capa de 168px e pro destaque de
+     380px sem mudar de cara. */
+  function compor(tipo: string, lab: string, semente: number): Composicao {
+    const r = prng(semente ^ hashTexto(lab));
+    /* o lab gira a ordem das cores e espelha o eixo x: mesmas
+       manchas, outro arranjo — parentesco sem código de cor */
+    const giro = hashTexto(lab) % QUENTES.length;
+    const cor = (i: number) => QUENTES[(i + giro) % QUENTES.length];
+    const espelho = hashTexto(lab) & 1;
+    const mx = (x: number) => (espelho ? 1 - x : x);
+
+    const manchas: Mancha[] = [];
+    let canelura = 24, forca = 0.35, onda = 0.6, ondaFreq = 1.2;
+
+    if (tipo === 'pontos') {
+      // várias manchas médias espalhadas; vidro discreto
+      for (let i = 0; i < 6; i++) {
+        manchas.push({ x: mx(r()), y: r(), r: 0.22 + r() * 0.18, cor: cor(i), a: 0.85 });
+      }
+      canelura = 18; forca = 0.22; onda = 0.4; ondaFreq = 1.6;
+    } else if (tipo === 'grafo') {
+      // manchas numa diagonal; vidro largo e forte
+      for (let i = 0; i < 4; i++) {
+        const t = (i + r() * 0.6) / 4;
+        manchas.push({ x: mx(t), y: 1 - t + (r() - 0.5) * 0.3, r: 0.38 + r() * 0.2, cor: cor(i), a: 0.9 });
+      }
+      canelura = 34; forca = 0.5; onda = 0.8; ondaFreq = 0.9;
+    } else if (tipo === 'serie') {
+      // tudo pesa embaixo, o topo fica claro; caneluras estreitas
+      for (let i = 0; i < 5; i++) {
+        manchas.push({ x: mx((i + r()) / 5), y: 0.75 + r() * 0.35, r: 0.3 + r() * 0.15, cor: cor(i), a: 0.9 });
+      }
+      canelura = 14; forca = 0.45; onda = 0.5; ondaFreq = 1.4;
+    } else {
+      // mancha: poucas manchas enormes; o caso padrão
+      for (let i = 0; i < 4; i++) {
+        manchas.push({ x: mx(r()), y: r(), r: 0.45 + r() * 0.3, cor: cor(i), a: 0.92 });
+      }
+    }
+
+    /* o toque escuro: uma mancha pequena de oliva, nunca no centro,
+       pra a imagem ter fundo e não só brilho */
+    manchas.push({ x: mx(r() < 0.5 ? r() * 0.25 : 0.75 + r() * 0.25), y: r(), r: 0.18 + r() * 0.12, cor: OLIVA, a: 0.55 });
+
+    return { manchas, canelura, forca, onda, ondaFreq, fase: r() * Math.PI * 2 };
+  }
+
+  /* Passo 1: o gradiente borrado, numa resolução baixa. Gradiente
+     radial já é macio; em baixa resolução, e lido depois com
+     interpolação bilinear, fica borrado de verdade e custa pouco. */
+  function pintarBase(c: Composicao, lw: number, lh: number) {
+    const tela = document.createElement('canvas');
+    tela.width = lw; tela.height = lh;
+    const ctx = tela.getContext('2d')!;
+    ctx.fillStyle = `rgb(${AREIA.join(',')})`;
+    ctx.fillRect(0, 0, lw, lh);
+    const maior = Math.max(lw, lh);
+    for (const m of c.manchas) {
+      const x = m.x * lw, y = m.y * lh, raio = m.r * maior;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, raio);
+      const [cr, cg, cb] = m.cor;
+      g.addColorStop(0,    `rgba(${cr},${cg},${cb},${m.a})`);
+      g.addColorStop(0.45, `rgba(${cr},${cg},${cb},${m.a * 0.55})`);
+      g.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, lw, lh);
+    }
+    return ctx.getImageData(0, 0, lw, lh).data;
+  }
+
+  const LIMITE_PIXELS = 1_400_000;          // teto por canvas, pra destaque em tela 4K
+  const BASE = 96;                          // lado maior da base borrada
 
   function pintar(cv: HTMLCanvasElement) {
     const caixa = cv.getBoundingClientRect();
     if (!caixa.width || !caixa.height) return;
 
-    const raiz = getComputedStyle(document.documentElement);
-    const pastel = raiz.getPropertyValue('--color-' + cv.dataset.lab).trim();
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (caixa.width * caixa.height * dpr * dpr > LIMITE_PIXELS) {
+      dpr = Math.sqrt(LIMITE_PIXELS / (caixa.width * caixa.height));
+    }
+    const W = Math.max(8, Math.round(caixa.width * dpr));
+    const H = Math.max(8, Math.round(caixa.height * dpr));
 
-    const ESCALA = 4;                       // 1 pixel de dado = 4 CSS px
-    // piso baixo de propósito: um piso alto distorce capas curtas
-    // (152px / 4 = 38 seria forçado pra 40 e esticaria o dither)
-    const L = Math.max(8, Math.round(caixa.width / ESCALA));
-    const A = Math.max(8, Math.round(caixa.height / ESCALA));
-    cv.width = L; cv.height = A;
+    const { materia: tipo = 'mancha', lab = '', semente: s = '0' } = cv.dataset;
+    /* já pintado com o mesmo tamanho e os mesmos dados: nada a fazer.
+       É o que deixa o `resize` barato e ainda assim deixa a prévia de
+       /rfcs/nova repintar quando troca o lab. */
+    const chave = `${W}x${H}|${tipo}|${lab}|${s}`;
+    if (cv.dataset.pintado === chave) return;
 
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    cv.style.imageRendering = 'pixelated';
+    cv.width = W; cv.height = H;
 
-    const f = campo(cv.dataset.materia!, prng(parseInt(cv.dataset.semente!, 10)), L, A);
+    const semente = parseInt(s, 10) || 0;
+    const c = compor(tipo, lab, semente);
 
-    ctx.fillStyle = pastel;                 // pastel do lab é o fundo
-    ctx.fillRect(0, 0, L, A);
-    ctx.fillStyle = 'rgba(3, 3, 2, 0.86)';  // a tinta única é o traço
+    const escala = BASE / Math.max(W, H);
+    const lw = Math.max(4, Math.round(W * escala));
+    const lh = Math.max(4, Math.round(H * escala));
+    const base = pintarBase(c, lw, lh);
 
-    for (let y = 0; y < A; y++) {
-      for (let x = 0; x < L; x++) {
-        if (f(x, y) > (BAYER8[y & 7][x & 7] + 0.5) / 64) ctx.fillRect(x, y, 1, 1);
+    const saida = ctx.createImageData(W, H);
+    const px = saida.data;
+
+    const fw = c.canelura * dpr;            // largura da canelura em px do canvas
+    const TAU = Math.PI * 2;
+    const grao = 26;                        // amplitude do grão, em níveis de 0..255
+    let ruido = (semente * 747796405 + 2891336453) >>> 0 || 1;
+
+    for (let y = 0; y < H; y++) {
+      const ny = y / H;
+      for (let x = 0; x < W; x++) {
+        /* a borda de cada canelura ondula na vertical: é o "vidro
+           canelado" visto um pouco torto, não uma grade reta */
+        const ondula = c.onda * Math.sin(ny * TAU * c.ondaFreq + c.fase + (x / W) * 2.2);
+        const t = x / fw + ondula;
+        const u = t - Math.floor(t);        // posição dentro da canelura, 0..1
+        /* cada canelura é uma lente: puxa a imagem pro próprio centro
+           e espelha nas bordas, o que dá as faixas */
+        const desvio = c.forca * fw * Math.sin(TAU * u);
+        const sx = Math.min(W - 1, Math.max(0, x + desvio));
+        const sy = y + c.forca * fw * 0.25 * Math.cos(TAU * u);
+
+        // leitura bilinear da base borrada
+        const bx = Math.min(lw - 1.001, Math.max(0, (sx / W) * lw - 0.5));
+        const by = Math.min(lh - 1.001, Math.max(0, (sy / H) * lh - 0.5));
+        const x0 = bx | 0, y0 = by | 0, fx = bx - x0, fy = by - y0;
+        const i00 = (y0 * lw + x0) * 4, i10 = i00 + 4, i01 = i00 + lw * 4, i11 = i01 + 4;
+
+        /* brilho de vidro: cada canelura é um pouco mais clara num lado
+           que no outro. Sutil; é o que separa faixa de listra. */
+        const luz = 1 + 0.07 * Math.cos(TAU * u);
+
+        // xorshift32: grão determinístico, monocromático
+        ruido ^= ruido << 13; ruido ^= ruido >>> 17; ruido ^= ruido << 5;
+        const n = ((ruido >>> 0) / 4294967296 - 0.5) * grao;
+
+        const o = (y * W + x) * 4;
+        for (let k = 0; k < 3; k++) {
+          const v =
+            (base[i00 + k] * (1 - fx) + base[i10 + k] * fx) * (1 - fy) +
+            (base[i01 + k] * (1 - fx) + base[i11 + k] * fx) * fy;
+          px[o + k] = v * luz + n;          // Uint8ClampedArray satura sozinho
+        }
+        px[o + 3] = 255;
       }
     }
+
+    ctx.putImageData(saida, 0, 0);
+    cv.dataset.pintado = chave;
   }
 
-  const pintarTudo = () =>
-    document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia]').forEach(pintar);
+  /* Só pinta o que está perto da tela: uma listagem longa não paga
+     todas as imagens de uma vez no carregamento. */
+  let olho: IntersectionObserver | undefined;
+
+  function observarTudo() {
+    olho?.disconnect();
+    olho = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        if (!e.isIntersecting) continue;
+        olho!.unobserve(e.target);
+        pintar(e.target as HTMLCanvasElement);
+      }
+    }, { rootMargin: '300px' });
+    document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia]').forEach((cv) => olho!.observe(cv));
+  }
 
   // `astro:page-load` já dispara na carga inicial com o ClientRouter ativo,
-  // e de novo a cada navegação. Sem chamada direta: seria pintar duas vezes.
-  document.addEventListener('astro:page-load', pintarTudo);
+  // e de novo a cada navegação. Sem chamada direta: seria observar duas vezes.
+  document.addEventListener('astro:page-load', observarTudo);
 
+  /* No resize só repinta o que já foi pintado; o resto continua na fila
+     do observador. A chave em data-pintado faz a repintura ser no-op
+     quando nada mudou. */
   let t: ReturnType<typeof setTimeout>;
-  addEventListener('resize', () => { clearTimeout(t); t = setTimeout(pintarTudo, 180); });
+  addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia][data-pintado]').forEach(pintar);
+    }, 180);
+  });
 </script>

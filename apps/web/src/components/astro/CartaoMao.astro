@@ -41,9 +41,11 @@ const {
   previa = false,
 } = Astro.props;
 
-/* A cor da inicial vem do @username, não de sorteio: precisa ser a
-   mesma na prévia e na grade, e a mesma amanhã. Pastel é superfície;
-   a inicial em cima continua sendo a tinta. */
+/* O fundo da inicial ainda sai do @username (pastelDe), porque
+   /criar-conta recalcula a mesma conta a cada tecla. Na direção
+   minimalista todo --color-<lab> é o mesmo cinza neutro, então o
+   círculo é cinza pra todo mundo; manter a conta só preserva o
+   contrato com a página até ela ser redesenhada. */
 const pastel = pastelDe(username);
 
 const VAZIO_HEADLINE = 'uma linha sobre você aparece aqui';
@@ -77,6 +79,7 @@ const Marca = href ? 'a' : 'div';
   )}
 
   <div class="chips" style="margin-bottom: 0" data-chips>
+    {/* disponível é estado vivo: chip de destaque, o único lilás */}
     <span class:list={['chip', 'vivo', !isOpenToWork && 'escondido']} data-disponivel>
       <span class="ponto"></span>disponível pra construir
     </span>
@@ -96,15 +99,43 @@ const Marca = href ? 'a' : 'div';
     de /perfil cria chips por JS, e nó criado em JS não carrega o
     atributo de escopo do Astro. Regra escopada só pintaria metade. */}
 <style is:global>
-  .builder-card .topo { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
-  .builder-card .topo .nome { margin: 0; }
+  /* O cartão em si. Mora aqui (e não no global.css) porque este é o
+     único dono dele; /builders só põe uma variante .slot por cima. */
+  .builder-card {
+    display: block;
+    background: var(--cartao);
+    border-radius: var(--r-fora);
+    box-shadow: var(--sombra);
+    padding: 24px 26px 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  a.builder-card:hover { box-shadow: var(--sombra-alta); }
+
+  .builder-card .topo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .builder-card .nome {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--t-100);
+    margin: 0;
+  }
   .builder-card .inicial-mao {
-    width: 30px; height: 30px; flex-shrink: 0;
+    width: 32px; height: 32px; flex-shrink: 0;
     border-radius: 50%;
     display: grid; place-items: center;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--t-90);
+    background: var(--color-chip);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--t-100);
+  }
+  .builder-card .headline {
+    font-size: var(--text-apoio);
+    line-height: 1.45;
+    color: var(--t-65);
+    max-width: 40ch;
+    margin: 0 0 18px;
   }
 
   /* placeholder no idioma do produto, não esqueleto cinza: antes de
@@ -113,23 +144,23 @@ const Marca = href ? 'a' : 'div';
   .builder-card .chip.fantasma {
     background: transparent;
     box-shadow: inset 0 0 0 1px var(--t-12);
-    color: var(--t-35);
+    color: var(--t-50);
   }
   .builder-card .chip.escondido { display: none; }
 
-  /* a prévia é objeto, não navegação: sem link, sem afordância de link */
-  .builder-card.previa { transition: opacity 260ms var(--ease), background 260ms var(--ease); }
-  .builder-card.previa:hover { transform: none; box-shadow: var(--sombra); }
+  /* a prévia é objeto, não navegação: sem afordância de link */
+  .builder-card.previa:hover { box-shadow: var(--sombra); }
   /* desmarcar disponibilidade tira a pessoa de /builders. O cartão
      apaga em vez de só perder o chip, porque é isso que acontece. */
   .builder-card.previa.fora { opacity: 0.45; background: var(--rebaixo); box-shadow: none; }
 
-  /* --- a peça animada: o chip --- */
+  /* Chip criado pelo JS da prévia: aparece por opacidade. Era uma
+     entrada com escala; a direção nova só troca estado. */
   @keyframes chip-mao-nasce {
-    from { opacity: 0; transform: translateY(4px) scale(0.94); }
-    to   { opacity: 1; transform: none; }
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
-  .builder-card .chip.nasce { animation: chip-mao-nasce 320ms var(--ease) both; }
+  .builder-card .chip.nasce { animation: chip-mao-nasce 160ms var(--ease) both; }
 
   /* Sem JS a grade inteira sumiria: `.vem` nasce em opacity 0 no
      global.css e quem devolve é o observador. O padrão aqui é visível,
@@ -138,6 +169,7 @@ const Marca = href ? 'a' : 'div';
 
   @media (prefers-reduced-motion: no-preference) {
     html.com-js .builder-card.vem { opacity: 0; }
+    html.com-js .builder-card.vem.veio { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .builder-card .chip.nasce { animation: none; }

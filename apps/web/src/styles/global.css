@@ -1,35 +1,45 @@
 /* ================================================================
    Idearium — Global stylesheet
    @author gab-i-alves
-   @date: 2026-07-31
+   @date: 2026-07-31 (direção minimalista em 2026-10-10)
    ================================================================
    Importado em todas as páginas via Layout.astro.
 
    Aqui mora:
    1. Import do Tailwind 4 (engine CSS, não JS como na v3)
-   2. Tokens de design (@theme block) — cores, fontes, sombras
+   2. Tokens de design (@theme block) — cores, fontes, raios, escala
    3. Estilos globais (body reset, tipografia base)
-   4. Peças da interface (nav, cartão, chip, trilha, labs)
-   5. Micro-animações, uma nomeada por peça
+   4. Peças novas da direção (moldura, título em dois tons, botões,
+      chips, cartão, apoio)
+   5. Peças que as páginas já usam, redesenhadas no idioma novo
+   6. Transições de estado (e só elas)
 
    ----------------------------------------------------------------
-   DIREÇÃO: MATÉRIA (polo macio)
+   DIREÇÃO: MINIMALISTA (substitui a Matéria)
    ----------------------------------------------------------------
-   Substitui o idioma Kare OS (cobalto + halftone + fonte pixelada),
-   que era metáfora de sistema operacional aplicada como pele. A
-   direção veio de brainstorming-design/atrio-v2/materia.html, com
-   os valores DECODIFICADOS do craft.do — medidos no site, não
-   estimados a olho.
+   Decisão da GNIX em 10/10/2026: nada da identidade anterior fica.
+   Saem a mono pixelada, a serifa itálica, os pastéis dos labs como
+   identidade, as micro-animações por peça, o off-white quente e as
+   sombras macias.
 
-   Isso reconverge com o VISAO §12, que sempre prescreveu Cream
-   #FAFAF7 / Card #FFFFFF / Panel #F5F2EB / Ink #1C1C1B e Inter.
-   Quem tinha divergido do SSOT era o Kare OS.
+   O que entra:
+   - Página branca pura dentro de uma moldura cinza muito clara, com
+     raio grande e muito espaço em branco.
+   - Uma fonte só, Inter. Título grande em peso 500, tracking
+     negativo, e em DOIS TONS: o começo em quase-preto, o resto em
+     cinza claro, no mesmo tamanho. A hierarquia vem do tom, não de
+     trocar de família.
+   - Texto de apoio pequeno, cinza médio, linha curta.
+   - Botões e chips em pílula. Preto é a ação; cinza é o resto.
+   - A ÚNICA cor viva vem das imagens (Materia.astro): gradiente
+     quente borrado, vidro canelado e grão. A interface em volta é
+     escala de cinza, e por isso a imagem pode gritar sem disputar
+     com ninguém. A exceção é o lilás do chip de destaque, usado só
+     pra dizer "isto está acontecendo agora" (RFC em discussão).
 
    Divisão de responsabilidade nesta folha:
      Tailwind  →  layout (grid, flex, espaçamento)
-     CSS aqui  →  identidade e animação, nomeadas por peça
-   O "fofo" de craft/cofounder/agentation não está na paleta: está
-   em dezenas de micro-animações escritas à mão, uma por componente.
+     CSS aqui  →  identidade, nomeada por peça
    ================================================================ */
 
 @import "tailwindcss";
@@ -41,12 +51,12 @@
 
 
 /* ----------------------------------------------------------------
-   FONTES SELF-HOSTED — Inter e Newsreader (OFL)
+   FONTE SELF-HOSTED — Inter (OFL)
    ----------------------------------------------------------------
-   Vêm dos pacotes @fontsource-variable/*, sem request a Google Fonts
-   (o <link> antigo vazava o IP do visitante). Variáveis com eixo opsz,
-   só subsets latin e latin-ext. Declaradas aqui com os nomes 'Inter' e
-   'Newsreader' pra os tokens --font-ui/--font-serif não mudarem.
+   Vem do pacote @fontsource-variable/inter, sem request a Google
+   Fonts (o <link> antigo vazava o IP do visitante). Variável com eixo
+   opsz, só subsets latin e latin-ext. É a única família do site: a
+   serifa e a mono da direção Matéria saíram junto com ela.
    ---------------------------------------------------------------- */
 @font-face {
   font-family: 'Inter';
@@ -64,138 +74,126 @@
   src: url('@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
-@font-face {
-  font-family: 'Newsreader';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('@fontsource-variable/newsreader/files/newsreader-latin-ext-opsz-normal.woff2') format('woff2');
-  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Newsreader';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face {
-  font-family: 'Newsreader';
-  font-style: italic;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('@fontsource-variable/newsreader/files/newsreader-latin-ext-opsz-italic.woff2') format('woff2');
-  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Newsreader';
-  font-style: italic;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('@fontsource-variable/newsreader/files/newsreader-latin-opsz-italic.woff2') format('woff2');
-  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-
-/* ----------------------------------------------------------------
-   FONTE SELF-HOSTED — Departure Mono
-   ----------------------------------------------------------------
-   Helena Zhang & Tobias Fried, licença MIT, 22KB. É a mono do
-   cofounder.co. Dá sabor de pixel sem o cosplay de Press Start 2P,
-   e sendo MIT cabe num projeto CC BY-SA — ao contrário das PP
-   Mondwest/NeueBit que estavam aqui, que são free for personal use
-   e não cabiam num repositório público.
-
-   Por ser pixel font, só usar em corpos inteiros (10/11/12px). Em
-   tamanho fracionário a grade borra.
-   ---------------------------------------------------------------- */
-
-@font-face {
-  font-family: 'Departure Mono';
-  src: url('/fonts/DepartureMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 
 
 /* ----------------------------------------------------------------
    1. TOKENS DE DESIGN (@theme)
    ----------------------------------------------------------------
-   Tailwind 4 mudou de paradigma: tokens vivem em CSS, não em
-   tailwind.config.js. Cada variável dentro de @theme {} vira
-   automaticamente uma classe utility.
+   Tailwind 4: cada variável dentro de @theme {} vira classe utility
+   (`--color-cartao` gera bg-cartao, text-cartao etc.).
 
-   Exemplo: `--color-cidades: #A9C6E4` gera bg-cidades, text-cidades,
-   border-cidades, fill-cidades, ring-cidades.
+   Os NOMES antigos continuam todos aqui, remapeados pra direção
+   nova. As páginas ainda não foram redesenhadas e leem var(--t-65),
+   var(--color-<lab>), var(--font-mono)... por toda parte; trocar o
+   valor por trás do nome faz a página inteira mudar de pele sem
+   tocar no markup dela. Quando cada página for redesenhada, ela
+   passa a usar os tokens novos e os aliases podem morrer.
    ---------------------------------------------------------------- */
 
-/* `static` é obrigatório aqui: por padrão o Tailwind 4 só emite as
+/* `static` é obrigatório: por padrão o Tailwind 4 só emite as
    variáveis que alguma classe utility referencia, e boa parte destas
-   é usada em `style` inline (o pastel do lab) ou lida em JS pelo
-   canvas da Matéria — o scanner não enxerga nenhum dos dois. Sem
-   `static`, `var(--color-cidades)` resolve pra vazio e o dither
-   renderiza preto. */
+   é usada em `style` inline (var(--color-<lab>)) — o scanner não
+   enxerga. Sem `static`, a variável resolve pra vazio. */
 @theme static {
 
-  /* === SUPERFÍCIES — VISAO §12, medidas no craft.do === */
-  --color-fundo:   #FCF9F7;          /* off-white quente */
+  /* === SUPERFÍCIES ===
+     A moldura é o cinza que envolve a página; o fundo é a página,
+     branco puro. O cartão também é branco: fora da moldura ele se
+     separa pelo cinza em volta, dentro dela por um fio quase
+     invisível (ver --shadow-macia). */
+  --color-moldura: #EFEFED;
+  --color-fundo:   #FFFFFF;
   --color-cartao:  #FFFFFF;
-  --color-rebaixo: #F7F4F1;          /* superfície interna, 1 passo abaixo */
+  --color-rebaixo: #F5F5F4;          /* superfície interna: campo, trilha, pedido */
+  --color-nav:     #F2F2F2;          /* a pílula da navegação */
+  --color-chip:    #EBEBEB;
+  --color-botao-2: #F0F0F0;          /* botão secundário */
 
-  /* === UMA TINTA, hierarquia por alpha ===
-     Nunca cinzas nomeados. Toda hierarquia de texto é a MESMA tinta
-     com opacidade diferente — é o que mantém a página coerente
-     quando o pastel do lab muda embaixo. */
-  --color-t-100: rgba(3, 3, 2, 1);
-  --color-t-90:  rgba(3, 3, 2, 0.90);
-  --color-t-75:  rgba(3, 3, 2, 0.75);
-  --color-t-65:  rgba(3, 3, 2, 0.65);
-  --color-t-50:  rgba(3, 3, 2, 0.50);
-  --color-t-35:  rgba(3, 3, 2, 0.35);
-  --color-t-12:  rgba(3, 3, 2, 0.12);
-  --color-t-07:  rgba(3, 3, 2, 0.07);
+  /* === TINTA: escala de cinzas ===
+     Antes era uma tinta só com alpha, pra o texto sobreviver ao
+     pastel do lab mudando por baixo. Sem pastel, o fundo é sempre
+     branco ou cinza neutro, e cinza sólido é mais previsível (não
+     escurece quando um cartão fica em cima do outro). Os nomes
+     --t-NN ficam; o número agora é "quanto de tinta", não alpha. */
+  --color-t-100: #111111;            /* quase-preto: título, texto forte */
+  --color-t-90:  #1F1F1F;            /* corpo */
+  --color-t-75:  #3D3D3D;            /* corpo longo, um passo abaixo */
+  --color-t-65:  #6B6B6B;            /* apoio: o cinza médio da referência */
+  --color-t-50:  #8C8C8C;            /* metadado */
+  --color-t-35:  #B5B5B5;            /* a parte apagada do título em dois tons */
+  --color-t-12:  #E3E3E3;            /* fio, borda */
+  --color-t-07:  #F0F0F0;            /* hover, fundo leve */
+  --color-tinta: #0A0A0A;            /* o preto do botão primário */
 
-  /* === ACENTOS: pastéis DESSATURADOS, um por lab ===
-     Preenchem superfície; o texto em cima é sempre a tinta, então o
-     contraste nunca depende da cor do lab. Os glyphs do VISAO §12
-     (◈ ◇ ✚ ♪ ⌘ ◆) continuam válidos: um é selo, outro é superfície. */
-  --color-educacao:       #E8B79B;
-  --color-cidades:        #A9C6E4;
-  --color-saude:          #9BD8A9;        /* a menta do craft */
-  --color-cultura:        #FDE99B;        /* o amarelo do craft */
-  --color-tec-civica:     #C6BCE6;
-  --color-econ-solidaria: #E9B2B8;
+  /* === DESTAQUE: o único acento de interface ===
+     Só pra estado vivo (RFC em discussão, disponível pra construir).
+     Não é cor de marca e não vira superfície grande. */
+  --color-destaque-fundo: #F1E6FB;
+  --color-destaque-texto: #9B4DCA;
 
-  /* === FONTES — todas OFL ou MIT === */
+  /* === BLOCO ESCURO (opcional) ===
+     O botão largo quase-preto quente da referência. Uso raro: uma
+     ação por tela, quando o preto puro ficaria duro demais ao lado
+     da imagem quente. */
+  --color-bloco: #2B1416;
+
+  /* === LABS → neutro ===
+     Os seis pastéis eram a identidade dos labs; a GNIX tirou isso.
+     Remover os tokens quebraria as páginas que escrevem
+     `background: var(--color-<slug>)` inline (chip do lab, swatch
+     de filtro, inicial de pessoa, fita de lab): a declaração ficaria
+     inválida e o elemento sumiria. Então todos apontam pro MESMO
+     cinza de chip. O lab continua se distinguindo pelo nome e pelo
+     glyph, que é o que tem significado; cor por lab só ensinava um
+     código que ninguém pediu pra decorar.
+     Efeito colateral aceito: swatches de filtro e fitas de lab
+     ficam todos iguais até as páginas serem redesenhadas. */
+  --color-educacao:       #EBEBEB;
+  --color-cidades:        #EBEBEB;
+  --color-saude:          #EBEBEB;
+  --color-cultura:        #EBEBEB;
+  --color-tec-civica:     #EBEBEB;
+  --color-econ-solidaria: #EBEBEB;
+
+  /* === FONTES — uma família só ===
+     --font-serif e --font-mono continuam existindo porque dezenas de
+     regras de página os leem; apontam pra Inter. O que a mono dava
+     de útil (números alinhados) vem de `font-variant-numeric:
+     tabular-nums` nas classes de número (.mono, .codigo, .contagem). */
   --font-ui:    'Inter', system-ui, sans-serif;
-  --font-serif: 'Newsreader', Georgia, serif;
-  --font-mono:  'Departure Mono', ui-monospace, monospace;
+  --font-serif: 'Inter', system-ui, sans-serif;
+  --font-mono:  'Inter', system-ui, sans-serif;
 
-  /* === GEOMETRIA MACIA — externo = interno + padding === */
-  --radius-fora:   24px;
-  --radius-dentro: 14px;
-  --radius-pilula: 999px;
+  /* === ESCALA TIPOGRÁFICA === */
+  --text-apoio:   13.5px;            /* texto de apoio, 13-15 na referência */
+  --text-meta:    12.5px;            /* metadado, chip */
+  --text-corpo:   15px;
+  --text-titulo-sm: 22px;
+  --text-titulo-md: clamp(30px, 4vw, 48px);
+  --text-titulo-lg: clamp(38px, 5.6vw, 72px);
 
-  /* === SOMBRA difusa quase invisível, em camadas ===
-     A do craft: enorme e quase transparente. Uma sombra dura
-     (o 4px 4px 0 do Kare) devolveria o idioma antigo. */
-  --shadow-macia:
-    0 1px 1px rgba(3, 3, 2, 0.015),
-    0 8px 10px rgba(3, 3, 2, 0.02),
-    0 20px 20px rgba(3, 3, 2, 0.015),
-    0 50px 40px rgba(3, 3, 2, 0.01);
-  --shadow-alta:
-    0 2px 2px rgba(3, 3, 2, 0.02),
-    0 14px 18px rgba(3, 3, 2, 0.03),
-    0 32px 34px rgba(3, 3, 2, 0.022),
-    0 70px 60px rgba(3, 3, 2, 0.016);
+  /* === GEOMETRIA ===
+     Raios grandes e poucos: cartão 28, moldura 24, interno 12, bloco
+     8. Tudo que não é superfície é pílula. */
+  --radius-fora:    28px;
+  --radius-moldura: 24px;
+  --radius-dentro:  12px;
+  --radius-bloco:   8px;
+  --radius-pilula:  999px;
 
-  --ease-macio: cubic-bezier(0.22, 1, 0.36, 1);
+  /* === "SOMBRA" ===
+     Não é sombra: é um fio de 1px quase invisível, que só existe pra
+     um cartão branco não desaparecer quando estiver sobre a página
+     branca. Sombra difusa era a direção anterior. */
+  --shadow-macia: 0 0 0 1px rgba(17, 17, 17, 0.06);
+  --shadow-alta:  0 0 0 1px rgba(17, 17, 17, 0.12);
+
+  /* sem mola, sem overshoot: a direção não se mexe por enfeite */
+  --ease-macio: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Aliases curtos pro CSS escrito à mão abaixo. O @theme já expõe
-   --color-t-90 etc, mas dentro das peças `var(--t-90)` lê melhor. */
+/* Aliases curtos pro CSS escrito à mão. As páginas usam estes nomes;
+   não renomear sem varrer src/pages. */
 :root {
   --t-100: var(--color-t-100);
   --t-90:  var(--color-t-90);
@@ -205,18 +203,36 @@
   --t-35:  var(--color-t-35);
   --t-12:  var(--color-t-12);
   --t-07:  var(--color-t-07);
+  --tinta: var(--color-tinta);
 
+  --moldura: var(--color-moldura);
   --fundo:   var(--color-fundo);
   --cartao:  var(--color-cartao);
   --rebaixo: var(--color-rebaixo);
 
-  --r-fora:   var(--radius-fora);
-  --r-dentro: var(--radius-dentro);
-  --r-pilula: var(--radius-pilula);
+  --r-fora:    var(--radius-fora);
+  --r-moldura: var(--radius-moldura);
+  --r-dentro:  var(--radius-dentro);
+  --r-bloco:   var(--radius-bloco);
+  --r-pilula:  var(--radius-pilula);
 
   --sombra:      var(--shadow-macia);
   --sombra-alta: var(--shadow-alta);
   --ease:        var(--ease-macio);
+
+  /* espaçamento generoso: a referência respira mais do que parece */
+  --espaco-1: 4px;
+  --espaco-2: 8px;
+  --espaco-3: 12px;
+  --espaco-4: 16px;
+  --espaco-5: 24px;
+  --espaco-6: 32px;
+  --espaco-7: 48px;
+  --espaco-8: 72px;
+  --espaco-9: 112px;
+
+  /* a única duração da folha: troca de estado, não coreografia */
+  --dur: 180ms;
 }
 
 
@@ -225,123 +241,334 @@
    ---------------------------------------------------------------- */
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--moldura); }
 
+/* O body é a moldura. Quem ainda não usa .moldura (todas as páginas,
+   hoje) fica com cartões brancos sobre o cinza — que já é a leitura
+   certa da referência. */
 body {
   margin: 0;
-  background: var(--fundo);
+  background: var(--moldura);
   color: var(--t-90);
   font-family: var(--font-ui);
   font-optical-sizing: auto;
-  font-size: 15px;
-  font-weight: 400;                  /* o padrão é regular. Sempre. */
-  line-height: 1.55;
-  letter-spacing: -0.005em;
+  font-size: var(--text-corpo);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* nunca bold por padrão — a ênfase vem de incremento fracionário
-   (430, 450, 470), não de pular pra 600 */
-h1, h2, h3 { font-weight: 400; }
+/* título é 500: com uma família só, o peso é metade da hierarquia */
+h1, h2, h3 { font-weight: 500; letter-spacing: -0.02em; }
 
+/* "mono" agora é Inter com números de largura fixa: o que a mono dava
+   de útil era o alinhamento de RFC-0042, v0.3, datas */
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 400;
 }
+
+/* .serif era o itálico da serifa antiga dentro dos títulos. As páginas
+   ainda marcam "a parte de acento" do título com ela, e essa é
+   exatamente a parte que o título em dois tons apaga. Então .serif
+   vira o tom claro: os títulos atuais ganham os dois tons sem mexer
+   no markup. */
 .serif {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0;
+  font-family: inherit;
+  font-style: normal;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: var(--t-35);
 }
 
 a:focus-visible,
 button:focus-visible {
-  outline: 2px solid var(--t-75);
+  outline: 2px solid var(--t-100);
   outline-offset: 3px;
 }
 
-.palco { max-width: 1180px; margin: 0 auto; padding: 18px 20px 80px; }
+.palco { max-width: 1180px; margin: 0 auto; padding: 16px 20px 96px; }
 
 
 /* ----------------------------------------------------------------
-   3. NAV
+   3. PEÇAS NOVAS DA DIREÇÃO
+   ---------------------------------------------------------------- */
+
+/* --- moldura: a página branca dentro do cinza ---
+   Pouca margem, raio grande. min-height pra página curta não virar
+   um cartão flutuando no meio do cinza. */
+.moldura {
+  background: var(--fundo);
+  border-radius: var(--r-moldura);
+  margin: 10px;
+  min-height: calc(100vh - 20px);
+  min-height: calc(100dvh - 20px);
+}
+@media (max-width: 520px) { .moldura { margin: 6px; border-radius: 18px; } }
+
+/* --- título em dois tons ---
+   <h1 class="titulo-duplo">Ideias abertas, <span class="apagado">esperando
+   quem sabe fazer.</span></h1>
+   Mesmo tamanho, mesmo peso; só o tom muda. É o "começo diz o que é,
+   o resto contextualiza" da referência. */
+.titulo-duplo {
+  font-size: var(--text-titulo-md);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.032em;
+  color: var(--t-100);
+  margin: 0;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.titulo-duplo.grande { font-size: var(--text-titulo-lg); letter-spacing: -0.035em; }
+.titulo-duplo .apagado,
+.apagado { color: var(--t-35); }
+
+/* --- apoio: o texto pequeno cinza embaixo do título ---
+   Largura curta de propósito: linha longa em 13px cansa. */
+.apoio {
+  font-size: var(--text-apoio);
+  line-height: 1.45;
+  color: var(--t-65);
+  max-width: 42ch;
+  margin: 0;
+}
+
+/* --- botões ---
+   Pílula, 38px de altura. Preto é a ação; cinza é a alternativa.
+   O hover muda só o tom: botão que pula promete mais do que faz. */
+.botao,
+.botao-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--r-pilula);
+  border: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.botao { background: var(--tinta); color: #fff; }
+.botao:hover { background: #2A2A2A; }
+.botao-secundario { background: var(--color-botao-2); color: var(--tinta); }
+.botao-secundario:hover { background: var(--color-chip); }
+
+/* variante bloco: larga, quase-preto quente, raio pequeno. Opcional,
+   aparece dentro de cartão quando a ação ocupa a largura toda. */
+.botao.bloco {
+  width: 100%;
+  height: 44px;
+  border-radius: var(--r-bloco);
+  background: var(--color-bloco);
+}
+.botao.bloco:hover { background: #3A1E20; }
+
+/* compat: .botao.leve e .botao.perigo existem nas páginas; viram o
+   secundário. Perigo não ganha vermelho: o texto da ação já diz. */
+.botao.leve,
+.botao.perigo { background: var(--color-botao-2); color: var(--tinta); }
+.botao.leve:hover,
+.botao.perigo:hover { background: var(--color-chip); }
+.botao:disabled,
+.botao-secundario:disabled { opacity: .4; cursor: not-allowed; }
+
+/* --- chips ---
+   Rótulo curto em pílula cinza (RFC-0042, nome do lab, tema). O de
+   destaque, lilás, é reservado pra estado vivo. */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.chips:not(:has(*)) { display: none; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--t-100);
+  background: var(--color-chip);
+  border-radius: var(--r-pilula);
+  white-space: nowrap;
+}
+.chip.pequeno { height: 22px; padding: 0 9px; font-size: 11.5px; }
+.chip-destaque,
+.chip.vivo {
+  background: var(--color-destaque-fundo);
+  color: var(--color-destaque-texto);
+}
+/* o ponto existe no markup de estado vivo; fica parado, na cor do
+   texto. Respirar era animação decorativa. */
+.chip .ponto { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: .7; }
+.chip.pastel .ponto { background: var(--t-65); }
+/* compat: o chip do lab recebe o fundo inline var(--color-<slug>),
+   que agora é o mesmo cinza do chip */
+.chip.pastel { color: var(--t-100); }
+
+/* código (RFC-0042) solto no texto: metadado com números alinhados.
+   Dentro de chip (.chip.codigo) ganha a cara de chip. */
+.codigo {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--t-50);
+}
+.chip.codigo { font-size: var(--text-meta); color: var(--t-100); }
+
+/* --- cartão ---
+   Branco, raio 28, sem sombra (só o fio). overflow:hidden é o que
+   deixa a imagem da Materia sangrar na base com o mesmo raio. */
+.cartao {
+  background: var(--cartao);
+  border-radius: var(--r-fora);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+
+/* ----------------------------------------------------------------
+   4. NAV
+   ----------------------------------------------------------------
+   Uma pílula cinza clara, centralizada: marca em negrito à esquerda,
+   links pequenos em cinza escuro, ação preta à direita. Sem vidro
+   fosco nem sombra.
    ---------------------------------------------------------------- */
 
 .nav {
   position: sticky;
-  top: 14px;
+  top: 12px;
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--t-07);
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 40px;
+  background: var(--color-nav);
   border-radius: var(--r-pilula);
-  padding: 6px 7px 6px 17px;
-  box-shadow: 0 1px 1px rgba(3, 3, 2, 0.015), 0 10px 20px -8px rgba(3, 3, 2, 0.05);
-  margin-bottom: 26px;
+  padding: 5px 5px 5px 18px;
 }
 .nav .marca {
-  font-weight: 470;                  /* incremento fracionário, não 600 */
-  font-size: 14.5px;
-  letter-spacing: -0.018em;
+  font-weight: 650;
+  font-size: 14px;
+  letter-spacing: -0.02em;
   margin-right: 14px;
   white-space: nowrap;
   color: var(--t-100);
   text-decoration: none;
 }
 .nav a {
-  color: var(--t-65);
+  color: var(--t-75);
   text-decoration: none;
-  font-size: 13.5px;
-  font-weight: 400;
-  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 450;
+  padding: 7px 11px;
   border-radius: var(--r-pilula);
-  transition: background 200ms var(--ease), color 200ms var(--ease);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
   white-space: nowrap;
 }
-.nav a:hover { background: var(--t-07); color: var(--t-90); }
-.nav .fim { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+.nav a:hover { background: rgba(17, 17, 17, 0.05); color: var(--t-100); }
+.nav .fim { margin-left: 12px; display: flex; gap: 4px; align-items: center; }
 .nav .entrar {
-  background: var(--t-100);
+  background: var(--tinta);
   color: #fff;
-  padding: 7px 15px;
-  font-weight: 430;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 15px;
+  font-weight: 500;
 }
-.nav .entrar:hover { background: var(--t-75); color: #fff; }
-@media (max-width: 760px) { .nav .esconde { display: none; } }
+.nav .entrar:hover { background: #2A2A2A; color: #fff; }
+@media (max-width: 760px) {
+  .nav { width: auto; }
+  .nav .esconde { display: none; }
+  .nav .fim { margin-left: auto; }
+}
+
+/* nav: bloco de quem está logado */
+.nav .eu {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 12px 4px 4px;
+  border-radius: var(--r-pilula);
+  background: var(--cartao);
+  color: var(--t-90);
+  font-size: 13px;
+  text-decoration: none;
+}
+.nav .eu:hover { background: var(--cartao); color: var(--t-100); }
+.nav .eu .inicial {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--color-chip);
+  font-size: 10px; font-weight: 600;
+}
+
+/* nav: seletor de idioma. Pequeno e cinza: é metadado da página, não
+   destino de navegação, e não pode competir com os itens. Fica visível
+   na tela estreita, onde os itens somem. */
+.nav .idiomas { display: inline-flex; align-items: center; }
+.nav .idiomas a {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 7px;
+  color: var(--t-50);
+}
+.nav .idiomas a[aria-current] { color: var(--t-100); }
+
+/* sugestão de idioma, logo abaixo da pílula. Discreta de propósito:
+   é convite, não aviso; some ao dispensar. */
+.sugestao-idioma {
+  display: flex; justify-content: center; align-items: baseline; gap: 12px;
+  margin: -28px 6px 28px;
+  font-size: 12.5px;
+  color: var(--t-65);
+}
+.sugestao-idioma[hidden] { display: none; }
+.sugestao-idioma a { color: var(--t-100); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
+.sugestao-idioma a:hover { text-decoration-color: var(--t-100); }
+.sugestao-idioma button {
+  font: inherit; font-size: 12px;
+  color: var(--t-50);
+  background: none; border: 0; padding: 0; cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.sugestao-idioma button:hover { color: var(--t-100); }
 
 
 /* ----------------------------------------------------------------
-   4. ABERTURA
+   5. ABERTURA
    ----------------------------------------------------------------
-   A primeira coisa da página não pode ser uma RFC real: quem chega
-   não sabe o que é RFC, nem lab, nem "pedindo mão". Então a abertura
-   explica o ciclo — e faz isso ENSINANDO O VOCABULÁRIO, porque cada
-   etapa mostra o chip de estado que ela produz. Quando a pessoa
-   encontra "em discussão" no cartão logo abaixo, já sabe o que é.
-
-   Chapada de propósito: sem cartão branco, sem sombra. A hierarquia
-   é essa — explicação é plana, conteúdo é o que flutua.
+   A abertura explica o ciclo ensinando o vocabulário (cada etapa
+   mostra o chip que produz). Chapada: sem cartão. O título segue a
+   regra de dois tons via .serif/.apagado.
    ---------------------------------------------------------------- */
 
-.abertura { padding: 30px 4px 8px; }
+.abertura { padding: 56px 4px 16px; }
 .abertura h1 {
-  font-size: clamp(30px, 4.1vw, 50px);
-  line-height: 1.06;
-  font-weight: 420;
-  letter-spacing: -0.032em;
-  margin: 0 0 16px;
-  max-width: 20ch;
+  font-size: var(--text-titulo-lg);
+  line-height: 1.04;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  margin: 0 0 20px;
+  max-width: 16ch;
   color: var(--t-100);
 }
-.abertura h1 .serif { font-size: 1.05em; font-weight: 400; }
-.abertura .sub { color: var(--t-65); max-width: 54ch; font-size: 16px; margin: 0 0 30px; }
+.abertura .sub { color: var(--t-65); max-width: 46ch; font-size: 15px; line-height: 1.45; margin: 0 0 40px; }
 
 /* linha do chip que demonstra o ciclo andando */
 .demo-ciclo {
@@ -349,83 +576,64 @@ button:focus-visible {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin: 0 0 34px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--t-35);
+  margin: 0 0 48px;
+  font-size: var(--text-meta);
+  color: var(--t-50);
 }
 
-/* sem régua entre as etapas — o que separa é o espaço e o número */
 .fluxo {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 30px 34px;
-  border-top: 1px solid var(--t-12);
-  padding-top: 26px;
+  gap: 32px 32px;
+  padding-top: 8px;
 }
 @media (max-width: 900px) { .fluxo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .fluxo { grid-template-columns: 1fr; } }
 
 .etapa .n {
-  font-family: var(--font-mono);
-  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--t-35);
   display: block;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   line-height: 1;
 }
 .etapa h3 {
-  font-size: 16.5px;
-  font-weight: 460;
-  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
   line-height: 1.25;
-  margin: 0 0 7px;
+  margin: 0 0 6px;
   color: var(--t-100);
 }
-.etapa p { margin: 0 0 13px; font-size: 13.5px; color: var(--t-65); }
+.etapa p { margin: 0 0 12px; font-size: var(--text-apoio); line-height: 1.45; color: var(--t-65); }
 .etapa .vira {
-  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--t-35);
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-size: var(--text-meta);
+  color: var(--t-50);
 }
 
 /* rótulo de seção — separa a explicação do conteúdo real */
 .faixa-rotulo {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 14px; flex-wrap: wrap;
-  padding: 46px 4px 14px;
+  padding: 72px 4px 16px;
 }
 .faixa-rotulo .r {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--t-35);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--t-100);
 }
-.faixa-rotulo a { font-size: 13px; color: var(--t-50); text-decoration: none; }
-.faixa-rotulo a:hover { color: var(--t-90); }
+.faixa-rotulo a { font-size: 13px; color: var(--t-65); text-decoration: none; transition: color var(--dur) var(--ease); }
+.faixa-rotulo a:hover { color: var(--t-100); }
 
 
 /* ----------------------------------------------------------------
-   5. CARTÃO
+   6. DESTAQUE (cartão grande do átrio)
    ---------------------------------------------------------------- */
 
-.cartao {
-  background: var(--cartao);
-  border-radius: var(--r-fora);
-  box-shadow: var(--sombra);
-  overflow: hidden;
-  margin-bottom: 18px;
-}
-
-/* destaque: split matéria | texto, e o pedido atravessando embaixo.
-   O pedido fica FORA da coluna de propósito: dentro dela, o texto
-   empurrava a matéria pra 940px de altura. */
 .destaque { display: grid; grid-template-columns: 46% minmax(0, 1fr); }
 @media (max-width: 900px) { .destaque { grid-template-columns: 1fr; } }
 
@@ -434,136 +642,94 @@ button:focus-visible {
 .materia canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .materia figcaption {
   position: absolute;
-  left: 16px; bottom: 15px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  color: var(--t-65);
-  background: rgba(255, 255, 255, 0.80);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  left: 16px; bottom: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t-100);
+  background: rgba(255, 255, 255, 0.88);
   padding: 6px 11px;
   border-radius: var(--r-pilula);
 }
 
-.conteudo { padding: 34px 36px 32px; }
+.conteudo { padding: 40px 40px 36px; }
 .conteudo h1 {
-  font-size: clamp(28px, 3.5vw, 42px);
-  line-height: 1.08;
-  font-weight: 420;                  /* 420, não 600 */
+  font-size: clamp(28px, 3.4vw, 42px);
+  line-height: 1.05;
+  font-weight: 500;
   letter-spacing: -0.03em;
   margin: 0 0 16px;
-  max-width: 21ch;
+  max-width: 18ch;
   color: var(--t-100);
 }
-.conteudo h1 .serif { font-size: 1.06em; font-weight: 400; }
 .conteudo p.resumo {
-  margin: 0 0 26px;
+  margin: 0 0 28px;
   color: var(--t-65);
-  font-size: 15.5px;
-  max-width: 46ch;
-}
-
-
-/* ----------------------------------------------------------------
-   6. CHIPS — superfície pastel, texto na tinta
-   ---------------------------------------------------------------- */
-
-.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 430;
-  padding: 5px 12px;
-  border-radius: var(--r-pilula);
-  color: var(--t-90);
-  background: var(--t-07);
-  white-space: nowrap;
-}
-.chip .ponto { width: 6px; height: 6px; border-radius: 50%; background: var(--t-50); flex-shrink: 0; }
-.chip.pastel .ponto { background: var(--t-75); }
-.chip.pequeno { font-size: 11px; padding: 3px 9px; }
-
-.codigo {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--t-35);
-  letter-spacing: 0.02em;
+  font-size: 14.5px;
+  line-height: 1.45;
+  max-width: 44ch;
 }
 
 
 /* ----------------------------------------------------------------
    7. TRILHA
    ----------------------------------------------------------------
-   Barrinhas verticais finas. Cada barrinha é um passo já dado, não
-   porcentagem: numa RFC voluntária não há prazo, e porcentagem
-   viraria métrica de vaidade (VISAO §9).
+   Barrinhas: cada uma é um passo já dado, não porcentagem (VISAO §9).
    ---------------------------------------------------------------- */
 
 .trilha {
   background: var(--rebaixo);
   border-radius: var(--r-dentro);
-  padding: 17px 19px 18px;
+  padding: 18px 20px;
 }
 .trilha .cabeca { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
-.trilha .titulo { font-size: 13px; font-weight: 460; color: var(--t-90); }
-.trilha .versao { font-family: var(--font-mono); font-size: 11px; color: var(--t-50); }
+.trilha .titulo { font-size: 13px; font-weight: 500; color: var(--t-100); }
+.trilha .versao { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); }
 
-.barras { display: flex; gap: 2px; align-items: flex-end; height: 24px; margin-bottom: 14px; }
-.barras i {
-  flex: 1;
-  border-radius: 2px;
-  background: var(--t-12);
-  height: 38%;
-  transform-origin: bottom;
-}
-.barras i.feito { background: var(--t-75); height: 100%; }
-.barras i.meio  { background: var(--t-35); height: 68%; }
+.barras { display: flex; gap: 3px; align-items: flex-end; height: 20px; margin-bottom: 14px; }
+.barras i { flex: 1; border-radius: 2px; background: var(--t-12); height: 30%; }
+.barras i.feito { background: var(--t-100); height: 100%; }
+.barras i.meio  { background: var(--t-35); height: 60%; }
 
-/* passos: o traço do check é desenhado, então mostra a AÇÃO de
-   marcar, não o resultado já marcado. Coexiste com a barrinha —
-   a barra é o relance, o passo é o nome. */
 .passos { display: grid; gap: 9px; }
 .passo { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--t-65); }
-.passo b { font-weight: 470; color: var(--t-100); }
+.passo b { font-weight: 500; color: var(--t-100); }
 
+/* caixa de marcar: vazia é contorno, marcada é tinta com check branco.
+   O check aparece por opacidade; desenhar o traço era coreografia. */
 .caixa {
-  width: 19px; height: 19px;
-  border-radius: 6px;
+  width: 18px; height: 18px;
+  border-radius: 5px;
   border: 1.5px solid var(--t-12);
   background: var(--cartao);
   display: grid;
   place-items: center;
   flex-shrink: 0;
   margin-top: 1px;
-  transition: background 240ms var(--ease), border-color 240ms var(--ease);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.passo.dado .caixa { background: var(--color-saude); border-color: var(--color-saude); }
-.caixa svg { width: 11px; height: 11px; display: block; overflow: visible; }
+.passo.dado .caixa { background: var(--tinta); border-color: var(--tinta); }
+.caixa svg { width: 10px; height: 10px; display: block; overflow: visible; }
 .caixa path {
   fill: none;
-  stroke: var(--t-100);
-  stroke-width: 2.1;
+  stroke: #fff;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 18;
-  stroke-dashoffset: 18;             /* comprimento real do traço: 12.8 */
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
 }
+.passo.dado .caixa path { opacity: 1; }
 
 
 /* ----------------------------------------------------------------
    8. ERRATA
    ----------------------------------------------------------------
    O texto errado fica riscado e a correção aparece ao lado, datada.
-   Nada é apagado — é o achado da bancada.html.
-
-   grid-template-rows: 0fr → 1fr anima altura automática sem medir
-   nada em JS, que é o que trava a maioria dos accordions.
+   O acordeão (grid-template-rows 0fr → 1fr) é transição de estado,
+   não enfeite: sem ela o conteúdo pularia.
    ---------------------------------------------------------------- */
 
-.errata { margin-top: 14px; border-top: 1px solid var(--t-07); padding-top: 12px; }
+.errata { margin-top: 14px; border-top: 1px solid var(--t-12); padding-top: 12px; }
 .errata .gatilho {
   display: flex;
   align-items: center;
@@ -573,33 +739,33 @@ button:focus-visible {
   border: 0;
   padding: 0;
   font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 460;
-  color: var(--t-90);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-100);
   cursor: pointer;
   text-align: left;
 }
 .errata .chevron {
-  width: 9px; height: 9px;
+  width: 8px; height: 8px;
   border-right: 1.5px solid var(--t-50);
   border-bottom: 1.5px solid var(--t-50);
   transform: rotate(-45deg);
   flex-shrink: 0;
-  transition: transform 260ms var(--ease);
+  transition: transform var(--dur) var(--ease);
 }
 .errata[data-aberta="sim"] .chevron { transform: rotate(45deg); }
 
 .errata .fole {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms var(--ease);
+  transition: grid-template-rows 200ms var(--ease);
 }
 .errata[data-aberta="sim"] .fole { grid-template-rows: 1fr; }
 .errata .fole > div { overflow: hidden; }
 
-.errata .corpo { padding-top: 11px; font-size: 12.5px; color: var(--t-65); }
+.errata .corpo { padding-top: 11px; font-size: 13px; color: var(--t-65); }
 .errata .riscado { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--t-35); }
-.errata .data { font-family: var(--font-mono); font-size: 10px; color: var(--t-35); display: block; margin-top: 6px; }
+.errata .data { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); display: block; margin-top: 6px; }
 
 
 /* ----------------------------------------------------------------
@@ -608,57 +774,33 @@ button:focus-visible {
 
 .pedido {
   grid-column: 1 / -1;
-  border-top: 1px solid var(--t-07);
-  background: var(--rebaixo);
-  padding: 20px 36px 22px;
+  border-top: 1px solid var(--t-12);
+  padding: 22px 40px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 }
-.pedido .rotulo {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--t-35);
-  margin: 0 0 8px;
-}
+.pedido .rotulo { font-size: 12.5px; color: var(--t-50); margin: 0 0 6px; }
 .pedido p { margin: 0; font-size: 14.5px; color: var(--t-75); }
-.pedido p b { font-weight: 470; color: var(--t-100); }
+.pedido p b { font-weight: 500; color: var(--t-100); }
 
 .acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.botao {
-  display: inline-flex;
-  align-items: center;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 430;
-  padding: 10px 18px;
-  border-radius: var(--r-pilula);
-  border: 1px solid transparent;
-  background: var(--t-100);
-  color: #fff;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 220ms var(--ease), transform 160ms var(--ease);
-}
-.botao:hover { background: var(--t-75); }
-.botao:active { transform: translateY(1px); }
-.botao.leve { background: transparent; color: var(--t-90); border-color: var(--t-12); }
-.botao.leve:hover { background: var(--t-07); }
 
+/* rostos empilhados: o estilo fica neutro pra não quebrar o átrio,
+   mas avatar empilhado é métrica de vaidade (VISAO §9) e deve sair
+   no redesenho da página que o usa */
 .rostos { display: flex; margin-left: 6px; }
 .rostos span {
-  width: 27px; height: 27px;
+  width: 26px; height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--rebaixo);
-  margin-left: -9px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  color: var(--t-90);
+  border: 2px solid var(--cartao);
+  margin-left: -8px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--t-100);
+  background: var(--color-chip);
   display: grid;
   place-items: center;
 }
@@ -666,169 +808,177 @@ button:focus-visible {
 
 
 /* ----------------------------------------------------------------
-   10. GRADE DE IDEIAS
+   10. GRADE DE IDEIAS (CartaoIdeia)
+   ----------------------------------------------------------------
+   Texto em cima, imagem sangrando embaixo. Hover só escurece o fio:
+   o cartão não sobe.
    ---------------------------------------------------------------- */
 
-.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 18px; margin-bottom: 18px; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .ideia {
   display: flex; flex-direction: column;
   text-decoration: none; color: inherit;
-  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
+  transition: box-shadow var(--dur) var(--ease);
 }
-.ideia:hover { transform: translateY(-4px); box-shadow: var(--sombra-alta); }
-.ideia .capa { height: 152px; position: relative; }
-.ideia .capa canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ideia .miolo { padding: 17px 19px 19px; display: flex; flex-direction: column; flex: 1; }
+a.ideia:hover { box-shadow: var(--sombra-alta); }
+.ideia .miolo { padding: 24px 26px 20px; display: flex; flex-direction: column; flex: 1; }
+.ideia .chips { margin: 0 0 18px; }
 .ideia h3 {
-  font-size: 18.5px;
-  font-weight: 440;
-  letter-spacing: -0.024em;
-  line-height: 1.2;
-  margin: 11px 0 8px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0 0 8px;
   color: var(--t-100);
+  text-wrap: balance;
 }
-.ideia p { margin: 0 0 15px; font-size: 13.5px; color: var(--t-65); flex: 1; }
+.ideia .miolo > p {
+  margin: 0 0 18px;
+  font-size: var(--text-apoio);
+  line-height: 1.45;
+  color: var(--t-65);
+  max-width: 42ch;
+  flex: 1;
+}
 .ideia .pe {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--t-35);
-  border-top: 1px solid var(--t-07);
-  padding-top: 13px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--t-50);
 }
+/* a imagem fecha o cartão; a margem lateral pequena deixa ver que ela
+   está DENTRO do cartão, com o mesmo raio */
+.ideia .capa {
+  height: 168px;
+  position: relative;
+  margin: 0 8px 8px;
+  border-radius: calc(var(--r-fora) - 8px);
+  overflow: hidden;
+}
+.ideia .capa canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 
 /* ----------------------------------------------------------------
    11. LABS
+   ----------------------------------------------------------------
+   A fita era o pastel do lab; agora é cinza neutro (ver tokens) até
+   a página de labs ser redesenhada com uma Materia no lugar.
    ---------------------------------------------------------------- */
 
-.labs-faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.labs-faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .lab-card {
   background: var(--cartao);
-  border-radius: 18px;
-  padding: 0 0 15px;
+  border-radius: 20px;
+  padding: 0 0 16px;
   text-decoration: none; color: inherit;
   box-shadow: var(--sombra);
   overflow: hidden;
-  transition: transform 260ms var(--ease);
+  transition: box-shadow var(--dur) var(--ease);
 }
-.lab-card:hover { transform: translateY(-3px); }
-/* a faixa pastel é generosa: no craft a cor é superfície, não detalhe.
-   display:block é obrigatório — são <span>, e span inline ignora
-   height e padding vertical. */
+.lab-card:hover { box-shadow: var(--sombra-alta); }
+/* display:block é obrigatório — são <span>, e span inline ignora
+   height e padding vertical */
 .lab-card .fita { display: block; height: 54px; }
-.lab-card .txt  { display: block; padding: 13px 16px 0; }
-.lab-card .nome { font-size: 14.5px; font-weight: 450; letter-spacing: -0.016em; display: block; color: var(--t-100); }
-.lab-card .qtd { font-family: var(--font-mono); font-size: 11px; color: var(--t-35); display: block; margin-top: 3px; }
+.lab-card .txt  { display: block; padding: 14px 16px 0; }
+.lab-card .nome { font-size: 14.5px; font-weight: 500; letter-spacing: -0.015em; display: block; color: var(--t-100); }
+.lab-card .qtd { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); display: block; margin-top: 3px; }
 .lab-card .glyph { color: var(--t-50); margin-right: 5px; }
 
 
 /* ----------------------------------------------------------------
-   11.5. PEÇAS DAS TELAS INTERNAS (F1)
+   12. PEÇAS DAS TELAS INTERNAS
    ---------------------------------------------------------------- */
 
 /* --- cabeçalho de página --- */
-.cabecalho-pagina { padding: 30px 4px 8px; }
+.cabecalho-pagina { padding: 48px 4px 16px; }
 .cabecalho-pagina h1 {
-  font-size: clamp(28px, 3.6vw, 42px);
-  line-height: 1.07;
-  font-weight: 420;
-  letter-spacing: -0.03em;
-  margin: 10px 0 14px;
-  max-width: 22ch;
+  font-size: var(--text-titulo-md);
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: -0.032em;
+  margin: 12px 0 16px;
+  max-width: 18ch;
   color: var(--t-100);
 }
-.cabecalho-pagina h1 .serif { font-size: 1.05em; }
-.cabecalho-pagina .sub { color: var(--t-65); max-width: 56ch; margin: 0 0 26px; }
+.cabecalho-pagina .sub { color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 46ch; margin: 0 0 32px; }
 .cabecalho-pagina .volta {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--t-50);
+  font-size: 13px;
+  color: var(--t-65);
   text-decoration: none;
-  letter-spacing: 0.02em;
+  transition: color var(--dur) var(--ease);
 }
-.cabecalho-pagina .volta:hover { color: var(--t-90); }
+.cabecalho-pagina .volta:hover { color: var(--t-100); }
 
 /* --- filtros --- */
 .filtros {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-  padding: 0 4px 20px;
+  padding: 0 4px 24px;
 }
 .filtros .grupo { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.filtros .rotulo {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  color: var(--t-35);
-  margin-right: 4px;
-}
+.filtros .rotulo { font-size: 12.5px; color: var(--t-50); margin-right: 4px; }
 .filtro {
   font-family: inherit;
   font-size: 12.5px;
-  font-weight: 430;
-  padding: 6px 13px;
+  font-weight: 500;
+  height: 30px;
+  padding: 0 13px;
   border-radius: var(--r-pilula);
-  border: 1px solid var(--t-07);
+  border: 0;
   background: var(--cartao);
-  color: var(--t-65);
+  color: var(--t-75);
   cursor: pointer;
-  transition: background 200ms var(--ease), color 200ms var(--ease), border-color 200ms var(--ease);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.filtro:hover { color: var(--t-100); border-color: var(--t-12); }
-.filtro[aria-pressed="true"] { background: var(--t-100); color: #fff; border-color: transparent; }
-.filtro .swatch {
-  display: inline-block;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: baseline;
-}
+.filtro:hover { color: var(--t-100); background: var(--color-botao-2); }
+.filtro[aria-pressed="true"] { background: var(--tinta); color: #fff; }
+/* a bolinha de cor do lab: com os labs neutros ela não distingue mais
+   nada, então some até a página de filtros ser redesenhada */
+.filtro .swatch { display: none; }
 
 .contagem {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--t-35);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--t-50);
   padding: 0 4px 14px;
 }
 
-/* --- estado de vazio --- */
+/* --- estado de vazio (Vazio.astro) --- */
 .vazio {
   background: var(--cartao);
   border-radius: var(--r-fora);
   box-shadow: var(--sombra);
-  padding: 46px 40px 48px;
+  padding: 56px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
-.vazio .rotulo {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
-  color: var(--t-35);
-  margin: 0 0 10px;
-}
+.vazio .rotulo { margin: 0 0 18px; }
 .vazio h3 {
-  font-size: 21px;
-  font-weight: 430;
-  letter-spacing: -0.024em;
-  margin: 0 auto 10px;
-  max-width: 28ch;
+  font-size: var(--text-titulo-sm);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+  max-width: 24ch;
   color: var(--t-100);
+  text-wrap: balance;
 }
-.vazio .texto { margin: 0 auto 22px; color: var(--t-65); max-width: 44ch; font-size: 14.5px; }
+.vazio .texto { margin: 0 0 24px; color: var(--t-65); max-width: 40ch; font-size: var(--text-apoio); line-height: 1.45; }
+/* queda do servidor: superfície rebaixada, sem fio. Não é convite. */
 .vazio.falha { background: var(--rebaixo); box-shadow: none; }
 
 /* --- detalhe da RFC --- */
-.rfc-topo { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+.rfc-topo { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .rfc-topo { grid-template-columns: 1fr; } }
 
-.rfc-capa { height: 230px; position: relative; margin: 0; }
+.rfc-capa { height: 240px; position: relative; margin: 8px 8px 0; border-radius: calc(var(--r-fora) - 8px); overflow: hidden; }
 .rfc-capa canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-.corpo-rfc { padding: 30px 36px 34px; }
+.corpo-rfc { padding: 36px 40px 40px; font-size: 15px; line-height: 1.6; }
 .corpo-rfc h2 {
-  font-size: 17px; font-weight: 460; letter-spacing: -0.02em;
-  margin: 28px 0 10px; color: var(--t-100);
+  font-size: 18px; font-weight: 500; letter-spacing: -0.02em;
+  margin: 32px 0 10px; color: var(--t-100);
 }
 .corpo-rfc h2:first-child { margin-top: 0; }
 .corpo-rfc p { margin: 0 0 14px; color: var(--t-75); }
@@ -837,33 +987,31 @@ button:focus-visible {
 .corpo-rfc ul { margin: 0 0 14px; padding-left: 20px; color: var(--t-75); list-style: disc; }
 .corpo-rfc li { margin-bottom: 5px; }
 .corpo-rfc code {
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
   background: var(--rebaixo); padding: 1px 5px; border-radius: 5px;
 }
-
-/* O resto do que lib/markdown.ts produz. A ênfase segue a regra da
-   folha: incremento fracionário de peso, nunca o 700 do <strong>. */
 .corpo-rfc h3 {
-  font-size: 15px; font-weight: 460; letter-spacing: -0.014em;
-  margin: 22px 0 8px; color: var(--t-100);
+  font-size: 15px; font-weight: 500; letter-spacing: -0.014em;
+  margin: 24px 0 8px; color: var(--t-100);
 }
 .corpo-rfc h3:first-child { margin-top: 0; }
-.corpo-rfc strong { font-weight: 470; color: var(--t-100); }
+.corpo-rfc strong { font-weight: 550; color: var(--t-100); }
 .corpo-rfc em { font-style: italic; }
 .corpo-rfc a {
-  color: var(--t-90);
+  color: var(--t-100);
   text-decoration: underline;
   text-decoration-color: var(--t-35);
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   overflow-wrap: anywhere;              /* URL crua não estoura a coluna */
-  transition: text-decoration-color 200ms var(--ease);
+  transition: text-decoration-color var(--dur) var(--ease);
 }
-.corpo-rfc a:hover { text-decoration-color: var(--t-90); }
+.corpo-rfc a:hover { text-decoration-color: var(--t-100); }
 .corpo-rfc ol { margin: 0 0 14px; padding-left: 22px; color: var(--t-75); list-style: decimal; }
 .corpo-rfc li > ul,
 .corpo-rfc li > ol { margin: 5px 0 0; }
-/* lista "solta" (itens separados por linha vazia) embrulha cada item
-   num <p>; sem isto ela ganharia o respiro de parágrafo entre itens */
+/* lista "solta" embrulha cada item num <p>; sem isto ela ganharia o
+   respiro de parágrafo entre itens */
 .corpo-rfc li > p { margin: 0 0 5px; }
 .corpo-rfc blockquote {
   margin: 0 0 14px;
@@ -881,9 +1029,9 @@ button:focus-visible {
 }
 .corpo-rfc pre code {
   background: none; padding: 0; border-radius: 0;
-  font-size: 12px; line-height: 1.6; color: var(--t-90);
+  font-size: 12.5px; line-height: 1.6; color: var(--t-90);
 }
-.corpo-rfc hr { border: 0; border-top: 1px solid var(--t-07); margin: 24px 0; }
+.corpo-rfc hr { border: 0; border-top: 1px solid var(--t-12); margin: 28px 0; }
 /* tabela larga rola dentro dela mesma em vez de alargar a página */
 .corpo-rfc table {
   display: block;
@@ -895,130 +1043,153 @@ button:focus-visible {
   color: var(--t-75);
 }
 .corpo-rfc th,
-.corpo-rfc td { padding: 7px 14px 7px 0; border-bottom: 1px solid var(--t-07); vertical-align: top; }
-.corpo-rfc th { font-weight: 460; color: var(--t-90); border-bottom-color: var(--t-12); }
-@media (prefers-reduced-motion: reduce) { .corpo-rfc a { transition: none; } }
+.corpo-rfc td { padding: 8px 14px 8px 0; border-bottom: 1px solid var(--t-12); vertical-align: top; }
+.corpo-rfc th { font-weight: 500; color: var(--t-100); border-bottom-color: var(--t-35); }
 
 /* --- coluna lateral --- */
-.lado-rfc { display: grid; gap: 14px; position: sticky; top: 86px; }
+.lado-rfc { display: grid; gap: 16px; position: sticky; top: 86px; }
 @media (max-width: 900px) { .lado-rfc { position: static; } }
 .bloco {
   background: var(--cartao);
   border-radius: var(--r-fora);
   box-shadow: var(--sombra);
-  padding: 20px 22px 22px;
+  padding: 22px 24px 24px;
 }
 .bloco .titulo-bloco {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--t-35);
-  margin: 0 0 13px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-100);
+  margin: 0 0 12px;
 }
 .bloco .linha {
   display: flex; justify-content: space-between; gap: 12px;
   font-size: 13px; color: var(--t-65);
   padding: 5px 0;
+  font-variant-numeric: tabular-nums;
 }
-.bloco .linha b { font-weight: 460; color: var(--t-90); }
+.bloco .linha b { font-weight: 500; color: var(--t-100); }
 
 .lista-pessoas { display: grid; gap: 9px; }
-.pessoa { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--t-75); text-decoration: none; }
+.pessoa { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--t-75); text-decoration: none; transition: color var(--dur) var(--ease); }
 .pessoa:hover { color: var(--t-100); }
 .pessoa .inicial {
   width: 26px; height: 26px; border-radius: 50%;
   display: grid; place-items: center;
-  font-family: var(--font-mono); font-size: 9px; color: var(--t-90);
+  font-size: 10px; font-weight: 600; color: var(--t-100);
+  background: var(--color-chip);
   flex-shrink: 0;
 }
 
 .nuvem-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 4px 10px;
+  display: inline-flex; align-items: center;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0 11px;
   border-radius: var(--r-pilula);
-  background: var(--t-07);
-  color: var(--t-65);
+  background: var(--color-chip);
+  color: var(--t-100);
   text-decoration: none;
+  transition: background var(--dur) var(--ease);
 }
-.tag:hover { background: var(--t-12); color: var(--t-100); }
+.tag:hover { background: var(--t-12); }
 
 /* --- discussão --- */
-.discussao { margin-top: 18px; }
+.discussao { margin-top: 16px; }
 .comentario {
   background: var(--cartao);
-  border-radius: var(--r-dentro);
-  padding: 17px 20px 18px;
-  margin-bottom: 10px;
+  border-radius: 20px;
+  padding: 18px 22px 20px;
+  margin-bottom: 8px;
   box-shadow: var(--sombra);
 }
 .comentario .cabeca {
   display: flex; align-items: center; gap: 9px;
-  margin-bottom: 9px;
-  font-size: 12.5px;
+  margin-bottom: 8px;
+  font-size: 13px;
 }
-.comentario .cabeca a { color: var(--t-90); text-decoration: none; font-weight: 450; }
+.comentario .cabeca a { color: var(--t-100); text-decoration: none; font-weight: 500; }
 .comentario .cabeca a:hover { text-decoration: underline; }
-.comentario .quando { font-family: var(--font-mono); font-size: 10px; color: var(--t-35); }
+.comentario .quando { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); }
 .comentario p { margin: 0; color: var(--t-75); font-size: 14px; }
-.comentario.removido p { color: var(--t-35); font-style: italic; }
+.comentario.removido p { color: var(--t-50); font-style: italic; }
+
+.novo-comentario {
+  background: var(--cartao);
+  border-radius: 20px;
+  padding: 18px 22px 20px;
+  margin-bottom: 8px;
+  box-shadow: var(--sombra);
+}
+.comentario .acoes-comentario { display: flex; gap: 12px; margin-top: 10px; }
+.comentario .acoes-comentario button {
+  background: none; border: 0; padding: 0;
+  font-family: inherit; font-size: 12.5px; color: var(--t-50);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+  transition: color var(--dur) var(--ease);
+}
+.comentario .acoes-comentario button:hover { color: var(--t-100); }
 
 /* --- perfil --- */
 .perfil-topo {
   background: var(--cartao);
   border-radius: var(--r-fora);
   box-shadow: var(--sombra);
-  padding: 30px 34px 32px;
-  margin-bottom: 18px;
+  padding: 36px 40px;
+  margin-bottom: 16px;
 }
 .perfil-topo h1 {
-  font-family: var(--font-mono);
-  font-size: 26px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   margin: 0 0 8px;
   color: var(--t-100);
 }
-.perfil-topo .headline { margin: 0 0 16px; color: var(--t-65); max-width: 52ch; }
-.perfil-topo .meta { font-family: var(--font-mono); font-size: 11px; color: var(--t-35); }
+.perfil-topo .headline { margin: 0 0 16px; color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 46ch; }
+.perfil-topo .meta { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t-50); }
 
 /* --- aviso de API fora --- */
 .aviso-api {
-  background: var(--rebaixo);
-  border: 1px solid var(--t-07);
+  background: var(--cartao);
   border-radius: var(--r-dentro);
-  padding: 13px 17px;
-  margin-bottom: 18px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
   font-size: 13px;
   color: var(--t-65);
 }
-.aviso-api b { font-weight: 460; color: var(--t-90); }
+.aviso-api b { font-weight: 500; color: var(--t-100); }
+
+/* --- lista de builders: o cartão em si está em CartaoMao.astro --- */
+.grade-builders { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+
+/* --- busca --- */
+.caixa-busca { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.caixa-busca .entrada { font-size: 16px; height: 48px; padding: 0 20px; border-radius: var(--r-pilula); }
 
 
 /* ----------------------------------------------------------------
-   11.6. FORMULÁRIOS (F2 em diante)
+   13. FORMULÁRIOS
    ----------------------------------------------------------------
-   Mesmo idioma macio: campo é superfície rebaixada, foco é a tinta,
-   erro é texto e não cor gritante. Nada de vermelho saturado — o
-   contraste vem do peso, como no resto.
+   Campo é superfície rebaixada; foco é um fio de tinta. Erro é texto
+   e peso, não vermelho saturado.
    ---------------------------------------------------------------- */
 
 .form-estreito { max-width: 460px; margin: 0 auto; }
 
-.campo { display: block; margin-bottom: 16px; }
+.campo { display: block; margin-bottom: 18px; }
 .campo > .rotulo {
   display: block;
   font-size: 13px;
-  font-weight: 460;
-  color: var(--t-90);
+  font-weight: 500;
+  color: var(--t-100);
   margin-bottom: 6px;
 }
 .campo > .ajuda {
   display: block;
   font-size: 12.5px;
-  color: var(--t-50);
+  line-height: 1.45;
+  color: var(--t-65);
   margin-top: 6px;
 }
 
@@ -1034,36 +1205,37 @@ select.entrada {
   border: 1px solid transparent;
   border-radius: var(--r-dentro);
   padding: 11px 14px;
-  transition: background 200ms var(--ease), border-color 200ms var(--ease);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .entrada::placeholder { color: var(--t-35); }
-.entrada:hover { border-color: var(--t-07); }
+.entrada:hover { border-color: var(--t-12); }
 .entrada:focus {
   outline: none;
   background: var(--cartao);
-  border-color: var(--t-35);
+  border-color: var(--t-100);
 }
 textarea.entrada { resize: vertical; min-height: 120px; line-height: 1.6; }
 textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
-.entrada.mono { font-family: var(--font-mono); font-size: 13px; }
+.entrada.mono { font-variant-numeric: tabular-nums; font-size: 13.5px; }
 
-.campo.com-erro .entrada { border-color: var(--t-75); background: var(--cartao); }
-.erro-campo { display: block; font-size: 12.5px; color: var(--t-90); margin-top: 6px; font-weight: 430; }
+.campo.com-erro .entrada { border-color: var(--t-100); background: var(--cartao); }
+.erro-campo { display: block; font-size: 12.5px; color: var(--t-100); margin-top: 6px; font-weight: 500; }
 
 /* aviso de erro do formulário inteiro */
 .aviso-erro {
   background: var(--rebaixo);
-  border: 1px solid var(--t-12);
-  border-left: 3px solid var(--t-75);
-  border-radius: var(--r-dentro);
+  border-left: 2px solid var(--t-100);
+  border-radius: var(--r-bloco);
   padding: 13px 16px;
   margin-bottom: 18px;
   font-size: 13.5px;
-  color: var(--t-90);
+  color: var(--t-100);
 }
+/* deu certo: o lilás de "está acontecendo agora" serve também pra
+   "acabou de acontecer". Era a menta do lab de saúde. */
 .aviso-ok {
-  background: var(--color-saude);
-  border-radius: var(--r-dentro);
+  background: var(--color-destaque-fundo);
+  border-radius: var(--r-bloco);
   padding: 13px 16px;
   margin-bottom: 18px;
   font-size: 13.5px;
@@ -1072,260 +1244,89 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
 
 .acoes-form {
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--t-07);
+  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--t-12);
 }
 .acoes-form .separador { flex: 1; }
 
-.botao:disabled { opacity: .45; cursor: not-allowed; }
-.botao.perigo { background: transparent; color: var(--t-90); border-color: var(--t-12); }
-.botao.perigo:hover { background: var(--t-07); }
-
-/* caixa de marcar, reaproveitando o check desenhado da trilha */
+/* caixa de marcar, reaproveitando a .caixa da trilha */
 .marcavel { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; color: var(--t-75); }
 .marcavel input { position: absolute; opacity: 0; width: 0; height: 0; }
 .marcavel .caixa { margin-top: 1px; }
-.marcavel input:focus-visible + .caixa { outline: 2px solid var(--t-75); outline-offset: 3px; }
-.marcavel input:checked + .caixa { background: var(--color-saude); border-color: var(--color-saude); }
-.marcavel input:checked + .caixa path { animation: check-desenha 320ms var(--ease) both; }
-.marcavel .caixa path { stroke-dashoffset: 18; }
-
-/* nav: bloco de quem está logado */
-.nav .eu {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 12px 5px 6px;
-  border-radius: var(--r-pilula);
-  background: var(--t-07);
-  color: var(--t-90);
-  font-size: 13px;
-  text-decoration: none;
-}
-.nav .eu:hover { background: var(--t-12); }
-.nav .eu .inicial {
-  width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--cartao);
-  font-family: var(--font-mono); font-size: 9px;
-}
-
-/* nav: seletor de idioma. Mono e pequeno: é metadado da página, não
-   destino de navegação, e não pode competir com os itens. Fica visível
-   na tela estreita, onde os itens somem. */
-.nav .idiomas { display: inline-flex; align-items: center; }
-.nav .idiomas a {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 6px 6px;
-  color: var(--t-35);
-}
-.nav .idiomas a[aria-current] { color: var(--t-90); }
-
-/* sugestão de idioma, logo abaixo da pílula. Discreta de propósito:
-   é convite, não aviso; some ao dispensar. */
-.sugestao-idioma {
-  display: flex; justify-content: flex-end; align-items: baseline; gap: 12px;
-  margin: -14px 6px 20px;
-  font-size: 12.5px;
-  color: var(--t-50);
-}
-.sugestao-idioma[hidden] { display: none; }
-.sugestao-idioma a { color: var(--t-75); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
-.sugestao-idioma a:hover { color: var(--t-100); }
-.sugestao-idioma button {
-  font: inherit; font-family: var(--font-mono); font-size: 11px;
-  color: var(--t-35);
-  background: none; border: 0; padding: 0; cursor: pointer;
-}
-.sugestao-idioma button:hover { color: var(--t-75); }
-
-/* formulário de comentário na discussão */
-.novo-comentario {
-  background: var(--cartao);
-  border-radius: var(--r-dentro);
-  padding: 17px 20px 18px;
-  margin-bottom: 10px;
-  box-shadow: var(--sombra);
-}
-.comentario .acoes-comentario {
-  display: flex; gap: 12px; margin-top: 10px;
-}
-.comentario .acoes-comentario button {
-  background: none; border: 0; padding: 0;
-  font-family: inherit; font-size: 12px; color: var(--t-50);
-  cursor: pointer; text-decoration: underline;
-}
-.comentario .acoes-comentario button:hover { color: var(--t-90); }
-
-/* lista de builders */
-.grade-builders { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-.builder-card {
-  background: var(--cartao);
-  border-radius: var(--r-fora);
-  box-shadow: var(--sombra);
-  padding: 20px 22px 22px;
-  text-decoration: none; color: inherit;
-  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
-  display: block;
-}
-.builder-card:hover { transform: translateY(-3px); box-shadow: var(--sombra-alta); }
-.builder-card .nome {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  color: var(--t-100);
-  display: block;
-  margin-bottom: 7px;
-}
-.builder-card .headline { font-size: 13.5px; color: var(--t-65); margin: 0 0 12px; }
-
-/* busca */
-.caixa-busca { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.caixa-busca .entrada { font-size: 16px; padding: 13px 16px; }
+.marcavel input:focus-visible + .caixa { outline: 2px solid var(--t-100); outline-offset: 3px; }
+.marcavel input:checked + .caixa { background: var(--tinta); border-color: var(--tinta); }
+.marcavel input:checked + .caixa path { opacity: 1; }
 
 
 /* ----------------------------------------------------------------
-   12. CHAMADA + RODAPÉ
+   14. CHAMADA + RODAPÉ
    ---------------------------------------------------------------- */
 
-.chamada { padding: 52px 40px 54px; text-align: center; }
+.chamada { padding: 72px 40px; text-align: center; }
 .chamada h2 {
-  font-size: clamp(25px, 3.1vw, 36px);
-  font-weight: 420;
-  letter-spacing: -0.03em;
-  line-height: 1.12;
-  margin: 0 auto 14px;
-  max-width: 26ch;
+  font-size: var(--text-titulo-md);
+  font-weight: 500;
+  letter-spacing: -0.032em;
+  line-height: 1.05;
+  margin: 0 auto 16px;
+  max-width: 20ch;
   color: var(--t-100);
+  text-wrap: balance;
 }
-.chamada p { margin: 0 auto 28px; color: var(--t-65); max-width: 42ch; }
+.chamada p { margin: 0 auto 28px; color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 40ch; }
 
 .rodape {
   display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
-  padding: 6px 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--t-35);
+  padding: 24px 10px 8px;
+  font-size: 12.5px;
+  color: var(--t-50);
 }
-.rodape a { color: var(--t-50); text-decoration: none; }
-.rodape a:hover { color: var(--t-90); }
+.rodape a { color: var(--t-65); text-decoration: none; transition: color var(--dur) var(--ease); }
+.rodape a:hover { color: var(--t-100); }
 .rodape nav { display: flex; gap: 16px; flex-wrap: wrap; }
 
 
 /* ================================================================
-   13. MICRO-ANIMAÇÕES — uma por peça, nomeada
+   15. TRANSIÇÕES DE ESTADO
    ================================================================
-   É daqui que vem o "fofo", não da paleta. Todas disparadas por
-   IntersectionObserver via .vem → .veio.
+   A direção anterior tinha uma micro-animação nomeada por peça
+   (barra enche, rosto entra, fita abre, chip respira). Saíram todas.
+   O que fica é o mínimo funcional:
+   - .vem → .veio: o conteúdo aparece por opacidade quando entra na
+     tela. As páginas ainda põem .vem e o observador ainda põe .veio;
+     sem a regra de volta, tudo que tem .vem ficaria invisível.
+   - cartao-sobe: keyframe mantido SÓ por compat. As prévias de
+     /rfcs/nova e /rfcs/:slug/editar chamam `animation: cartao-sobe
+     ... both` pra tirar o cartão do opacity 0 do .vem; sem o keyframe
+     a animação não existe e o cartão fica invisível. Agora é só
+     opacidade.
+   - .rotulo-estado: troca de texto do chip de estado por opacidade.
    ================================================================ */
 
+.vem { opacity: 0; transition: opacity 200ms var(--ease); }
+.vem.veio { opacity: 1; }
+
 @keyframes cartao-sobe {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes dither-revela {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-@keyframes barra-enche {
-  from { transform: scaleY(0.06); opacity: 0.4; }
-  to   { transform: scaleY(1); opacity: 1; }
-}
-@keyframes rosto-entra {
-  from { opacity: 0; transform: translateX(-7px) scale(0.9); }
-  to   { opacity: 1; transform: translateX(0) scale(1); }
-}
-@keyframes chip-respira {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.34; }
-}
-@keyframes fita-abre {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
-@keyframes check-desenha {
-  to { stroke-dashoffset: 0; }
-}
-
-.vem { opacity: 0; }
-.vem.veio { animation: cartao-sobe 620ms var(--ease) both; }
-
-/* o dither aparece depois do cartão — a matéria "revela" */
-.veio .materia canvas,
-.veio .capa canvas { animation: dither-revela 900ms ease-out 180ms both; }
-
-/* barrinhas crescem em sequência: 45ms de atraso por índice */
-.veio .barras i { animation: barra-enche 480ms var(--ease) both; }
-.veio .barras i:nth-child(1) { animation-delay: 260ms; }
-.veio .barras i:nth-child(2) { animation-delay: 305ms; }
-.veio .barras i:nth-child(3) { animation-delay: 350ms; }
-.veio .barras i:nth-child(4) { animation-delay: 395ms; }
-.veio .barras i:nth-child(5) { animation-delay: 440ms; }
-.veio .barras i:nth-child(6) { animation-delay: 485ms; }
-.veio .barras i:nth-child(7) { animation-delay: 530ms; }
-.veio .barras i:nth-child(8) { animation-delay: 575ms; }
-
-/* o check é desenhado depois das barrinhas terminarem */
-.veio .passo.dado .caixa path { animation: check-desenha 320ms var(--ease) both; }
-.veio .passo.dado:nth-of-type(1) .caixa path { animation-delay: 620ms; }
-.veio .passo.dado:nth-of-type(2) .caixa path { animation-delay: 760ms; }
-.veio .passo.dado:nth-of-type(3) .caixa path { animation-delay: 900ms; }
-
-.veio .rostos span { animation: rosto-entra 380ms var(--ease) both; }
-.veio .rostos span:nth-child(1) { animation-delay: 420ms; }
-.veio .rostos span:nth-child(2) { animation-delay: 480ms; }
-.veio .rostos span:nth-child(3) { animation-delay: 540ms; }
-.veio .rostos span:nth-child(4) { animation-delay: 600ms; }
-.veio .rostos span:nth-child(5) { animation-delay: 660ms; }
-
-.veio .lab-card .fita { animation: fita-abre 520ms var(--ease) both; transform-origin: left; }
-.labs-faixa.veio .lab-card:nth-child(2) .fita { animation-delay: 60ms; }
-.labs-faixa.veio .lab-card:nth-child(3) .fita { animation-delay: 120ms; }
-.labs-faixa.veio .lab-card:nth-child(4) .fita { animation-delay: 180ms; }
-.labs-faixa.veio .lab-card:nth-child(5) .fita { animation-delay: 240ms; }
-.labs-faixa.veio .lab-card:nth-child(6) .fita { animation-delay: 300ms; }
-
-/* só o estado "em discussão" respira — indica conversa em curso */
-.chip.vivo .ponto { animation: chip-respira 2.6s ease-in-out infinite; }
 
 /* --- swap de estado em três fases (chip demonstrativo) ---
-   Fase 1  .saindo               sobe, desfoca, some
-   Fase 2  troca o texto + .entrando-de-baixo (pula pra baixo, sem
-           transição, pra não animar o salto)
-   Fase 3  reflow, tira a classe, volta a 0 com a transição normal */
+   Fase 1  .saindo               some
+   Fase 2  troca o texto + .entrando-de-baixo (sem transição)
+   Fase 3  reflow, tira a classe, volta com a transição normal
+   O movimento vertical e o desfoque saíram; a coreografia em três
+   fases ficou porque os scripts das páginas dependem dela. */
 .rotulo-estado {
   --swap-dur: 150ms;
-  --swap-y: 4px;
-  --swap-blur: 2px;
   display: inline-block;
-  transform: translateY(0);
-  filter: blur(0);
   opacity: 1;
-  transition:
-    transform var(--swap-dur) ease-in-out,
-    filter    var(--swap-dur) ease-in-out,
-    opacity   var(--swap-dur) ease-in-out;
-  will-change: transform, filter, opacity;
+  transition: opacity var(--swap-dur) ease-in-out;
 }
-.rotulo-estado.saindo {
-  transform: translateY(calc(var(--swap-y) * -1));
-  filter: blur(var(--swap-blur));
-  opacity: 0;
-}
-.rotulo-estado.entrando-de-baixo {
-  transform: translateY(var(--swap-y));
-  filter: blur(var(--swap-blur));
-  opacity: 0;
-  transition: none;
-}
+.rotulo-estado.saindo { opacity: 0; }
+.rotulo-estado.entrando-de-baixo { opacity: 0; transition: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vem, .vem.veio { opacity: 1; animation: none; }
-  .veio .materia canvas, .veio .capa canvas,
-  .veio .barras i, .veio .rostos span, .veio .lab-card .fita {
-    animation: none;
-  }
-  .chip.vivo .ponto { animation: none; }
-  .veio .passo.dado .caixa path { animation: none; stroke-dashoffset: 0; }
-  .passo.dado .caixa path { stroke-dashoffset: 0; }
+  .vem, .vem.veio { opacity: 1; transition: none; }
   .errata .fole, .errata .chevron { transition: none; }
-  * { transition-duration: 0.01ms !important; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

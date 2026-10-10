@@ -5,6 +5,15 @@
    Reusado no átrio, em /rfcs, em /labs/:slug e em /users/:username.
    Recebe o objeto que a API devolve, sem adaptação prévia. O idioma
    vem do endereço (locals), então a página não precisa repassar.
+
+   Direção minimalista: cartão branco de raio grande, chip com o
+   número da RFC, título curto, resumo em cinza e a Materia sangrando
+   na base. Nada de contagem de inscritos nem rostos empilhados
+   (VISAO §9): o cartão mostra a ideia, não a plateia dela.
+
+   As prévias de /rfcs/nova e /rfcs/:slug/editar leem este markup
+   (.capa canvas, .miolo > p, h3, .chip.pastel, .chip.pequeno,
+   .codigo). Mudar um desses nós é mudar aquelas páginas também.
    ================================================================ */
 import Materia from './Materia.astro';
 import {
@@ -41,28 +50,27 @@ const lang = idiomaDe(Astro);
   data-lab={filtravel ? rfc.lab.slug : undefined}
   data-status={filtravel ? rfc.status : undefined}
 >
-  <div class="capa">
-    <Materia
-      tipo={m.tipo}
-      lab={rfc.lab.slug}
-      semente={m.semente}
-      alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
-    />
-  </div>
+  {/* Texto em cima, imagem embaixo: quem lê a grade lê o título
+      primeiro, e a imagem fecha o cartão sangrando na base. */}
   <div class="miolo">
-    <div class="chips" style="margin: 0">
+    <div class="chips">
+      {/* Sem número o código diria "rascunho", que é exatamente o que o
+          chip de estado já diz. O código só aparece quando existe. */}
+      {rfc.number != null && <span class="chip codigo">{codigoRfc(rfc.number, lang)}</span>}
+      {/* `chip pequeno` (com .vivo e .ponto em discussão) é contrato:
+          a prévia de /rfcs/:slug/editar procura exatamente esse nó pra
+          trocar o estado. Em discussão ele vira o chip de destaque. */}
+      {rfc.status === 'IN_DISCUSSION'
+        ? <span class="chip pequeno vivo"><span class="ponto"></span>{rotuloDoStatus(rfc.status, lang)}</span>
+        : <span class="chip pequeno">{rotuloDoStatus(rfc.status, lang)}</span>}
+      {/* dentro de um lab o chip do lab é redundante. O fundo inline
+          continua porque /rfcs/nova reescreve ele ao trocar de lab; o
+          token do lab agora é cinza neutro. */}
       {!ocultarLab && (
         <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>
           {nomeDoLab(rfc.lab, lang)}
         </span>
       )}
-      {rfc.status === 'IN_DISCUSSION'
-        ? <span class="chip pequeno vivo"><span class="ponto"></span>{rotuloDoStatus(rfc.status, lang)}</span>
-        : <span class="chip pequeno">{rotuloDoStatus(rfc.status, lang)}</span>}
-      {/* Sem número o código diria "rascunho", que é exatamente o que o
-          chip ao lado já diz. Duas vezes a mesma palavra em dois pesos
-          lê como erro, então o código só aparece quando existe. */}
-      {rfc.number != null && <span class="codigo">{codigoRfc(rfc.number)}</span>}
     </div>
     <h3>{rfc.title}</h3>
     <p>{rfc.summary}</p>
@@ -75,5 +83,13 @@ const lang = idiomaDe(Astro);
       </span>
       <span>{haQuantoTempo(rfc.publishedAt ?? rfc.createdAt, lang)}</span>
     </div>
+  </div>
+  <div class="capa">
+    <Materia
+      tipo={m.tipo}
+      lab={rfc.lab.slug}
+      semente={m.semente}
+      alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
+    />
   </div>
 </Moldura>

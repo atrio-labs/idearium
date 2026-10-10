@@ -56,7 +56,7 @@ The platform does not touch money between people: no fees, no revenue share, no 
 
 We use no advertising cookies and no visit analytics tools.
 
-**Fonts.** Inter, Newsreader and Departure Mono are served from our own server. No page requests anything from Google Fonts, so your IP address does not go there just because you opened Idearium.
+**Fonts.** The Inter typeface is served from our own server. No page requests anything from Google Fonts, so your IP address does not go there just because you opened Idearium.
 
 **Selling data.** We do not sell data. This is one of the project's principles, listed in the anti-models above.
 
