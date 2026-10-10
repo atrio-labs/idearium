@@ -16,18 +16,13 @@
    descarta cookie secure e o login não gruda.
    ================================================================ */
 import type { AstroCookies } from 'astro';
+import { idiomaDaRequisicao } from './requisicao';
 
 const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
 const PROD = import.meta.env.PROD;
 
 const ACESSO = 'id_acesso';
 const RENOVA = 'id_renova';
-
-/* Cookie legível por JS, de propósito. Guarda SÓ o @username, que já é
-   público, e serve pra nav de página pré-renderizada saber que há
-   sessão — sem ele, quem está logado veria "entrar" no átrio estático.
-   Nenhum token passa por aqui: o que dá acesso continua httpOnly. */
-const QUEM = 'id_quem';
 
 /** 15min é o TTL do access token na API; deixo o cookie um pouco menor
  *  pra nunca mandar um token que já expirou. */
@@ -58,15 +53,11 @@ export interface Tokens {
 export function gravarSessao(cookies: AstroCookies, t: Tokens) {
   cookies.set(ACESSO, t.accessToken, opcoes(VIDA_ACESSO));
   cookies.set(RENOVA, t.refreshToken, opcoes(VIDA_RENOVA));
-  if (t.user?.username) {
-    cookies.set(QUEM, t.user.username, { ...opcoes(VIDA_RENOVA), httpOnly: false });
-  }
 }
 
 export function limparSessao(cookies: AstroCookies) {
   cookies.delete(ACESSO, { path: '/' });
   cookies.delete(RENOVA, { path: '/' });
-  cookies.delete(QUEM, { path: '/' });
 }
 
 export const lerAcesso = (cookies: AstroCookies) => cookies.get(ACESSO)?.value ?? null;
@@ -77,7 +68,8 @@ export const lerRenova = (cookies: AstroCookies) => cookies.get(RENOVA)?.value ?
 async function postJson(caminho: string, corpo: unknown) {
   const r = await fetch(BASE + caminho, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    /* x-lang: a API devolve as mensagens de validação no idioma da página */
+    headers: { 'Content-Type': 'application/json', 'x-lang': idiomaDaRequisicao() },
     body: JSON.stringify(corpo),
   });
   const texto = await r.text();
@@ -207,6 +199,7 @@ export async function comSessao<T = any>(
       method: metodo,
       headers: {
         Accept: 'application/json',
+        'x-lang': idiomaDaRequisicao(),
         ...(corpo ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },

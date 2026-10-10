@@ -111,6 +111,8 @@ function validar(v: Campos, tags: ReturnType<typeof separarTags>) {
 
 const labs = await listarLabs();
 const semLabs = labs.length === 0;
+/* lido aqui, logo após a busca: vale só pra esta requisição */
+const semRede = apiIndisponivel();
 
 let valores: Campos = { title: '', summary: '', body: '', labId: '', tags: '' };
 let erros: Record<string, string> = {};
@@ -230,9 +232,9 @@ const resumoSobra = resumoPrevia.slice(LIMITE.resumo.max);
 
     {semLabs ? (
       <Vazio
-        falha={apiIndisponivel}
-        titulo={apiIndisponivel ? 'O servidor não respondeu' : 'Nenhum laboratório cadastrado'}
-        texto={apiIndisponivel
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : 'Nenhum laboratório cadastrado'}
+        texto={semRede
           ? 'Toda ideia pertence a um laboratório, e não consegui carregar a lista. Sem ela não dá pra começar o rascunho. Tente de novo em instantes.'
           : 'Toda ideia pertence a um laboratório, e ainda não existe nenhum. Fale com quem mantém o Idearium.'}
         acaoHref="/rfcs"

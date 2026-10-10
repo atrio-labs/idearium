@@ -9,6 +9,10 @@
    Nada de métrica de vaidade aqui (VISAO §9): sem seguidores, sem
    visualizações de perfil, sem contagem que exista pra impressionar.
    O que aparece é trabalho: o que escreveu e onde está construindo.
+
+   SSR: serve qualquer usuário que a API conheça, não só quem já
+   escreveu uma RFC. Username desconhecido é 404 com a tela de vazio;
+   API fora é 503.
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
@@ -16,41 +20,48 @@ import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import {
-  listarTodasRfcs, avisarSeVazio, obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario,
-  haQuantoTempo,
+  obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario,
+  haQuantoTempo, apiIndisponivel,
 } from '../../lib/api';
-
-/* Página pública: pré-renderizada em build. O SSR do adapter existe
-   só pras rotas com sessão. */
-export const prerender = true;
-
-export async function getStaticPaths() {
-  /* Não há endpoint que liste todos os usuários publicamente, e nem
-     deveria haver — diretório de gente é outra coisa. Então gero as
-     rotas a partir de quem aparece como autor no catálogo público.
-     Quem só comentou ainda não ganha página estática; isso resolve
-     junto com o SSR da F2. */
-  const todas = await listarTodasRfcs();
-  const nomes = [...new Set(todas.map((r) => r.author.username))];
-  avisarSeVazio({ onde: '/users/[username]', qtd: nomes.length });
-  return nomes.map((username) => ({ params: { username } }));
-}
+import { cachePublico } from '../../lib/cache';
 
 const { username } = Astro.params;
-const perfil = await obterPerfil(username!);
-if (!perfil) return Astro.redirect('/rfcs');
 
-const [escritas, inscricoes] = await Promise.all([
+/* As três em paralelo: pra username desconhecido as listas voltam 404,
+   que api.ts trata como vazio e não como queda. */
+const [perfil, escritas, inscricoes] = await Promise.all([
+  obterPerfil(username!),
   listarRfcsDoUsuario(username!),
   listarInscricoesDoUsuario(username!),
 ]);
 
+const semRede = apiIndisponivel();
+if (!perfil) Astro.response.status = semRede ? 503 : 404;
+cachePublico(Astro, semRede);
+
 /* rascunho não aparece pra visitante; a API já filtra, isto é defesa */
 const publicas = escritas.data.filter((r) => r.status !== 'DRAFT');
 const construindo = inscricoes.data.filter((i) => i.leftAt == null && i.rfc);
-const bp = perfil.builderProfile;
+const bp = perfil?.builderProfile;
 ---
 
+{!perfil ? (
+  <Layout title="Idearium · Perfil">
+    <div class="palco">
+      <Nav atual="builders" />
+      <Vazio
+        falha={semRede}
+        titulo={semRede ? 'O servidor não respondeu' : `Não existe ninguém com o nome @${username}`}
+        texto={semRede
+          ? 'Tente recarregar em instantes.'
+          : 'Confira se o nome está escrito certo. O @ é o identificador da pessoa e não muda.'}
+        acaoHref="/rfcs"
+        acaoTexto="ver as ideias"
+      />
+      <Rodape />
+    </div>
+  </Layout>
+) : (
 <Layout
   title={`Idearium · @${perfil.username}`}
   description={bp?.headline ?? perfil.bio ?? `Perfil público de @${perfil.username}.`}
@@ -117,6 +128,7 @@ const bp = perfil.builderProfile;
     <Rodape />
   </div>
 </Layout>
+)}
 
 <script>
   document.addEventListener('astro:page-load', () => {

@@ -32,7 +32,7 @@ import Rodape from '../components/astro/Rodape.astro';
 import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
 import Vazio from '../components/astro/Vazio.astro';
 import {
-  listarLabs, listarRfcs, nomeCurtoDoLab,
+  listarLabs, listarRfcs, nomeCurtoDoLab, apiIndisponivel,
   type Autor, type LabResumo, type Pagina, type RfcStatus,
 } from '../lib/api';
 import {
@@ -40,6 +40,7 @@ import {
   palavrasDaConsulta, semAcento, type Idioma,
 } from '../lib/leitura-busca';
 import { nivelDeUso } from '../lib/peso-tag';
+import { cachePublico } from '../lib/cache';
 
 /* A api.ts ainda não expõe /search — ela é de outro agente e está sendo
    editada em paralelo. Até lá a chamada mora aqui, com o mesmo contrato
@@ -230,6 +231,8 @@ const textoVazio = sugestao
   : filtrando
     ? 'Talvez o recorte esteja apertado. Tente sem escolher laboratório, ou no outro idioma.'
     : 'Tente uma palavra mais geral, ou o termo que a pessoa usaria para descrever o problema.';
+
+cachePublico(Astro, caiu || apiIndisponivel());
 ---
 
 <Layout

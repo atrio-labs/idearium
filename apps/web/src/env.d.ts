@@ -1,12 +1,18 @@
 /// <reference path="../.astro/types.d.ts" />
 
 import type { UsuarioSessao } from './lib/sessao';
+import type { Idioma } from './lib/i18n';
 
 declare global {
   namespace App {
     interface Locals {
       /** preenchido pelo middleware; null quando ninguém está logado */
       usuario: UsuarioSessao | null;
+      /** idioma da interface, pelo prefixo do endereço (/en → 'en') */
+      lang: Idioma;
+      /** preferredLocale do perfil de quem está logado; null quando
+       *  anônimo ou quando não foi preciso buscar (ver middleware.ts) */
+      idiomaPreferido: Idioma | null;
     }
   }
 }

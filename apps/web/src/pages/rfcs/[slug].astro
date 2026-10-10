@@ -40,6 +40,7 @@ import Rodape from '../../components/astro/Rodape.astro';
 import Materia from '../../components/astro/Materia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import { comSessao } from '../../lib/sessao';
+import { cachePublico } from '../../lib/cache';
 import {
   LIMITE_API, statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo,
   materiaDaRfc,
@@ -79,10 +80,9 @@ function comPagina(extra?: string) {
    chamada sai sem Authorization, igual à leitura pública.
 
    Devolve também SE FALHOU, não só o vazio: a tela precisa separar
-   "não há nada aqui" de "não falei com o servidor". A flag
-   apiIndisponivel de api.ts não serve nesta página — ela é do módulo,
-   vale pro processo inteiro e nunca desliga, então numa rota SSR a
-   primeira queda contaminaria todas as requisições seguintes. */
+   "não há nada aqui" de "não falei com o servidor". Cada leitura
+   carrega a própria falha, porque a tela precisa dizer QUAL parte
+   faltou (comentários, inscrições), não só que algo caiu. */
 interface Leitura<T> {
   dado: T;
   falhou: boolean;
@@ -107,7 +107,7 @@ if (!rfc) {
   if (!leituraRfc.falhou) return Astro.redirect('/rfcs');
 
   /* Servidor fora é outra história. Mandar pra /rfcs, que é
-     pré-renderizada e parece saudável, faria a pessoa concluir que a
+     servida de cache e parece saudável, faria a pessoa concluir que a
      ideia foi apagada. Sem a RFC não há página pra desenhar, então
      respondemos o erro que de fato aconteceu. */
   return new Response(
@@ -313,6 +313,11 @@ const textoDiscussaoVazia = falhaComentarios
    regras de segurança dele moram em lib/markdown.ts, o mesmo que o
    editor usa na prévia: o que se vê ao escrever é o que se lê aqui. */
 const corpoHtml = renderizarMarkdown(rfc.body);
+
+cachePublico(
+  Astro,
+  leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou,
+);
 ---
 
 <Layout title={`${codigoRfc(rfc.number)} · ${rfc.title}`} description={rfc.summary}>

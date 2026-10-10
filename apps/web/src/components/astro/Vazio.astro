@@ -9,6 +9,8 @@
      "não há nada aqui"        → convite pra criar
      "não falei com a API"     → problema nosso, não da pessoa
    ================================================================ */
+import { idiomaDe, t } from '../../lib/i18n';
+
 interface Props {
   titulo: string;
   texto?: string;
@@ -18,10 +20,11 @@ interface Props {
   falha?: boolean;
 }
 const { titulo, texto, acaoHref, acaoTexto, falha = false } = Astro.props;
+const lang = idiomaDe(Astro);
 ---
 
 <div class:list={['vazio', falha && 'falha']}>
-  <p class="mono rotulo">{falha ? 'sem resposta do servidor' : 'nada por aqui'}</p>
+  <p class="mono rotulo">{t(lang, falha ? 'comum.vazio.rotulo.falha' : 'comum.vazio.rotulo.nada')}</p>
   <h3>{titulo}</h3>
   {texto && <p class="texto">{texto}</p>}
   {acaoHref && acaoTexto && <a class="botao" href={acaoHref}>{acaoTexto}</a>}

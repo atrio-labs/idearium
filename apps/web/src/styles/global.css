@@ -1107,6 +1107,37 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
   font-family: var(--font-mono); font-size: 9px;
 }
 
+/* nav: seletor de idioma. Mono e pequeno: é metadado da página, não
+   destino de navegação, e não pode competir com os itens. Fica visível
+   na tela estreita, onde os itens somem. */
+.nav .idiomas { display: inline-flex; align-items: center; }
+.nav .idiomas a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 6px;
+  color: var(--t-35);
+}
+.nav .idiomas a[aria-current] { color: var(--t-90); }
+
+/* sugestão de idioma, logo abaixo da pílula. Discreta de propósito:
+   é convite, não aviso; some ao dispensar. */
+.sugestao-idioma {
+  display: flex; justify-content: flex-end; align-items: baseline; gap: 12px;
+  margin: -14px 6px 20px;
+  font-size: 12.5px;
+  color: var(--t-50);
+}
+.sugestao-idioma[hidden] { display: none; }
+.sugestao-idioma a { color: var(--t-75); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
+.sugestao-idioma a:hover { color: var(--t-100); }
+.sugestao-idioma button {
+  font: inherit; font-family: var(--font-mono); font-size: 11px;
+  color: var(--t-35);
+  background: none; border: 0; padding: 0; cursor: pointer;
+}
+.sugestao-idioma button:hover { color: var(--t-75); }
+
 /* formulário de comentário na discussão */
 .novo-comentario {
   background: var(--cartao);

@@ -5,16 +5,22 @@
    rodando (não do schema Prisma nem de suposição). Se divergirem, a
    API é que está certa.
 
-   Como as páginas públicas são pré-renderizadas, estas funções rodam
-   em BUILD TIME, não no browser. Isso tem duas consequências:
-
-     1. A API precisa estar no ar durante `npm run build:web`.
-     2. Nenhuma chave ou token nunca chega ao cliente.
+   Todas as páginas são SSR, então estas funções rodam no servidor a
+   cada requisição, nunca no browser: nenhuma chave ou token chega ao
+   cliente, e o build não depende da API estar no ar.
 
    Toda função devolve dado ou um fallback vazio — nunca lança. Um
-   backend fora do ar deixa a página sem conteúdo e com aviso, não com
-   build quebrado. É requisito de aceite da F1.1.
+   backend fora do ar deixa a página sem conteúdo e com aviso, não
+   quebrada. É requisito de aceite da F1.1.
+
+   O idioma da página vai pra API no header x-lang, lido do contexto da
+   requisição (requisicao.ts). Hoje a API só usa isso nas mensagens de
+   erro; o conteúdo das RFCs tem `locale` próprio.
    ================================================================ */
+import {
+  apiFalhouNestaRequisicao, idiomaDaRequisicao, marcarFalhaDaApi,
+} from './requisicao';
+import { t, temChave, type Idioma } from './i18n';
 
 const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -122,21 +128,25 @@ export interface Pagina<T> {
 
 /* ---------- transporte ---------- */
 
-/** Fica `true` se qualquer chamada falhar; as páginas usam pra decidir
- *  entre "não há nada aqui" e "não consegui falar com o servidor". */
-export let apiIndisponivel = false;
+/** `true` se alguma chamada desta requisição falhou; as páginas usam
+ *  pra decidir entre "não há nada aqui" e "não consegui falar com o
+ *  servidor". É função, e não variável de módulo, porque vale só pra
+ *  requisição atual (ver requisicao.ts). Chame depois das buscas. */
+export const apiIndisponivel = () => apiFalhouNestaRequisicao();
 
 async function buscar<T>(caminho: string, aoFalhar: T): Promise<T> {
   try {
-    const r = await fetch(BASE + caminho, { headers: { Accept: 'application/json' } });
+    const r = await fetch(BASE + caminho, {
+      headers: { Accept: 'application/json', 'x-lang': idiomaDaRequisicao() },
+    });
     if (!r.ok) {
       // 404 é resposta legítima (RFC que não existe), não queda do backend
-      if (r.status !== 404) apiIndisponivel = true;
+      if (r.status !== 404) marcarFalhaDaApi();
       return aoFalhar;
     }
     return (await r.json()) as T;
   } catch {
-    apiIndisponivel = true;
+    marcarFalhaDaApi();
     return aoFalhar;
   }
 }
@@ -168,8 +178,8 @@ export const listarDestaques = () => buscar<RfcResumo[]>('/rfcs/featured', []);
  *  isso devolve 400, não uma lista maior. */
 export const LIMITE_API = 100;
 
-/** Percorre a paginação inteira. É o que `getStaticPaths` precisa: uma
- *  rota por RFC, sem depender de o catálogo caber numa página só. */
+/** Percorre a paginação inteira, pra listagem que mostra o catálogo
+ *  todo sem depender de ele caber numa página só. */
 export async function listarTodasRfcs(q: { lab?: string } = {}) {
   const todas: RfcResumo[] = [];
   for (let page = 1; ; page++) {
@@ -179,20 +189,6 @@ export async function listarTodasRfcs(q: { lab?: string } = {}) {
     if (page > 50) break;             // trava contra paginação infinita
   }
   return todas;
-}
-
-/** Grita no log do build quando a listagem some por falha de rede.
- *  Sem isso, um backend fora do ar gera um site sem nenhuma página de
- *  RFC e o build termina "com sucesso". */
-export function avisarSeVazio(o: { onde: string; qtd: number }) {
-  if (o.qtd > 0) return;
-  const motivo = apiIndisponivel
-    ? 'a API não respondeu'
-    : 'a API respondeu, mas não há nada publicado';
-  console.warn(
-    `\n[idearium] ${o.onde}: nenhuma rota gerada porque ${motivo}.` +
-    `\n           Confira se a API está no ar em ${BASE} antes de publicar este build.\n`,
-  );
 }
 
 export const obterRfc = (slug: string) =>
@@ -222,31 +218,45 @@ export const listarInscricoesDoUsuario = (username: string) =>
 
 /* ---------- apresentação ---------- */
 
-/** Vocabulário canônico do VISAO §14. Não inventar sinônimo na UI. */
+/** Vocabulário canônico do VISAO §14. Não inventar sinônimo na UI.
+ *  O texto mora no dicionário `comum`; `statusLabel` é o atalho em
+ *  pt-BR pras páginas que ainda não passam o idioma. */
+export const rotuloDoStatus = (s: RfcStatus, lang: Idioma = 'pt-BR') =>
+  t(lang, `comum.status.${s}`);
+
 export const statusLabel: Record<RfcStatus, string> = {
-  DRAFT:         'rascunho',
-  IN_DISCUSSION: 'em discussão',
-  IN_BUILDING:   'em construção',
-  PUBLISHED:     'publicada',
-  ARCHIVED:      'arquivada',
+  DRAFT:         rotuloDoStatus('DRAFT'),
+  IN_DISCUSSION: rotuloDoStatus('IN_DISCUSSION'),
+  IN_BUILDING:   rotuloDoStatus('IN_BUILDING'),
+  PUBLISHED:     rotuloDoStatus('PUBLISHED'),
+  ARCHIVED:      rotuloDoStatus('ARCHIVED'),
 };
 
 /** A API devolve "Lab. Cidades"; dentro de um chip que já está sobre o
  *  pastel do lab, o prefixo é ruído. */
 export const nomeCurtoDoLab = (nome: string) => nome.replace(/^Lab\.\s*/, '');
 
-/** RFC sem número é rascunho — ainda não passou pela sequence. */
-export const codigoRfc = (n: number | null) =>
-  n == null ? 'rascunho' : `RFC-${String(n).padStart(4, '0')}`;
+/** Nome curto do lab no idioma. Em pt-BR quem manda é a API; em inglês
+ *  o nome vem do dicionário `labs` pelo slug, porque a API não guarda
+ *  tradução. Sem chave, cai no nome da API em vez de quebrar. */
+export function nomeDoLab(lab: { slug: string; name: string }, lang: Idioma = 'pt-BR') {
+  const chave = `labs.nome.${lab.slug}`;
+  if (lang === 'pt-BR' || !temChave(chave)) return nomeCurtoDoLab(lab.name);
+  return t(lang, chave);
+}
 
-export function haQuantoTempo(iso: string | null): string {
+/** RFC sem número é rascunho — ainda não passou pela sequence. */
+export const codigoRfc = (n: number | null, lang: Idioma = 'pt-BR') =>
+  n == null ? rotuloDoStatus('DRAFT', lang) : `RFC-${String(n).padStart(4, '0')}`;
+
+export function haQuantoTempo(iso: string | null, lang: Idioma = 'pt-BR'): string {
   if (!iso) return '';
   const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (dias <= 0) return 'hoje';
-  if (dias === 1) return 'há 1 dia';
-  if (dias < 30) return `há ${dias} dias`;
+  if (dias <= 0) return t(lang, 'comum.tempo.hoje');
+  if (dias === 1) return t(lang, 'comum.tempo.dia');
+  if (dias < 30) return t(lang, 'comum.tempo.dias', { n: dias });
   const meses = Math.floor(dias / 30);
-  return meses === 1 ? 'há 1 mês' : `há ${meses} meses`;
+  return meses === 1 ? t(lang, 'comum.tempo.mes') : t(lang, 'comum.tempo.meses', { n: meses });
 }
 
 /** Qual campo de dithering representa esta RFC.

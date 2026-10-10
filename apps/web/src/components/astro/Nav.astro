@@ -1,73 +1,123 @@
 ---
 /* Nav — pílula flutuante, sticky. Aparece em toda página.
 
-   Em página pré-renderizada não há `locals`, então o bloco de sessão
-   só aparece nas rotas SSR. Numa página estática a nav sempre mostra
-   "entrar" — o que é correto: ela é a mesma pra todo visitante e não
-   pode ser personalizada em build time. */
+   Toda página é SSR, então `locals.usuario` sempre existe aqui: a nav
+   sai do servidor já com o @ de quem está logado. O antigo script que
+   lia o cookie id_quem pra corrigir a nav de página estática saiu junto
+   com o prerender.
+
+   Idioma: o seletor pt / en leva à MESMA página no outro idioma. Não há
+   redirect por idioma; quem chega sem prefixo e prefere inglês vê só a
+   sugestão discreta abaixo da pílula, que pode dispensar. */
+import { COOKIE_SUGESTAO_DISPENSADA, IDIOMAS, idiomaDe, rota, t } from '../../lib/i18n';
+
 interface Props {
   /** rota atual, pra marcar o item ativo */
   atual?: 'labs' | 'rfcs' | 'builders' | 'buscar' | 'sobre';
 }
 const { atual } = Astro.props;
 
-const usuario = Astro.locals?.usuario ?? null;
+const lang = idiomaDe(Astro);
+const usuario = Astro.locals.usuario ?? null;
 
 const itens = [
-  { chave: 'labs',     href: '/labs',     texto: 'laboratórios' },
-  { chave: 'rfcs',     href: '/rfcs',     texto: 'ideias' },
-  { chave: 'builders', href: '/builders', texto: 'mãos' },
-  { chave: 'sobre',    href: '/sobre',    texto: 'sobre' },
+  { chave: 'labs',     href: '/labs',     texto: t(lang, 'comum.nav.labs') },
+  { chave: 'rfcs',     href: '/rfcs',     texto: t(lang, 'comum.nav.rfcs') },
+  { chave: 'builders', href: '/builders', texto: t(lang, 'comum.nav.builders') },
+  { chave: 'sobre',    href: '/sobre',    texto: t(lang, 'comum.nav.sobre') },
 ] as const;
+
+/* Astro.url chega sem o prefixo /en (o middleware reescreveu), então
+   serve de base pra montar a mesma página em qualquer idioma. */
+const aqui = Astro.url.pathname + Astro.url.search;
+const sigla = { 'pt-BR': 'pt', en: 'en' } as const;
+
+/* Sugestão de idioma. Só existe em pt-BR por enquanto, porque só o
+   inglês tem pra onde convidar. Quem decide se ela aparece:
+     - logado: o preferredLocale do perfil, resolvido no servidor;
+     - anônimo: o idioma do navegador, lido no cliente. Decidir isso no
+       servidor faria o HTML variar por Accept-Language, e a página
+       anônima vai pra cache compartilhado (lib/cache.ts).
+   Por isso ela sai do servidor sempre `hidden`, salvo quando o perfil
+   já diz inglês. */
+const sugerir = lang === 'pt-BR';
+const perfilPedeIngles = Astro.locals.idiomaPreferido === 'en';
 ---
 
 <nav class="nav">
-  <a class="marca" href="/">idearium</a>
+  <a class="marca" href={rota(lang, '/')}>idearium</a>
   {itens.map((i) => (
     <a
       class="esconde"
-      href={i.href}
+      href={rota(lang, i.href)}
       aria-current={atual === i.chave ? 'page' : undefined}
     >{i.texto}</a>
   ))}
   <span class="fim">
-    <a class="esconde" href="/buscar" aria-current={atual === 'buscar' ? 'page' : undefined}>buscar</a>
+    <a class="esconde" href={rota(lang, '/buscar')} aria-current={atual === 'buscar' ? 'page' : undefined}>
+      {t(lang, 'comum.nav.buscar')}
+    </a>
+    <span class="idiomas" role="group" aria-label={t(lang, 'comum.nav.idioma')}>
+      {IDIOMAS.map((l) => (
+        <a
+          href={rota(l, aqui)}
+          hreflang={l}
+          lang={l}
+          aria-current={l === lang ? 'true' : undefined}
+        >{sigla[l]}</a>
+      ))}
+    </span>
     {usuario ? (
-      <a class="eu" href="/perfil" data-eu>
+      <a class="eu" href={rota(lang, '/perfil')}>
         <span class="inicial">{usuario.username.slice(0, 2).toUpperCase()}</span>
         @{usuario.username}
       </a>
     ) : (
-      <a class="entrar" href="/entrar" data-entrar>entrar</a>
+      <a class="entrar" href={rota(lang, '/entrar')}>{t(lang, 'comum.nav.entrar')}</a>
     )}
   </span>
 </nav>
 
+{sugerir && (
+  <p
+    class="sugestao-idioma"
+    lang="en"
+    data-sugestao-idioma
+    data-cookie={COOKIE_SUGESTAO_DISPENSADA}
+    data-perfil={usuario ? (Astro.locals.idiomaPreferido ?? '') : undefined}
+    hidden={!perfilPedeIngles}
+  >
+    {/* o convite fala no idioma pra onde leva (ver i18n/comum.ts) */}
+    <a href={rota('en', aqui)} hreflang="en">{t('en', 'comum.sugestao.ler')}</a>
+    <button type="button" data-dispensar>{t('en', 'comum.sugestao.dispensar')}</button>
+  </p>
+)}
+
 <script>
-  /* Em página pré-renderizada não existe `locals`, então a nav sai do
-     build sempre com "entrar". Este script corrige no cliente lendo o
-     cookie `id_quem` — que guarda só o @username, nunca token. */
-  function ajustarNav() {
-    const link = document.querySelector<HTMLAnchorElement>('[data-entrar]');
-    if (!link) return;
+  /* Sugestão de idioma no cliente. Dispensar grava um cookie de um ano
+     (escolha de interface, sem nada sensível) que o servidor também lê
+     pra não buscar o perfil à toa. */
+  function ligarSugestao() {
+    const el = document.querySelector<HTMLElement>('[data-sugestao-idioma]');
+    if (!el) return;
 
-    const quem = document.cookie
-      .split('; ')
-      .find((c) => c.startsWith('id_quem='))
-      ?.split('=')[1];
-    if (!quem) return;
+    const nome = el.dataset.cookie ?? '';
+    const dispensada = document.cookie.split('; ').some((c) => c.startsWith(`${nome}=`));
+    if (dispensada) { el.hidden = true; return; }
 
-    const nome = decodeURIComponent(quem);
-    link.className = 'eu';
-    link.href = '/perfil';
-    link.textContent = '';
-    const inicial = document.createElement('span');
-    inicial.className = 'inicial';
-    inicial.textContent = nome.slice(0, 2).toUpperCase();
-    link.append(inicial, `@${nome}`);
-    link.removeAttribute('data-entrar');
-    link.setAttribute('data-eu', '');
+    /* data-perfil existe só pra quem está logado: aí o perfil manda e o
+       navegador não é consultado. Vazio = não foi preciso buscar. */
+    const perfil = el.dataset.perfil;
+    if (perfil === undefined) {
+      const primeiro = navigator.languages?.[0] ?? navigator.language ?? '';
+      if (primeiro.toLowerCase().startsWith('en')) el.hidden = false;
+    }
+
+    el.querySelector('[data-dispensar]')?.addEventListener('click', () => {
+      document.cookie = `${nome}=1; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+      el.hidden = true;
+    });
   }
 
-  document.addEventListener('astro:page-load', ajustarNav);
+  document.addEventListener('astro:page-load', ligarSugestao);
 </script>

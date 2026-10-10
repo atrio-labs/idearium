@@ -25,19 +25,30 @@ import '../styles/global.css';
 // suaves entre páginas. Por default aplica cross-fade; elementos com
 // transition:name="X" igual em duas páginas FAZEM MORPH entre posições.
 import { ClientRouter } from 'astro:transitions';
+import { IDIOMAS, IDIOMA_PADRAO, idiomaDe, rota, t } from '../lib/i18n';
 
 // Define props que páginas podem passar
 interface Props {
   title?: string;       // <title> do browser tab
   description?: string; // <meta name="description"> pro SEO
-  lang?: string;        // idioma do <html>, default pt-BR
 }
 
+/* O idioma não é prop: vem do endereço, resolvido pelo middleware.
+   Uma página que esquecesse de repassar sairia com <html lang> errado. */
+const lang = idiomaDe(Astro);
+
 const {
-  title = 'Idearium',
-  description = 'Periódico aberto de construção coletiva',
-  lang = 'pt-BR',
+  title = t(lang, 'comum.layout.titulo'),
+  description = t(lang, 'comum.layout.descricao'),
 } = Astro.props;
+
+/* As versões desta mesma página em cada idioma, pro buscador ligar uma
+   à outra. Astro.url já chega sem o /en (o middleware reescreveu), então
+   é o caminho-base de qualquer idioma. x-default aponta pro padrão,
+   que é a versão servida a quem não pediu idioma nenhum. */
+const caminho = Astro.url.pathname + Astro.url.search;
+const origem = Astro.site ?? Astro.url.origin;
+const absoluto = (l: typeof lang) => new URL(rota(l, caminho), origem).href;
 ---
 
 <html lang={lang}>
@@ -48,6 +59,8 @@ const {
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    {IDIOMAS.map((l) => <link rel="alternate" hreflang={l} href={absoluto(l)} />)}
+    <link rel="alternate" hreflang="x-default" href={absoluto(IDIOMA_PADRAO)} />
 
     {/* View Transitions API — habilita morph entre páginas */}
     <ClientRouter />

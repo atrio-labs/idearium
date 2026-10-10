@@ -9,23 +9,29 @@ import tailwindcss from '@tailwindcss/vite';
 // https://astro.build/config
 export default defineConfig({
   /* ================================================================
-     RENDERIZAÇÃO HÍBRIDA
+     RENDERIZAÇÃO: TUDO SSR, COM CACHE HTTP NAS PÁGINAS PÚBLICAS
      ================================================================
-     `output: 'server'` liga o SSR, e cada página pública declara
-     `export const prerender = true` pra voltar a ser estática.
+     Nenhuma página é pré-renderizada. Antes, átrio, RFCs, labs e
+     perfis saíam estáticos do build; deixaram de sair porque:
 
-     Por que híbrido e não estático puro: as telas com sessão precisam
-     ler o cookie httpOnly no servidor. Guardar o refresh token em
-     localStorage jogaria fora a rotação e a revogação que a API
-     implementa, num app que renderiza texto escrito por usuários.
+       - conteúdo novo (uma RFC, um perfil) aparece sem rebuild. No
+         estático, a ideia publicada só existia no próximo deploy, e um
+         perfil só ganhava página se a pessoa já fosse autora;
+       - o runtime Node já era obrigatório pela sessão: as telas com
+         login leem o cookie httpOnly no servidor (guardar o refresh
+         token em localStorage jogaria fora a rotação e a revogação que
+         a API implementa). O estático não poupava a infra de nada;
+       - o idioma vem do prefixo /en, resolvido no middleware, e isso
+         só funciona com requisição.
 
-     Por que híbrido e não SSR puro: átrio, RFCs, labs e perfis são
-     bem comum público e precisam indexar em buscador; saem como HTML
-     pronto, sem custo de runtime.
+     O que o estático dava de graça — HTML pronto, barato, indexável —
+     volta pelo cache HTTP: página pública sem sessão sai com
+     `Cache-Control: public, s-maxage=60, stale-while-revalidate=600`
+     (src/lib/cache.ts). Continua sendo HTML completo pro buscador.
 
-     Consequência pro deploy: `npm run build:web` passa a gerar um
-     servidor Node em dist/server/entry.mjs, não só arquivos soltos.
-     Roda com `node dist/server/entry.mjs`.
+     Consequência pro deploy: `npm run build:web` gera um servidor Node
+     em dist/server/entry.mjs. Roda com `node dist/server/entry.mjs`.
+     O build não chama mais a API.
      ================================================================ */
   output: 'server',
   adapter: node({ mode: 'standalone' }),

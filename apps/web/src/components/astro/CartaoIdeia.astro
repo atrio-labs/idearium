@@ -3,13 +3,15 @@
    CartaoIdeia.astro — uma RFC na grade
    ================================================================
    Reusado no átrio, em /rfcs, em /labs/:slug e em /users/:username.
-   Recebe o objeto que a API devolve, sem adaptação prévia.
+   Recebe o objeto que a API devolve, sem adaptação prévia. O idioma
+   vem do endereço (locals), então a página não precisa repassar.
    ================================================================ */
 import Materia from './Materia.astro';
 import {
-  codigoRfc, haQuantoTempo, materiaDaRfc, nomeCurtoDoLab, statusLabel,
+  codigoRfc, haQuantoTempo, materiaDaRfc, nomeDoLab, rotuloDoStatus,
   type RfcResumo,
 } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
 
 interface Props {
   /* `author` e `_count` são opcionais porque
@@ -30,11 +32,12 @@ const { rfc, ocultarLab = false, filtravel = false, comoLink = true } = Astro.pr
 const m = materiaDaRfc(rfc);
 const versoes = rfc._count?.versions;
 const Moldura = comoLink ? 'a' : 'article';
+const lang = idiomaDe(Astro);
 ---
 
 <Moldura
   class="cartao ideia vem"
-  href={comoLink ? `/rfcs/${rfc.slug}` : undefined}
+  href={comoLink ? rota(lang, `/rfcs/${rfc.slug}`) : undefined}
   data-lab={filtravel ? rfc.lab.slug : undefined}
   data-status={filtravel ? rfc.status : undefined}
 >
@@ -43,19 +46,19 @@ const Moldura = comoLink ? 'a' : 'article';
       tipo={m.tipo}
       lab={rfc.lab.slug}
       semente={m.semente}
-      alt={`Campo de dados em dithering, ${codigoRfc(rfc.number)}`}
+      alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
     />
   </div>
   <div class="miolo">
     <div class="chips" style="margin: 0">
       {!ocultarLab && (
         <span class="chip pastel" style={`background: var(--color-${rfc.lab.slug})`}>
-          {nomeCurtoDoLab(rfc.lab.name)}
+          {nomeDoLab(rfc.lab, lang)}
         </span>
       )}
       {rfc.status === 'IN_DISCUSSION'
-        ? <span class="chip pequeno vivo"><span class="ponto"></span>{statusLabel[rfc.status]}</span>
-        : <span class="chip pequeno">{statusLabel[rfc.status]}</span>}
+        ? <span class="chip pequeno vivo"><span class="ponto"></span>{rotuloDoStatus(rfc.status, lang)}</span>
+        : <span class="chip pequeno">{rotuloDoStatus(rfc.status, lang)}</span>}
       {/* Sem número o código diria "rascunho", que é exatamente o que o
           chip ao lado já diz. Duas vezes a mesma palavra em dois pesos
           lê como erro, então o código só aparece quando existe. */}
@@ -70,7 +73,7 @@ const Moldura = comoLink ? 'a' : 'article';
         {rfc.author && `@${rfc.author.username}`}
         {rfc.author && versoes != null && ` · v0.${versoes}`}
       </span>
-      <span>{haQuantoTempo(rfc.publishedAt ?? rfc.createdAt)}</span>
+      <span>{haQuantoTempo(rfc.publishedAt ?? rfc.createdAt, lang)}</span>
     </div>
   </div>
 </Moldura>

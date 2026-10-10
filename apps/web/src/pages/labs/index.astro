@@ -1,53 +1,48 @@
 ---
-/* /labs — os seis domínios (F1.4) */
+/* /labs — os seis domínios (F1.4). Página de referência do i18n. */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { listarLabs, nomeCurtoDoLab, apiIndisponivel } from '../../lib/api';
+import { listarLabs, nomeDoLab, apiIndisponivel } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+import { cachePublico } from '../../lib/cache';
 
-/* Página pública: pré-renderizada em build. O SSR do adapter existe
-   só pras rotas com sessão. */
-export const prerender = true;
-
+const lang = idiomaDe(Astro);
 const labs = await listarLabs();
-const semRede = apiIndisponivel;
+const semRede = apiIndisponivel();
+cachePublico(Astro, semRede);
 ---
 
-<Layout title="Idearium · Laboratórios">
+<Layout title={t(lang, 'labs.titulo')}>
   <div class="palco">
     <Nav atual="labs" />
 
     <header class="cabecalho-pagina">
       <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        laboratórios
+        {t(lang, 'labs.rotulo')}
       </span>
-      <h1>Seis recortes, <span class="serif">nenhum silo</span>.</h1>
-      <p class="sub">
-        Um laboratório organiza ideias por domínio de problema, não por
-        tecnologia. Uma ideia pertence a um laboratório, mas qualquer pessoa
-        transita entre todos.
-      </p>
+      <h1>{t(lang, 'labs.h1.antes')}<span class="serif">{t(lang, 'labs.h1.serif')}</span>{t(lang, 'labs.h1.depois')}</h1>
+      <p class="sub">{t(lang, 'labs.sub')}</p>
     </header>
 
     {semRede && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> Os laboratórios existem, só não
-        consegui carregá-los agora.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'labs.aviso')}
       </p>
     )}
 
     {labs.length > 0 ? (
       <div class="labs-faixa vem" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
         {labs.map((lab) => (
-          <a class="lab-card" href={`/labs/${lab.slug}`}>
+          <a class="lab-card" href={rota(lang, `/labs/${lab.slug}`)}>
             <span class="fita" style={`background: var(--color-${lab.slug}); height: 78px`}></span>
             <span class="txt">
               <span class="nome">
-                <span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeCurtoDoLab(lab.name)}
+                <span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeDoLab(lab, lang)}
               </span>
               <span class="qtd">
-                {lab.rfcsCount} {lab.rfcsCount === 1 ? 'ideia' : 'ideias'}
+                {t(lang, lab.rfcsCount === 1 ? 'labs.qtd.um' : 'labs.qtd.varios', { n: lab.rfcsCount })}
               </span>
             </span>
           </a>
@@ -56,8 +51,8 @@ const semRede = apiIndisponivel;
     ) : (
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : 'Nenhum laboratório configurado'}
-        texto={semRede ? 'Tente recarregar em instantes.' : undefined}
+        titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'labs.vazio.titulo')}
+        texto={semRede ? t(lang, 'labs.vazio.falha.texto') : undefined}
       />
     )}
 

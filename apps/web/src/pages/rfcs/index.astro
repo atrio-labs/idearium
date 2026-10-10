@@ -2,10 +2,10 @@
 /* ================================================================
    /rfcs — lista de ideias com filtro (F1.2)
    ================================================================
-   A página é pré-renderizada, então o filtro é client-side: todas as
-   RFCs públicas vêm no HTML e o JS esconde as que não casam. Isso
-   mantém a página estática (bom pra indexação) e dá filtro instantâneo,
-   sem ida ao servidor.
+   O filtro é client-side: todas as RFCs públicas vêm no HTML e o JS
+   esconde as que não casam. A página é SSR com cache HTTP pra quem não
+   está logado (lib/cache.ts), e o filtro continua instantâneo, sem ida
+   ao servidor.
 
    O estado do filtro vive na querystring, então recarregar mantém o
    filtro e o link é compartilhável — que é o critério de aceite.
@@ -23,16 +23,14 @@ import {
   listarTodasRfcs, listarLabs, apiIndisponivel, statusLabel, nomeCurtoDoLab,
   type RfcStatus,
 } from '../../lib/api';
-
-/* Página pública: pré-renderizada em build. O SSR do adapter existe
-   só pras rotas com sessão. */
-export const prerender = true;
+import { cachePublico } from '../../lib/cache';
 
 const [labs, rfcs] = await Promise.all([
   listarLabs(),
   listarTodasRfcs(),
 ]);
-const semRede = apiIndisponivel;
+const semRede = apiIndisponivel();
+cachePublico(Astro, semRede);
 
 /* Só os estados que uma RFC pública pode ter. DRAFT não aparece em
    listagem pública (a API já filtra), e ARCHIVED só se existir. */

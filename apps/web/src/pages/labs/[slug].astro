@@ -1,74 +1,92 @@
 ---
-/* /labs/:slug — um laboratório e suas ideias (F1.4) */
+/* /labs/:slug — um laboratório e suas ideias (F1.4). Página de
+   referência do i18n.
+
+   SSR: o lab é buscado pelo slug a cada requisição. Slug que a API não
+   conhece é 404 de verdade, com a tela de vazio, e não redirect pra
+   /labs — redirect esconderia do buscador e de quem mandou o link que
+   o endereço está errado. API fora é 503, que é outra coisa. */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { listarLabs, obterLab, listarTodasRfcs, nomeCurtoDoLab } from '../../lib/api';
+import { obterLab, listarTodasRfcs, nomeDoLab, apiIndisponivel } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+import { cachePublico } from '../../lib/cache';
 
-/* Página pública: pré-renderizada em build. O SSR do adapter existe
-   só pras rotas com sessão. */
-export const prerender = true;
-
-export async function getStaticPaths() {
-  const labs = await listarLabs();
-  return labs.map((lab) => ({ params: { slug: lab.slug } }));
-}
-
+const lang = idiomaDe(Astro);
 const { slug } = Astro.params;
 const [lab, rfcs] = await Promise.all([
   obterLab(slug!),
   listarTodasRfcs({ lab: slug }),
 ]);
+const semRede = apiIndisponivel();
 
-if (!lab) return Astro.redirect('/labs');
+if (!lab) Astro.response.status = semRede ? 503 : 404;
+cachePublico(Astro, semRede);
 
-const nome = nomeCurtoDoLab(lab.name);
+const nome = lab ? nomeDoLab(lab, lang) : '';
 ---
 
-<Layout title={`Idearium · ${nome}`} description={lab.description ?? `Ideias do laboratório de ${nome}.`}>
-  <div class="palco">
-    <Nav atual="labs" />
+{lab ? (
+  <Layout
+    title={`Idearium · ${nome}`}
+    description={lab.description ?? t(lang, 'labs.meta.descricao', { nome })}
+  >
+    <div class="palco">
+      <Nav atual="labs" />
 
-    <header class="cabecalho-pagina">
-      <a class="volta" href="/labs">&larr; todos os laboratórios</a>
-      <h1 style="margin-top:16px">
-        <span aria-hidden="true" style={`color: var(--color-${lab.slug})`}>{lab.glyph}</span> {nome}
-      </h1>
-      <p class="sub">
-        {lab.description ??
-          'Problemas deste domínio, propostos por quem convive com eles e abertos a quem sabe construir.'}
+      <header class="cabecalho-pagina">
+        <a class="volta" href={rota(lang, '/labs')}>{t(lang, 'labs.volta')}</a>
+        <h1 style="margin-top:16px">
+          <span aria-hidden="true" style={`color: var(--color-${lab.slug})`}>{lab.glyph}</span> {nome}
+        </h1>
+        <p class="sub">{lab.description ?? t(lang, 'labs.descricao.padrao')}</p>
+      </header>
+
+      {/* a fita pastel é a identidade do lab, em tamanho generoso */}
+      <div
+        class="vem"
+        style={`background: var(--color-${lab.slug}); height: 90px; border-radius: var(--r-fora); margin-bottom: 22px`}
+        aria-hidden="true"
+      ></div>
+
+      <p class="contagem">
+        {t(lang, rfcs.length === 1 ? 'labs.contagem.um' : 'labs.contagem.varios', { n: rfcs.length })}
       </p>
-    </header>
 
-    {/* a fita pastel é a identidade do lab, em tamanho generoso */}
-    <div
-      class="vem"
-      style={`background: var(--color-${lab.slug}); height: 90px; border-radius: var(--r-fora); margin-bottom: 22px`}
-      aria-hidden="true"
-    ></div>
+      {rfcs.length > 0 ? (
+        <div class="grade">
+          {rfcs.map((rfc) => <CartaoIdeia rfc={rfc} ocultarLab />)}
+        </div>
+      ) : (
+        <Vazio
+          titulo={t(lang, 'labs.lab.vazio.titulo', { nome })}
+          texto={t(lang, 'labs.lab.vazio.texto')}
+          acaoHref={rota(lang, '/rfcs/nova')}
+          acaoTexto={t(lang, 'comum.acao.escrever.primeira')}
+        />
+      )}
 
-    <p class="contagem">
-      {rfcs.length} {rfcs.length === 1 ? 'ideia' : 'ideias'} neste laboratório
-    </p>
-
-    {rfcs.length > 0 ? (
-      <div class="grade">
-        {rfcs.map((rfc) => <CartaoIdeia rfc={rfc} ocultarLab />)}
-      </div>
-    ) : (
+      <Rodape />
+    </div>
+  </Layout>
+) : (
+  <Layout title={t(lang, 'labs.titulo')}>
+    <div class="palco">
+      <Nav atual="labs" />
       <Vazio
-        titulo={`Nenhuma ideia em ${nome} ainda`}
-        texto="Este laboratório está esperando a primeira proposta. Não precisa saber construir para escrever uma."
-        acaoHref="/rfcs/nova"
-        acaoTexto="escrever a primeira"
+        falha={semRede}
+        titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'labs.inexistente.titulo')}
+        texto={t(lang, semRede ? 'labs.vazio.falha.texto' : 'labs.inexistente.texto')}
+        acaoHref={rota(lang, '/labs')}
+        acaoTexto={t(lang, 'labs.inexistente.acao')}
       />
-    )}
-
-    <Rodape />
-  </div>
-</Layout>
+      <Rodape />
+    </div>
+  </Layout>
+)}
 
 <script>
   document.addEventListener('astro:page-load', () => {

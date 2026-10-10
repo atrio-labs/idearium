@@ -26,6 +26,7 @@ import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import CartaoMao from '../../components/astro/CartaoMao.astro';
 import { LIMITE_API, obterPerfil, type Autor, type Pagina } from '../../lib/api';
+import { cachePublico } from '../../lib/cache';
 
 interface Builder {
   user: Autor;
@@ -92,6 +93,8 @@ const soPausado =
   usuario != null && !jaEstaNaLista
     ? (await obterPerfil(usuario.username))?.builderProfile != null
     : false;
+
+cachePublico(Astro, semRede);
 ---
 
 <Layout

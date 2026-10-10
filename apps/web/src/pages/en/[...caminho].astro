@@ -1,0 +1,34 @@
+---
+/* ================================================================
+   /en/* — rota-âncora do inglês
+   ================================================================
+   Esta página existe pra que o Astro case /en/* com alguma rota e
+   chame o middleware; é ele que tira o prefixo e reescreve pra página
+   de verdade (ver middleware.ts). Em uso normal ela nunca renderiza.
+
+   Só chega aqui o que sobra depois da reescrita e ainda começa com
+   /en, como /en/en/labs. Isso não é endereço do site: 404.
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import Vazio from '../../components/astro/Vazio.astro';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+import { cachePublico } from '../../lib/cache';
+
+const lang = idiomaDe(Astro);
+Astro.response.status = 404;
+cachePublico(Astro);
+---
+
+<Layout title={t(lang, 'comum.layout.titulo')}>
+  <div class="palco">
+    <Nav />
+    <Vazio
+      titulo={t(lang, 'comum.vazio.rotulo.nada')}
+      acaoHref={rota(lang, '/')}
+      acaoTexto="idearium"
+    />
+    <Rodape />
+  </div>
+</Layout>

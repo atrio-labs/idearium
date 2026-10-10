@@ -2,8 +2,11 @@
 /* ================================================================
    index.astro — o átrio, direção Matéria
    ================================================================
-   Agora consome a API de verdade (F1.1). As páginas públicas são
-   pré-renderizadas, então estas chamadas rodam em build time.
+   Consome a API a cada requisição (SSR), com cache HTTP pra quem não
+   está logado (lib/cache.ts): ideia nova aparece sem rebuild.
+
+   Página de referência do i18n: todo texto vem de src/i18n/atrio.ts e
+   comum.ts, e todo link passa por `rota`.
 
    Estrutura, de cima pra baixo:
      nav          pílula flutuante, sticky
@@ -23,13 +26,12 @@ import Vazio from '../components/astro/Vazio.astro';
 import {
   listarLabs, listarDestaques, listarRfcs, listarVersoes, listarInscricoes,
   listarComentarios, apiIndisponivel,
-  statusLabel, nomeCurtoDoLab, codigoRfc, haQuantoTempo, materiaDaRfc,
+  rotuloDoStatus, nomeDoLab, codigoRfc, haQuantoTempo, materiaDaRfc,
 } from '../lib/api';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import { cachePublico } from '../lib/cache';
 
-/* Página pública: pré-renderizada em build. O SSR do adapter existe
-   só pras rotas com sessão. */
-export const prerender = true;
-
+const lang = idiomaDe(Astro);
 const labs = await listarLabs();
 
 /* O átrio precisa de 4 RFCs (1 destaque + 3 na grade) e /rfcs/featured
@@ -71,85 +73,87 @@ const errata = acharErrata(versoes);
 
 /* A trilha: cada barrinha é um passo dado, não porcentagem. Os passos
    nomeados vêm do que existe de fato — versões, discussão, inscrições. */
+const nComentarios = comentarios?.meta.total ?? 0;
 const passos = destaque ? [
-  { dado: versoes.length >= 1, titulo: 'Proposta escrita',
-    resto: `e numerada como ${codigoRfc(destaque.number)}` },
-  { dado: (comentarios?.meta.total ?? 0) > 0, titulo: 'Discutida em público',
-    resto: (comentarios?.meta.total ?? 0) > 0
-      ? `${comentarios!.meta.total} ${comentarios!.meta.total === 1 ? 'comentário' : 'comentários'}`
-      : '— ninguém comentou ainda' },
-  { dado: ativos.length > 0, titulo: 'Alguém se inscreveu',
-    resto: ativos.length
-      ? `${ativos.length} ${ativos.length === 1 ? 'pessoa' : 'pessoas'} construindo`
-      : '— a vaga está aberta' },
+  { dado: versoes.length >= 1, titulo: t(lang, 'atrio.passo.escrita'),
+    resto: t(lang, 'atrio.passo.escrita.resto', { codigo: codigoRfc(destaque.number, lang) }) },
+  { dado: nComentarios > 0, titulo: t(lang, 'atrio.passo.discutida'),
+    resto: nComentarios === 0 ? t(lang, 'atrio.passo.discutida.nenhum')
+      : t(lang, nComentarios === 1 ? 'atrio.passo.discutida.um' : 'atrio.passo.discutida.varios',
+          { n: nComentarios }) },
+  { dado: ativos.length > 0, titulo: t(lang, 'atrio.passo.inscricao'),
+    resto: ativos.length === 0 ? t(lang, 'atrio.passo.inscricao.nenhum')
+      : t(lang, ativos.length === 1 ? 'atrio.passo.inscricao.um' : 'atrio.passo.inscricao.varios',
+          { n: ativos.length }) },
 ] : [];
 const passosDados = passos.filter((p) => p.dado).length;
 
 const m = destaque ? materiaDaRfc(destaque) : null;
-const semRede = apiIndisponivel;
+const semRede = apiIndisponivel();
+cachePublico(Astro, semRede);
+
+/* O chip demonstrativo percorre o ciclo no cliente; os rótulos vão
+   prontos no idioma da página, pelo atributo data-ciclo. */
+const ciclo = (['DRAFT', 'IN_DISCUSSION', 'IN_BUILDING', 'PUBLISHED'] as const)
+  .map((s) => rotuloDoStatus(s, lang));
 ---
 
-<Layout title="Idearium · Átrio">
+<Layout title={t(lang, 'atrio.titulo')}>
   <div class="palco">
     <Nav />
 
     {/* ============ ABERTURA ============ */}
     <header class="abertura vem">
-      <h1>Ideias abertas, esperando <span class="serif">quem sabe fazer</span>.</h1>
-      <p class="sub">
-        Alguém vê um problema de perto e escreve. Outra pessoa sabe construir e
-        procura no que aplicar isso. O Idearium é o lugar onde os dois se
-        encontram — sem gatekeeper, sem taxa, e com o crédito dividido.
-      </p>
+      <h1>{t(lang, 'atrio.abertura.antes')}<span class="serif">{t(lang, 'atrio.abertura.serif')}</span>{t(lang, 'atrio.abertura.depois')}</h1>
+      <p class="sub">{t(lang, 'atrio.abertura.sub')}</p>
 
       {/* O chip percorre o ciclo UMA vez quando a abertura entra em
           vista, e para em "publicada". Ciclo único, não loop: o ponto
           de "em discussão" já respira em 2.6s. */}
-      <p class="demo-ciclo" id="demo-ciclo">
-        uma ideia atravessa quatro estados:
+      <p class="demo-ciclo" id="demo-ciclo" data-ciclo={JSON.stringify(ciclo)}>
+        {t(lang, 'atrio.ciclo')}
         <span class="chip pequeno" id="chip-demo">
-          <span class="ponto"></span><span class="rotulo-estado" id="chip-demo-txt">rascunho</span>
+          <span class="ponto"></span><span class="rotulo-estado" id="chip-demo-txt">{ciclo[0]}</span>
         </span>
       </p>
 
       <div class="fluxo">
         <div class="etapa">
           <span class="n">01</span>
-          <h3>Alguém escreve</h3>
-          <p>Uma ideia vira proposta numerada. Não precisa saber construir — precisa conhecer o problema.</p>
-          <div class="vira">vira <span class="chip pequeno">{statusLabel.DRAFT}</span></div>
+          <h3>{t(lang, 'atrio.etapa1.titulo')}</h3>
+          <p>{t(lang, 'atrio.etapa1.texto')}</p>
+          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[0]}</span></div>
         </div>
         <div class="etapa">
           <span class="n">02</span>
-          <h3>A comunidade refina</h3>
-          <p>Gente comenta, contesta, corrige. A proposta muda e o histórico fica: nada é apagado.</p>
-          <div class="vira">vira <span class="chip pequeno vivo"><span class="ponto"></span>{statusLabel.IN_DISCUSSION}</span></div>
+          <h3>{t(lang, 'atrio.etapa2.titulo')}</h3>
+          <p>{t(lang, 'atrio.etapa2.texto')}</p>
+          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno vivo"><span class="ponto"></span>{ciclo[1]}</span></div>
         </div>
         <div class="etapa">
           <span class="n">03</span>
-          <h3>Alguém se inscreve</h3>
-          <p>Quem sabe fazer entra. Sem aprovação e sem contrato — e pode sair quando quiser, publicamente.</p>
-          <div class="vira">vira <span class="chip pequeno">{statusLabel.IN_BUILDING}</span></div>
+          <h3>{t(lang, 'atrio.etapa3.titulo')}</h3>
+          <p>{t(lang, 'atrio.etapa3.texto')}</p>
+          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[2]}</span></div>
         </div>
         <div class="etapa">
           <span class="n">04</span>
-          <h3>Vira real, e segue aberta</h3>
-          <p>Quando existe, o crédito é de todos que passaram por ela. E outra cidade pode construir de novo.</p>
-          <div class="vira">vira <span class="chip pequeno">{statusLabel.PUBLISHED}</span></div>
+          <h3>{t(lang, 'atrio.etapa4.titulo')}</h3>
+          <p>{t(lang, 'atrio.etapa4.texto')}</p>
+          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[3]}</span></div>
         </div>
       </div>
     </header>
 
     {/* ============ DESTAQUE ============ */}
     <div class="faixa-rotulo">
-      <span class="r">uma delas, agora</span>
-      <a href="/rfcs">ver todas as ideias abertas &rarr;</a>
+      <span class="r">{t(lang, 'atrio.faixa.rotulo')}</span>
+      <a href={rota(lang, '/rfcs')}>{t(lang, 'atrio.faixa.todas')}</a>
     </div>
 
     {semRede && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> O que aparece abaixo pode estar
-        incompleto. O conteúdo volta sozinho quando a API responder.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'atrio.aviso.texto')}
       </p>
     )}
 
@@ -160,20 +164,20 @@ const semRede = apiIndisponivel;
             tipo={m.tipo}
             lab={destaque.lab.slug}
             semente={m.semente}
-            legenda={`${destaque.lab.glyph} ${nomeCurtoDoLab(destaque.lab.name)} · ${haQuantoTempo(destaque.publishedAt)}`}
-            alt={`Campo de dados em dithering, ${codigoRfc(destaque.number)}`}
+            legenda={`${destaque.lab.glyph} ${nomeDoLab(destaque.lab, lang)} · ${haQuantoTempo(destaque.publishedAt, lang)}`}
+            alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(destaque.number, lang) })}
           />
         </figure>
 
         <div class="conteudo">
           <div class="chips">
             <span class="chip pastel" style={`background: var(--color-${destaque.lab.slug})`}>
-              {nomeCurtoDoLab(destaque.lab.name)}
+              {nomeDoLab(destaque.lab, lang)}
             </span>
             {destaque.status === 'IN_DISCUSSION'
-              ? <span class="chip vivo"><span class="ponto"></span>{statusLabel[destaque.status]}</span>
-              : <span class="chip">{statusLabel[destaque.status]}</span>}
-            <span class="codigo">{codigoRfc(destaque.number)}</span>
+              ? <span class="chip vivo"><span class="ponto"></span>{rotuloDoStatus(destaque.status, lang)}</span>
+              : <span class="chip">{rotuloDoStatus(destaque.status, lang)}</span>}
+            <span class="codigo">{codigoRfc(destaque.number, lang)}</span>
           </div>
 
           <h1>{destaque.title}</h1>
@@ -181,11 +185,11 @@ const semRede = apiIndisponivel;
 
           <div class="trilha">
             <div class="cabeca">
-              <span class="titulo">O que já existe</span>
-              <span class="versao">v0.{versoes.length || 1} · {haQuantoTempo(destaque.updatedAt)}</span>
+              <span class="titulo">{t(lang, 'atrio.trilha.titulo')}</span>
+              <span class="versao">v0.{versoes.length || 1} · {haQuantoTempo(destaque.updatedAt, lang)}</span>
             </div>
 
-            <div class="barras" role="img" aria-label={`${passosDados} de ${passos.length} passos dados`}>
+            <div class="barras" role="img" aria-label={t(lang, 'atrio.trilha.barras', { dados: passosDados, total: passos.length })}>
               {passos.map((p) => <i class={p.dado ? 'feito' : ''}></i>)}
             </div>
 
@@ -205,12 +209,12 @@ const semRede = apiIndisponivel;
             {errata && (
               <div class="errata" data-aberta="nao">
                 <button class="gatilho" type="button" aria-expanded="false">
-                  <span class="chevron"></span> errata · 1 correção
+                  <span class="chevron"></span> {t(lang, 'atrio.errata.gatilho')}
                 </button>
                 <div class="fole"><div><div class="corpo">
                   <span class="riscado">{errata.de}</span>
                   {errata.para}
-                  <span class="data">corrigido {haQuantoTempo(errata.data)} · v0.{errata.versao}</span>
+                  <span class="data">{t(lang, 'atrio.errata.data', { quando: haQuantoTempo(errata.data, lang), versao: errata.versao })}</span>
                 </div></div></div>
               </div>
             )}
@@ -219,18 +223,20 @@ const semRede = apiIndisponivel;
 
         <div class="pedido">
           <div class="texto">
-            <p class="rotulo">para sair do papel</p>
+            <p class="rotulo">{t(lang, 'atrio.pedido.rotulo')}</p>
             <p>
               {ativos.length === 0
-                ? <>Ninguém se inscreveu ainda. <b>Pode ser você.</b></>
-                : <>Já tem <b>{ativos.length} {ativos.length === 1 ? 'pessoa' : 'pessoas'}</b> construindo. Cabe mais.</>}
+                ? <>{t(lang, 'atrio.pedido.ninguem')}<b>{t(lang, 'atrio.pedido.ninguem.forte')}</b></>
+                : <>{t(lang, 'atrio.pedido.alguem.antes')}<b>{t(lang,
+                    ativos.length === 1 ? 'atrio.pedido.alguem.um' : 'atrio.pedido.alguem.varios',
+                    { n: ativos.length })}</b>{t(lang, 'atrio.pedido.alguem.depois')}</>}
             </p>
           </div>
           <div class="acoes">
-            <a class="botao" href={`/rfcs/${destaque.slug}`}>quero construir</a>
-            <a class="botao leve" href={`/rfcs/${destaque.slug}#discussao`}>ler a discussão</a>
+            <a class="botao" href={rota(lang, `/rfcs/${destaque.slug}`)}>{t(lang, 'atrio.acao.construir')}</a>
+            <a class="botao leve" href={rota(lang, `/rfcs/${destaque.slug}#discussao`)}>{t(lang, 'atrio.acao.discussao')}</a>
             {mostrados.length > 0 && (
-              <span class="rostos" aria-label={`${ativos.length} pessoas inscritas`}>
+              <span class="rostos" aria-label={t(lang, 'atrio.rostos', { n: ativos.length })}>
                 {mostrados.map((i, n) => (
                   <span style={`background: var(--color-${labs[n % (labs.length || 1)]?.slug ?? 'cidades'})`}>
                     {i.user.username.slice(0, 2).toUpperCase()}
@@ -245,12 +251,10 @@ const semRede = apiIndisponivel;
     ) : (
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : 'Nenhuma ideia publicada ainda'}
-        texto={semRede
-          ? 'Assim que a API voltar, as ideias aparecem aqui sem você precisar fazer nada.'
-          : 'A primeira ideia publicada aparece aqui. Não precisa saber fazer — precisa conhecer o problema.'}
-        acaoHref={semRede ? undefined : '/rfcs/nova'}
-        acaoTexto={semRede ? undefined : 'escrever a primeira'}
+        titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'atrio.vazio.titulo')}
+        texto={t(lang, semRede ? 'atrio.vazio.falha.texto' : 'atrio.vazio.texto')}
+        acaoHref={semRede ? undefined : rota(lang, '/rfcs/nova')}
+        acaoTexto={semRede ? undefined : t(lang, 'comum.acao.escrever.primeira')}
       />
     )}
 
@@ -265,12 +269,12 @@ const semRede = apiIndisponivel;
     {labs.length > 0 && (
       <div class="labs-faixa vem">
         {labs.map((lab) => (
-          <a class="lab-card" href={`/labs/${lab.slug}`}>
+          <a class="lab-card" href={rota(lang, `/labs/${lab.slug}`)}>
             <span class="fita" style={`background: var(--color-${lab.slug})`}></span>
             <span class="txt">
-              <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeCurtoDoLab(lab.name)}</span>
+              <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeDoLab(lab, lang)}</span>
               <span class="qtd">
-                {lab.rfcsCount} {lab.rfcsCount === 1 ? 'ideia' : 'ideias'}
+                {t(lang, lab.rfcsCount === 1 ? 'labs.qtd.um' : 'labs.qtd.varios', { n: lab.rfcsCount })}
               </span>
             </span>
           </a>
@@ -280,9 +284,9 @@ const semRede = apiIndisponivel;
 
     {/* ============ CHAMADA ============ */}
     <section class="cartao chamada vem">
-      <h2>Escreva uma ideia. <span class="serif">Não precisa saber fazer.</span></h2>
-      <p>Precisa só querer que aconteça. Quem sabe fazer está aqui, procurando no que aplicar isso.</p>
-      <a class="botao" href="/rfcs/nova">escrever uma ideia</a>
+      <h2>{t(lang, 'atrio.chamada.antes')}<span class="serif">{t(lang, 'atrio.chamada.serif')}</span></h2>
+      <p>{t(lang, 'atrio.chamada.texto')}</p>
+      <a class="botao" href={rota(lang, '/rfcs/nova')}>{t(lang, 'atrio.chamada.acao')}</a>
     </section>
 
     <Rodape />
@@ -308,14 +312,16 @@ const semRede = apiIndisponivel;
   }
 
   /* ---------- chip demonstrativo: swap em três fases ----------
-     Percorre o ciclo UMA vez e para em "publicada". */
-  const CICLO = ['rascunho', 'em discussão', 'em construção', 'publicada'];
-
+     Percorre o ciclo UMA vez e para em "publicada". Os rótulos vêm do
+     servidor já no idioma da página (data-ciclo); a posição 1 é
+     "em discussão", o único estado que respira. */
   function ligarChipDemo() {
     const linha = document.getElementById('demo-ciclo');
     const chip = document.getElementById('chip-demo');
     const txt = document.getElementById('chip-demo-txt');
     if (!linha || !chip || !txt) return;
+    const CICLO: string[] = JSON.parse(linha.dataset.ciclo ?? '[]');
+    if (CICLO.length === 0) return;
 
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
       txt.textContent = CICLO[CICLO.length - 1];
@@ -330,7 +336,7 @@ const semRede = apiIndisponivel;
       txt.classList.add('saindo');
       setTimeout(() => {
         txt.textContent = CICLO[i];
-        chip.classList.toggle('vivo', CICLO[i] === 'em discussão');
+        chip.classList.toggle('vivo', i === 1);
         txt.classList.remove('saindo');
         txt.classList.add('entrando-de-baixo');
         void txt.offsetWidth;                 // reflow: sem isso o salto anima

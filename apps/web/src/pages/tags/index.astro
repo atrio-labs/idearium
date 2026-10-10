@@ -35,6 +35,7 @@ import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import type { Pagina } from '../../lib/api';
 import { nivelDeUso } from '../../lib/peso-tag';
+import { cachePublico } from '../../lib/cache';
 
 /* A api.ts ainda não expõe /tags — ela é de outro agente e está sendo
    editada em paralelo. Até lá a chamada mora aqui, com o mesmo
@@ -78,6 +79,7 @@ try {
    duas ideias" é o máximo que existe hoje. */
 const maiorUso = tags[0]?.usageCount ?? 0;
 const temOrfas = tags.some((t) => t.usageCount === 0);
+cachePublico(Astro, caiu);
 ---
 
 <Layout
