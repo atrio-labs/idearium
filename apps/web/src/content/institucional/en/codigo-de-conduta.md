@@ -1,12 +1,12 @@
 ---
 titulo: "Code of conduct"
 descricao: "What we expect from people who take part, what we do not accept, and how we look after this together."
-rascunho: true
+rascunho: false
 atualizado: 2026-10-10
 ---
 
-<!-- fonte: VISAO §4, §10 #5 e §13. The conduct rules themselves are not in the VISAO; this text is a maintainers' draft. -->
-This text is a draft. The vision document does not define conduct rules, so this is their first design, to be reviewed by the maintainers and then discussed in a public RFC. It is inspired by the practices of open communities, without copying text from anyone else.
+<!-- fonte: VISAO §4, §10 #5 e §13. Conduct rules approved by the maintainers on 2026-10-10. -->
+These are Idearium's rules for living together, approved by the maintainers. Changes to them go through a public RFC. The text is inspired by the practices of open communities, without copying text from anyone else.
 
 ## What we expect
 
@@ -26,7 +26,7 @@ This text is a draft. The vision document does not define conduct rules, so this
 
 ## How to report
 
-Moderation works through reports. The report button on content is still being built. Until it arrives, the contact channel for the maintainers will be published on this page. There is no approval queue before publishing: moderation happens afterwards, based on reports. Describe what happened and where. You do not need to prove anything beyond that.
+Moderation works through reports. The report button on content is still being built. Until it arrives, write to [mantenedores@idearium.example](mailto:mantenedores@idearium.example). There is no approval queue before publishing: moderation happens afterwards, based on reports. Describe what happened and where. You do not need to prove anything beyond that.
 
 ## What happens next
 

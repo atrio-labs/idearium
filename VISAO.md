@@ -212,62 +212,64 @@ Realista: R$ 30k–80k em um ano se houver tração visível e relatório decent
 
 ## 12. Identidade visual e tom
 
-> Atualizado em 31.07.2026, quando a direção **Matéria** foi para o código. A
-> paleta base desta seção já estava certa desde a fundação e permanece; o que
-> muda é a tipografia de acento, a entrada de um pastel por laboratório e a
-> saída de Navy e Gold. A direção completa vive em
-> `brainstorming-design/atrio-v2/` e está implementada em
-> `apps/web/src/styles/global.css`.
+> Atualizado em 10.10.2026: a direção **minimalista** substituiu a Matéria
+> (31.07.2026). Nada da Matéria ficou: saíram Newsreader, Departure Mono, os
+> pastéis por laboratório e as animações por peça. A implementação vive em
+> `apps/web/src/styles/global.css` e `apps/web/src/components/astro/Materia.astro`.
+
+### Princípio
+Muito espaço em branco, uma família tipográfica, interface quase
+monocromática. **A única cor viva vem da imagem de cada ideia.** O sinal de
+"tech" continua vindo da evidência de construção na superfície (número da RFC,
+versões, histórico), não de ornamento.
 
 ### Tipografia
-- **Inter** — sans, corpo de UI, navegação e títulos
-- **Newsreader** — serifa, em itálico, só como acento dentro de um título
-- **Departure Mono** — monospace, metadados, identificadores (RFC-0007), nomes de usuário (`@luisa`)
-
-Todas OFL ou MIT, que é requisito num projeto CC BY-SA — o repositório é
-público, e fonte *free for personal use* não cabe aqui.
-
-**Peso:** o padrão é 400, sempre. A ênfase vem de incremento fracionário (430,
-450, 470), nunca de pular para 600 ou bold.
+- **Inter** — única família: UI, corpo, títulos e metadados. OFL, self-hosted
+  (nenhuma requisição ao Google Fonts). Números de identificador com
+  `tabular-nums`.
+- **Títulos grandes em dois tons:** começo em quase-preto, resto em cinza, no
+  mesmo tamanho (`.titulo-duplo` + `.apagado`). Peso ~500, tracking negativo,
+  entrelinha curta.
+- **Texto de apoio** pequeno (13–15px), cinza médio, linhas curtas.
 
 ### Paleta
-Uma tinta só, `rgb(3, 3, 2)`, com a hierarquia feita por alpha — nunca cinzas
-nomeados. É o que mantém a página coerente quando o pastel do laboratório muda
-por baixo.
+Escala de cinzas sólidos sobre branco, dentro de uma moldura cinza clara.
 
 | Cor | Hex | Uso |
 |-----|-----|-----|
-| Fundo | `#FCF9F7` | Background principal, off-white quente |
-| Cartão | `#FFFFFF` | Cartões e elementos destacados |
-| Rebaixo | `#F7F4F1` | Áreas secundárias, superfície interna |
-| Tinta | `rgb(3,3,2)` | Texto e traço, com alpha .90 / .75 / .65 / .50 / .35 / .12 / .07 |
+| Moldura | `#EFEFED` | Fundo do body, em volta da página |
+| Folha | `#FFFFFF` | A página e os cartões |
+| Rebaixo | `#F5F5F4` | Campos, superfícies internas |
+| Tinta | `#111111` | Título e texto forte |
+| Apoio | `#6B6B6B` | Texto de apoio |
+| Apagado | `#8C8C8C` | Segunda parte do título em dois tons (AA para texto grande) |
+| Fio | `#E3E3E3` | Bordas e divisórias |
+| Botão primário | `#0A0A0A` | Ação principal, texto branco |
+| Destaque | `#F1E6FB` / `#9B4DCA` | Chip lilás, uso raro (ex.: ideia em discussão) |
 
-### Cor por laboratório
-Pastéis **dessaturados**, usados como **superfície** — nunca como texto. O texto
-em cima é sempre a tinta, então o contraste não depende da cor do laboratório.
+O laboratório não tem mais cor: distingue-se pelo nome e pelo glyph.
 
-| Lab | Hex |
-|-----|-----|
-| Educação | `#E8B79B` |
-| Cidades | `#A9C6E4` |
-| Saúde | `#9BD8A9` |
-| Cultura | `#FDE99B` |
-| Tec. Cívica | `#C6BCE6` |
-| Econ. Solidária | `#E9B2B8` |
+### Imagem: o gradiente de cada ideia
+Cada RFC e cada laboratório tem uma imagem gerada por código
+(`Materia.astro`): manchas quentes borradas (laranja `#FF5A1F`, rosa `#FF4FA3`,
+azul `#5B8FD6`, areia `#D9C3A5`), faixas verticais onduladas como vidro
+canelado e grão fino por cima. Determinística pela semente: mesma ideia, mesma
+imagem, sem arquivo, sem licença de terceiros. Tipo e laboratório mudam só a
+composição; a paleta é sempre a mesma.
 
-### Geometria e sombra
-- Raio 24px externo, 14px interno — o externo é o interno mais o padding.
-- Sombra difusa em camadas, quase invisível. Sombra dura com deslocamento não
-  pertence a esta direção.
+### Geometria
+- Moldura com raio 24px; cartões com raio 28px, sem sombra (no máximo um fio
+  de 1px); campos com 12px.
+- Navegação numa pílula cinza centralizada; botões e chips em pílula.
+- Alvo de toque mínimo de 40px.
 
 ### Movimento
-A animação é escrita **uma por peça, nomeada**, não herdada de biblioteca
-genérica. Toda animação precisa dizer algo: o estado mudou, a correção foi
-registrada, o passo foi dado. `prefers-reduced-motion` desliga tudo.
+Só transição discreta de estado (opacidade, cor; 150–200ms). Nada de
+coreografia decorativa. `prefers-reduced-motion` desliga tudo.
 
 ### Glyphs dos labs
-Caracteres usados como "selo" de cada laboratório. Convivem com a cor: o glyph é
-selo, o pastel é superfície.
+Caracteres usados como "selo" de cada laboratório. Com a saída da cor por
+laboratório, o glyph e o nome são o que distingue um lab do outro.
 - ◈ Lab. Educação
 - ◇ Lab. Cidades
 - ✚ Lab. Saúde
@@ -291,7 +293,7 @@ selo, o pastel é superfície.
 Idearium é mantido por duas pessoas desde o início:
 
 - **Kae Brazauskas** — backend, infraestrutura, modelagem de dados, este documento e `ROADMAP_BACKEND.md`.
-- **Gabriele** — frontend, identidade visual, design da home (direção Matéria, em `brainstorming-design/atrio-v2/`), tom editorial e microcopy.
+- **Gabriele** — frontend, identidade visual, design da home (direção minimalista, §12), tom editorial e microcopy.
 
 Não usamos o termo *founder* por escolha — soa startup. Aqui somos **co-criadores** e **mantenedores iniciais** de um bem comum digital. As decisões de produto, identidade e governança são tomadas em conjunto.
 
@@ -342,7 +344,7 @@ Estes três pontos não mudam sem refundação do projeto.
   - `ROADMAP_BACKEND.md` — plano operacional do backend
   - `ANALISE_PROJETO.md` — análise estratégica (snapshot do momento do pivô; histórico)
   - `README.md` — apresentação pública (a atualizar conforme o projeto avança)
-  - `brainstorming-design/atrio-v2/` — direção de design vigente (Matéria)
+  - `brainstorming-design/atrio-v2/` — direção Matéria, arquivada em 10.10.2026 (a vigente é a minimalista, §12)
 
 ### Próximos passos
 1. **Backend (Kae):** iniciar `ROADMAP_BACKEND.md` Etapa 0 (setup esqueleto).

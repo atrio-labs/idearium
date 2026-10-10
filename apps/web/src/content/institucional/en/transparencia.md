@@ -1,7 +1,7 @@
 ---
 titulo: "Transparency"
 descricao: "How Idearium is funded, what it never does with money, and what we do with your data."
-rascunho: true
+rascunho: false
 atualizado: 2026-10-10
 ---
 
@@ -40,7 +40,7 @@ The platform does not touch money between people: no fees, no revenue share, no 
 
 ## Privacy and data
 
-*This section is a draft for the maintainers to review. It describes what the code does today and must be reviewed with every change.*
+*This section describes what the code does today and is reviewed with every change. Questions about your data: [mantenedores@idearium.example](mailto:mantenedores@idearium.example).*
 
 **What we ask to create an account.** Only three things: email, username (`@username`) and password. We do not ask for ID, phone number or any required link to outside networks. Full name and bio are optional, and only appear if you fill them in.
 

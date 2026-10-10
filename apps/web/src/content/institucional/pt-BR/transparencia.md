@@ -1,7 +1,7 @@
 ---
 titulo: "Transparência"
 descricao: "Como o Idearium se sustenta, o que ele não faz com dinheiro e o que fazemos com os seus dados."
-rascunho: true
+rascunho: false
 atualizado: 2026-10-10
 ---
 
@@ -40,7 +40,7 @@ A plataforma não toca dinheiro entre pessoas: sem taxa, sem divisão de receita
 
 ## Privacidade e dados
 
-*Esta seção é um rascunho a revisar pelos mantenedores. Descreve o que o código faz hoje e deve ser revista a cada mudança.*
+*Esta seção descreve o que o código faz hoje e é revista a cada mudança. Dúvidas sobre os seus dados: [mantenedores@idearium.example](mailto:mantenedores@idearium.example).*
 
 **O que pedimos para criar uma conta.** Só três coisas: email, nome de usuário (`@username`) e senha. Não pedimos documento, telefone nem ligação obrigatória com redes externas. Nome completo e bio são opcionais, e só aparecem se você preencher.
 

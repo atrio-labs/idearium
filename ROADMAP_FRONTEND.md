@@ -37,11 +37,10 @@ aceite dos contratos propostos (seções F6 e "Contratos propostos ao backend").
       enquanto `.nvmrc`, o CI e `apps/web/Dockerfile` usam 22.
 - [x] Self-host de fontes. Só a Inter ficou (`@fontsource-variable/inter`,
       latin e latin-ext); nenhum request vai ao Google Fonts.
-- [ ] Revisar o rascunho de `/codigo-de-conduta` e da seção de privacidade de
-      `/transparencia`, publicar o custo mensal real e definir o canal de
-      contato com os mantenedores (citado na conduta).
-- [ ] Atualizar `VISAO.md` §12 com a direção visual minimalista (consenso
-      Kae e Gabriele).
+- [x] Conduta e transparência aprovadas (10.10.2026); contato provisório
+      `mantenedores@idearium.example` até existir domínio. Falta publicar o
+      custo mensal real.
+- [x] `VISAO.md` §12 atualizado com a direção minimalista.
 - [ ] Criar os apps OAuth no GitHub e no Google e a conta no Resend quando a
       Etapa 6 começar.
 

@@ -1,12 +1,12 @@
 ---
 titulo: "Código de conduta"
 descricao: "O que esperamos de quem participa, o que não aceitamos e como cuidamos disso juntos."
-rascunho: true
+rascunho: false
 atualizado: 2026-10-10
 ---
 
-<!-- fonte: VISAO §4, §10 #5 e §13. As regras de conduta em si não existem no VISAO; este texto é rascunho dos mantenedores. -->
-Este texto é um rascunho. O documento de visão não define regras de conduta, então este é o primeiro desenho delas, a ser revisado pelos mantenedores e depois discutido em RFC pública. É inspirado em práticas de comunidades abertas, sem copiar texto de terceiros.
+<!-- fonte: VISAO §4, §10 #5 e §13. Regras de conduta aprovadas pelos mantenedores em 10.10.2026. -->
+Estas são as regras de convivência do Idearium, aprovadas pelos mantenedores. Mudanças nelas passam por RFC pública. O texto é inspirado em práticas de comunidades abertas, sem copiar texto de terceiros.
 
 ## O que esperamos
 
@@ -26,7 +26,7 @@ Este texto é um rascunho. O documento de visão não define regras de conduta, 
 
 ## Como reportar
 
-A moderação funciona por reporte. O botão de reportar no conteúdo ainda está em construção. Até ele chegar, o canal de contato com os mantenedores será publicado nesta página. Não há fila de aprovação antes de publicar: a moderação acontece depois, a partir dos reportes. Descreva o que aconteceu e onde. Você não precisa provar nada além disso.
+A moderação funciona por reporte. O botão de reportar no conteúdo ainda está em construção. Até ele chegar, escreva para [mantenedores@idearium.example](mailto:mantenedores@idearium.example). Não há fila de aprovação antes de publicar: a moderação acontece depois, a partir dos reportes. Descreva o que aconteceu e onde. Você não precisa provar nada além disso.
 
 ## O que acontece depois
 
