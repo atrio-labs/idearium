@@ -41,6 +41,8 @@
 import comum from '../i18n/comum';
 import atrio from '../i18n/atrio';
 import labs from '../i18n/labs';
+import conta from '../i18n/conta';
+import erro from '../i18n/erro';
 
 export type Idioma = 'pt-BR' | 'en';
 export const IDIOMAS: readonly Idioma[] = ['pt-BR', 'en'];
@@ -50,8 +52,8 @@ export const IDIOMA_PADRAO: Idioma = 'pt-BR';
 const PREFIXO: Record<Idioma, string> = { 'pt-BR': '', en: '/en' };
 
 const DICIONARIOS = {
-  'pt-BR': { ...comum['pt-BR'], ...atrio['pt-BR'], ...labs['pt-BR'] },
-  en:      { ...comum.en,       ...atrio.en,       ...labs.en },
+  'pt-BR': { ...comum['pt-BR'], ...atrio['pt-BR'], ...labs['pt-BR'], ...conta['pt-BR'], ...erro['pt-BR'] },
+  en:      { ...comum.en,       ...atrio.en,       ...labs.en, ...conta.en, ...erro.en },
 };
 
 export type Chave = keyof (typeof DICIONARIOS)['pt-BR'];

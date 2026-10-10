@@ -15,7 +15,9 @@ import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import { sair } from '../lib/sessao';
+import { idiomaDe, rota, t } from '../lib/i18n';
 
+const lang = idiomaDe(Astro);
 const usuario = Astro.locals.usuario;
 let falhaRevogacao: string | null = null;
 
@@ -25,16 +27,16 @@ if (Astro.request.method === 'POST') {
      sem revogação o refresh token vive mais 30 dias, e dizer "pronto"
      seria mentira em máquina compartilhada. */
   const { revogado } = await sair(Astro.cookies);
-  if (revogado) return Astro.redirect('/');
-  falhaRevogacao = 'A API não confirmou a revogação do acesso.';
+  if (revogado) return Astro.redirect(rota(lang, '/'));
+  falhaRevogacao = t(lang, 'conta.sair.falha');
 }
 
 /* Sem sessão não há o que encerrar, e a pergunta ficaria sem sentido.
    O aviso de falha é a exceção: ele existe justamente depois de limpar. */
-if (!usuario && !falhaRevogacao) return Astro.redirect('/');
+if (!usuario && !falhaRevogacao) return Astro.redirect(rota(lang, '/'));
 ---
 
-<Layout title="Idearium · Sair" description="Encerrar a sessão neste navegador.">
+<Layout title={t(lang, 'conta.sair.titulo')} description={t(lang, 'conta.sair.descricao')}>
   <div class="palco">
     <Nav />
 
@@ -50,41 +52,36 @@ if (!usuario && !falhaRevogacao) return Astro.redirect('/');
 
           <header class="cabecalho-pagina">
             <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-              sair
+              {t(lang, 'conta.sair.rotulo')}
             </span>
-            <h1>Saiu daqui, mas o servidor <span class="serif">não confirmou</span>.</h1>
+            <h1>{t(lang, 'conta.sair.falha.h1.antes')}<span class="serif">{t(lang, 'conta.sair.falha.h1.serif')}</span>{t(lang, 'conta.sair.falha.h1.depois')}</h1>
             <p class="sub">
-              Os cookies deste navegador foram apagados: aqui a sessão de
-              @{usuario?.username} acabou. O pedido de encerrar a sessão no
-              servidor não passou, então quem tiver cópia do cookie antigo
-              ainda consegue usá-la até ela expirar sozinha. Entre de novo e
-              saia mais tarde, quando a API responder.
+              {t(lang, 'conta.sair.falha.sub.antes')}@{usuario?.username}{t(lang, 'conta.sair.falha.sub.depois')}
             </p>
           </header>
 
           <div class="acoes-form" style="border-top:none; padding-top:0; margin-top:0">
-            <a class="botao" href="/">voltar ao início</a>
+            <a class="botao" href={rota(lang, '/')}>{t(lang, 'conta.sair.falha.inicio')}</a>
             <span class="separador"></span>
-            <a class="botao leve" href="/entrar">entrar de novo</a>
+            <a class="botao leve" href={rota(lang, '/entrar')}>{t(lang, 'conta.sair.falha.entrar')}</a>
           </div>
         </Fragment>
       ) : (
         <Fragment>
           <header class="cabecalho-pagina">
             <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-              sair
+              {t(lang, 'conta.sair.rotulo')}
             </span>
-            <h1>Encerrar a sessão de <span class="serif">@{usuario?.username}</span>?</h1>
+            <h1>{t(lang, 'conta.sair.h1.antes')}<span class="serif">@{usuario?.username}</span>{t(lang, 'conta.sair.h1.depois')}</h1>
             <p class="sub">
-              Vale só para este navegador. Nada que você escreveu sai do ar: as
-              ideias, os comentários e as inscrições continuam onde estão.
+              {t(lang, 'conta.sair.sub')}
             </p>
           </header>
 
-          <form method="POST" action="/sair">
+          <form method="POST" action={rota(lang, '/sair')}>
             <div class="acoes-form" style="border-top:none; padding-top:0; margin-top:0">
-              <button class="botao perigo" type="submit">sair</button>
-              <a class="botao leve" href="/">ficar</a>
+              <button class="botao perigo" type="submit">{t(lang, 'conta.sair.botao.sair')}</button>
+              <a class="botao leve" href={rota(lang, '/')}>{t(lang, 'conta.sair.botao.ficar')}</a>
             </div>
           </form>
         </Fragment>

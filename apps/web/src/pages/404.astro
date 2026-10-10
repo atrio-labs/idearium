@@ -1,0 +1,35 @@
+---
+/* ================================================================
+   404 — endereço que não existe
+   ================================================================
+   O Astro serve esta página pra qualquer rota sem página. Pra
+   /en/<inexistente> o middleware tira o prefixo e reescreve com
+   next(url); a rota reescrita também não existe e cai aqui, já com
+   `locals.lang = 'en'`. Uma página só atende os dois idiomas.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import { cachePublico } from '../lib/cache';
+
+const lang = idiomaDe(Astro);
+Astro.response.status = 404;
+cachePublico(Astro);
+---
+
+<Layout title={t(lang, 'erro.404.titulo')}>
+  <div class="palco">
+    <Nav />
+    <div class="form-estreito">
+      <Vazio
+        titulo={t(lang, 'erro.404.vazio')}
+        texto={t(lang, 'erro.404.texto')}
+        acaoHref={rota(lang, '/')}
+        acaoTexto={t(lang, 'erro.404.acao')}
+      />
+    </div>
+    <Rodape />
+  </div>
+</Layout>

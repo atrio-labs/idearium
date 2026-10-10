@@ -10,13 +10,12 @@
 
    Isto NÃO é validação. Quem aceita ou recusa um nome é a API: só
    ela sabe se já está tomado, e as mensagens dela vêm traduzidas.
-   Aqui a gente só descreve, em português, o que a pessoa está
-   vendo na tela.
+   Aqui a gente só descreve, no idioma da página, o que a pessoa está
+   vendo na tela. Os textos moram em src/i18n/conta.ts; o exemplo que
+   ocupa a vitrine com o campo vazio ('voce', 'you') não tem acento de
+   propósito, porque o formato do username também não aceita.
    ================================================================ */
-
-/** ocupa a vitrine enquanto o campo está vazio; sem acento de propósito,
-    porque o formato do username também não aceita */
-export const EXEMPLO_PSEUDONIMO = 'voce';
+import { t, type Idioma } from './i18n';
 
 export type EstadoPseudonimo = 'vazio' | 'ok' | 'invalido';
 
@@ -52,41 +51,42 @@ export function pastelDe(username: string): string {
   return PASTEIS[soma % PASTEIS.length]!;
 }
 
-export function lerPseudonimo(cru: string): LeituraPseudonimo {
+export function lerPseudonimo(cru: string, lang: Idioma = 'pt-BR'): LeituraPseudonimo {
   /* a API baixa a caixa e apara o espaço antes de validar; repetir isso
      aqui é o que faz a vitrine mostrar "maiúscula vira minúscula"
      acontecendo, em vez de avisar por escrito */
   const nome = cru.trim().toLowerCase();
 
   if (!nome) {
+    const exemplo = t(lang, 'conta.pseudonimo.exemplo');
     return {
       estado: 'vazio',
-      nome: EXEMPLO_PSEUDONIMO,
-      iniciais: iniciaisDe(EXEMPLO_PSEUDONIMO),
-      recado: 'o de cima é exemplo. o seu entra assim que você digitar.',
+      nome: exemplo,
+      iniciais: iniciaisDe(exemplo),
+      recado: t(lang, 'conta.pseudonimo.recado.vazio'),
     };
   }
 
-  const motivo = porQueNaoPassa(nome);
+  const motivo = porQueNaoPassa(nome, lang);
   return {
     estado: motivo ? 'invalido' : 'ok',
     nome,
     iniciais: iniciaisDe(nome),
-    recado: motivo ? `esse nome não é aceito: ${motivo}.` : '',
+    recado: motivo ? t(lang, 'conta.pseudonimo.recado.recusado', { motivo }) : '',
   };
 }
 
 /* Um motivo por vez, na ordem em que a pessoa esbarra neles digitando.
    Devolver a lista inteira faria a linha crescer e encolher a cada
    tecla, que é justamente o que cansa de ler. */
-function porQueNaoPassa(nome: string): string | null {
-  if (nome.length < 3) return 'são no mínimo 3 caracteres';
-  if (nome.length > 30) return 'são no máximo 30 caracteres';
+function porQueNaoPassa(nome: string, lang: Idioma): string | null {
+  if (nome.length < 3) return t(lang, 'conta.pseudonimo.motivo.curto');
+  if (nome.length > 30) return t(lang, 'conta.pseudonimo.motivo.longo');
   if (!PERMITIDO.test(nome)) {
-    return 'só letras de a a z sem acento, dígitos, ponto, hífen e sublinhado';
+    return t(lang, 'conta.pseudonimo.motivo.caracteres');
   }
   if (!BORDA.test(nome[0]!) || !BORDA.test(nome[nome.length - 1]!)) {
-    return 'começa e termina com letra ou dígito';
+    return t(lang, 'conta.pseudonimo.motivo.borda');
   }
   return null;
 }

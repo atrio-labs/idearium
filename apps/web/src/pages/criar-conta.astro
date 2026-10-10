@@ -33,11 +33,18 @@ import Rodape from '../components/astro/Rodape.astro';
 import CartaoMao from '../components/astro/CartaoMao.astro';
 import { criarConta, destinoSeguro } from '../lib/sessao';
 import { lerPseudonimo } from '../lib/pseudonimo';
+import { idiomaDe, rota, separarIdioma, t } from '../lib/i18n';
 
-const voltar = destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin);
+const lang = idiomaDe(Astro);
+
+/* `voltar` é sempre sem prefixo (Astro.url chega sem o /en); o prefixo
+   volta em cada redirect, por rota(). Ver o mesmo trecho em /entrar. */
+const voltar = separarIdioma(
+  destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin),
+).caminho;
 const pediramVolta = voltar !== '/';
 
-if (Astro.locals.usuario) return Astro.redirect(voltar);
+if (Astro.locals.usuario) return Astro.redirect(rota(lang, voltar));
 
 /* O mesmo formato que a API exige (RegisterDto): começa e termina com
    letra ou dígito, no meio aceita ponto, hífen e sublinhado. Aceita
@@ -59,33 +66,33 @@ if (Astro.request.method === 'POST') {
   const senha = String(dados.get('senha') ?? '');
 
   if (!username || !email || !senha) {
-    erro = 'Preencha nome de usuário, email e senha.';
+    erro = t(lang, 'conta.criar.erro.vazio');
   } else {
     try {
       const r = await criarConta(Astro.cookies, { username, email, password: senha });
-      if (r.ok) return Astro.redirect(voltar);
+      if (r.ok) return Astro.redirect(rota(lang, voltar));
       erro = r.erro;
     } catch {
-      erro = 'Não consegui falar com o servidor. Tente de novo em instantes.';
+      erro = t(lang, 'conta.criar.erro.rede');
     }
   }
 }
 
 /* A vitrine já sai pronta do servidor: sem JS ela continua coerente, e
    quem voltou de um POST recusado vê o nome que tinha digitado. */
-const vitrine = lerPseudonimo(username);
+const vitrine = lerPseudonimo(username, lang);
 
-const acao = pediramVolta
+const acao = rota(lang, pediramVolta
   ? `/criar-conta?voltar=${encodeURIComponent(voltar)}`
-  : '/criar-conta';
-const linkEntrar = pediramVolta
+  : '/criar-conta');
+const linkEntrar = rota(lang, pediramVolta
   ? `/entrar?voltar=${encodeURIComponent(voltar)}`
-  : '/entrar';
+  : '/entrar');
 ---
 
 <Layout
-  title="Idearium · Criar conta"
-  description="Crie uma conta com pseudônimo pra escrever, discutir e construir ideias."
+  title={t(lang, 'conta.criar.titulo')}
+  description={t(lang, 'conta.criar.descricao')}
 >
   <div class="palco">
     <Nav />
@@ -93,12 +100,11 @@ const linkEntrar = pediramVolta
     <div class="bancada">
       <header class="cabecalho-pagina">
         <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-          criar conta
+          {t(lang, 'conta.criar.rotulo')}
         </span>
-        <h1>Comece pelo <span class="serif">pseudônimo</span>.</h1>
+        <h1>{t(lang, 'conta.criar.h1.antes')}<span class="serif">{t(lang, 'conta.criar.h1.serif')}</span>{t(lang, 'conta.criar.h1.depois')}</h1>
         <p class="sub">
-          O @username é a única coisa que pedimos. Nome real é opcional aqui e
-          continua opcional depois.
+          {t(lang, 'conta.criar.sub')}
         </p>
       </header>
 
@@ -114,19 +120,19 @@ const linkEntrar = pediramVolta
           )}
 
           <div class="campo">
-            <label class="rotulo" for="username">nome de usuário</label>
+            <label class="rotulo" for="username">{t(lang, 'conta.criar.username.rotulo')}</label>
             <input
               class="entrada mono"
               id="username"
               name="username"
               type="text"
               value={username}
-              placeholder="@voce"
+              placeholder={t(lang, 'conta.criar.username.exemplo')}
               required
               minlength="3"
               maxlength="30"
               pattern={FORMATO_USERNAME}
-              title="3 a 30 caracteres: letras, dígitos, ponto, hífen ou sublinhado. Começa e termina com letra ou dígito. Maiúscula vira minúscula."
+              title={t(lang, 'conta.criar.username.dica')}
               autocomplete="username"
               autocapitalize="none"
               autocorrect="off"
@@ -135,14 +141,12 @@ const linkEntrar = pediramVolta
               autofocus={!erro}
             />
             <span class="ajuda" id="ajuda-username">
-              De 3 a 30 caracteres: letras, dígitos, ponto, hífen e sublinhado.
-              Começa e termina com letra ou dígito. Maiúscula vira minúscula. É
-              público e não muda depois.
+              {t(lang, 'conta.criar.username.ajuda')}
             </span>
           </div>
 
           <div class="campo">
-            <label class="rotulo" for="email">email</label>
+            <label class="rotulo" for="email">{t(lang, 'conta.criar.email.rotulo')}</label>
             <input
               class="entrada"
               id="email"
@@ -157,13 +161,12 @@ const linkEntrar = pediramVolta
               aria-describedby={erro ? 'ajuda-email erro-form' : 'ajuda-email'}
             />
             <span class="ajuda" id="ajuda-email">
-              Serve pra entrar. Não aparece no seu perfil nem pra quem lê o que
-              você escreve.
+              {t(lang, 'conta.criar.email.ajuda')}
             </span>
           </div>
 
           <div class="campo">
-            <label class="rotulo" for="senha">senha</label>
+            <label class="rotulo" for="senha">{t(lang, 'conta.criar.senha.rotulo')}</label>
             <input
               class="entrada"
               id="senha"
@@ -176,32 +179,31 @@ const linkEntrar = pediramVolta
               aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
             />
             <span class="ajuda" id="ajuda-senha">
-              No mínimo 10 caracteres. Comprimento vale mais que símbolo
-              obrigatório, então uma frase serve.
+              {t(lang, 'conta.criar.senha.ajuda')}
             </span>
           </div>
 
           <div class="acoes-form">
-            <button class="botao" type="submit">criar conta</button>
+            <button class="botao" type="submit">{t(lang, 'conta.criar.botao.criar')}</button>
             <span class="separador"></span>
-            <a class="botao leve" href={linkEntrar}>já tenho conta</a>
+            <a class="botao leve" href={linkEntrar}>{t(lang, 'conta.criar.botao.entrar')}</a>
           </div>
         </form>
 
         <p class="nota">
-          Ninguém precisa saber quem você é pra levar sua ideia a sério.
+          {t(lang, 'conta.criar.nota')}
         </p>
       </div>
 
       {/* aria-hidden porque leitor de tela receberia o mesmo @ três vezes a
           cada tecla, e tudo que a vitrine ensina já está escrito em
           #ajuda-username. É explicação visual, não conteúdo novo. */}
-      <aside class="vitrine" id="vitrine" data-estado={vitrine.estado} aria-hidden="true">
+      <aside class="vitrine" id="vitrine" data-estado={vitrine.estado} data-lang={lang} aria-hidden="true">
         {/* <header> e não <div>: assim os três .peca continuam sendo os
             únicos <div> da coluna, e o escalonamento da animação de
             entrada não depende de contar irmãos de outro tipo */}
         <header class="cabeca-vitrine">
-          <p class="rotulo-vitrine">o que esse nome vira</p>
+          <p class="rotulo-vitrine">{t(lang, 'conta.criar.vitrine.rotulo')}</p>
           {/* o recado fica aqui em cima, na altura do campo: é onde o olho
               está quando o nome é recusado */}
           <p class="recado" id="vitrine-recado">{vitrine.recado}</p>
@@ -217,17 +219,17 @@ const linkEntrar = pediramVolta
             <div class="cabeca">
               <span class="inicial" style="background: var(--color-cidades)" aria-hidden="true">{vitrine.iniciais}</span>
               <a class="alvo-nome">@{vitrine.nome}</a>
-              <span class="quando">hoje</span>
+              <span class="quando">{t(lang, 'comum.tempo.hoje')}</span>
             </div>
-            <p>Isso acontece na minha rua toda chuva forte. Sei descrever o problema, não sei construir.</p>
+            <p>{t(lang, 'conta.criar.vitrine.comentario')}</p>
           </div>
-          <p class="legenda">assinando um comentário na discussão</p>
+          <p class="legenda">{t(lang, 'conta.criar.vitrine.legenda.comentario')}</p>
         </div>
 
         {/* 2. o círculo de duas iniciais — markup do bloco "construindo" */}
         <div class="peca">
           <div class="bloco">
-            <p class="titulo-bloco">construindo</p>
+            <p class="titulo-bloco">{t(lang, 'conta.criar.vitrine.bloco')}</p>
             <div class="lista-pessoas">
               <span class="pessoa">
                 <span class="inicial" style="background: var(--color-cidades)">{vitrine.iniciais}</span>
@@ -235,7 +237,7 @@ const linkEntrar = pediramVolta
               </span>
             </div>
           </div>
-          <p class="legenda">na lista de quem constrói uma ideia. o pastel é o do lab dela</p>
+          <p class="legenda">{t(lang, 'conta.criar.vitrine.legenda.lista')}</p>
         </div>
 
         {/* 3. a linha na lista de mãos — o componente de /builders em
@@ -244,8 +246,7 @@ const linkEntrar = pediramVolta
         <div class="peca">
           <CartaoMao previa username={vitrine.nome} />
           <p class="legenda">
-            em /builders, se um dia você marcar que topa construir. lá o pastel
-            do círculo sai do próprio nome, e não do lab
+            {t(lang, 'conta.criar.vitrine.legenda.maos')}
           </p>
         </div>
       </aside>
@@ -428,6 +429,7 @@ const linkEntrar = pediramVolta
 
 <script>
   import { lerPseudonimo, pastelDe } from '../lib/pseudonimo';
+  import type { Idioma } from '../lib/i18n';
 
   /* A vitrine acompanha o campo em tempo real, sem salvar nada: a
      consequência do ato aparece enquanto o ato acontece. Mesmas funções
@@ -456,7 +458,7 @@ const linkEntrar = pediramVolta
     };
 
     const desenhar = () => {
-      const lida = lerPseudonimo(campo.value);
+      const lida = lerPseudonimo(campo.value, (vitrine.dataset.lang as Idioma | undefined) ?? 'pt-BR');
 
       vitrine.dataset.estado = lida.estado;
       for (const n of nomes) n.textContent = '@' + lida.nome;

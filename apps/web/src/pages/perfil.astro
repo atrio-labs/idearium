@@ -24,17 +24,21 @@ import Vazio from '../components/astro/Vazio.astro';
 import CartaoMao from '../components/astro/CartaoMao.astro';
 import type { Perfil } from '../lib/api';
 import { comSessao, exigirSessao } from '../lib/sessao';
+import { idiomaDe, rota, t, type Idioma } from '../lib/i18n';
 
+const lang = idiomaDe(Astro);
 const usuario = Astro.locals.usuario;
+/* exigirSessao devolve /entrar?voltar=... sem prefixo (Astro.url chega
+   sem o /en); rota() põe o prefixo, e /entrar põe de volta no destino. */
 const destino = exigirSessao(usuario, Astro.url);
-if (destino) return Astro.redirect(destino);
+if (destino) return Astro.redirect(rota(lang, destino));
 
 /* Não há `GET /builders/me`: no controller da API o `me` cai na rota
    `:username` e volta 404. O builderProfile vem dentro de /users/me,
    então uma leitura só resolve os dois blocos. */
 const leitura = await comSessao<Perfil>(Astro.cookies, 'GET', '/users/me');
 /* sessão morreu entre o middleware e esta chamada */
-if (leitura.status === 401) return Astro.redirect(exigirSessao(null, Astro.url)!);
+if (leitura.status === 401) return Astro.redirect(rota(lang, exigirSessao(null, Astro.url)!));
 
 const eu = leitura.dado;
 const bp = eu?.builderProfile ?? null;
@@ -86,7 +90,7 @@ if (Astro.request.method === 'POST') {
     };
 
     if (perfil.avatarUrl && !enderecoDeImagemValido(perfil.avatarUrl)) {
-      erroAvatar = 'Precisa ser um endereço completo, começando com https:// e com um domínio.';
+      erroAvatar = t(lang, 'conta.perfil.avatar.erro');
     } else {
       /* campo em branco vira null, que é como a API apaga. String vazia
          não serve: em avatarUrl ela reprova no IsUrl e volta 400. */
@@ -97,8 +101,12 @@ if (Astro.request.method === 'POST') {
         preferredLocale: perfil.preferredLocale,
       });
 
-      if (resposta.ok) return Astro.redirect('/perfil?salvo=perfil', 303);
-      erroPerfil = resposta.erro ?? 'Não consegui salvar agora.';
+      if (resposta.ok) {
+        /* quem trocou o idioma continua no perfil, já no idioma escolhido */
+        const novo: Idioma = perfil.preferredLocale === 'en' ? 'en' : 'pt-BR';
+        return Astro.redirect(rota(novo, '/perfil?salvo=perfil'), 303);
+      }
+      erroPerfil = resposta.erro ?? t(lang, 'conta.perfil.erro.salvar');
     }
   }
 
@@ -115,9 +123,9 @@ if (Astro.request.method === 'POST') {
        lista. Então o erro de tamanho é checado aqui, onde dá pra
        dizer "temas" em vez de devolver o índice do array. */
     if (temas.length > LIMITE_TEMAS) {
-      erroTemas = `Escolha no máximo ${LIMITE_TEMAS} temas.`;
+      erroTemas = t(lang, 'conta.perfil.temas.max', { n: LIMITE_TEMAS });
     } else if (temas.some((t) => t.length > LIMITE_TAMANHO_TEMA)) {
-      erroTemas = `Cada tema cabe em ${LIMITE_TAMANHO_TEMA} caracteres.`;
+      erroTemas = t(lang, 'conta.perfil.temas.tamanho', { n: LIMITE_TAMANHO_TEMA });
     } else {
       const resposta = await comSessao(Astro.cookies, 'PATCH', '/builders/me', {
         headline: builder.headline || null,
@@ -125,8 +133,8 @@ if (Astro.request.method === 'POST') {
         isOpenToWork: builder.isOpenToWork,
       });
 
-      if (resposta.ok) return Astro.redirect('/perfil?salvo=builder', 303);
-      erroBuilder = resposta.erro ?? 'Não consegui salvar agora.';
+      if (resposta.ok) return Astro.redirect(rota(lang, '/perfil?salvo=builder'), 303);
+      erroBuilder = resposta.erro ?? t(lang, 'conta.perfil.erro.salvar');
     }
   }
 }
@@ -146,7 +154,7 @@ const temasPrevia = builder.topics
   .slice(0, LIMITE_TEMAS);
 ---
 
-<Layout title="Idearium · Seu perfil" description="Edite seus dados e o que você sabe fazer.">
+<Layout title={t(lang, 'conta.perfil.titulo')} description={t(lang, 'conta.perfil.descricao')}>
   <div class="palco">
     <Nav />
 
@@ -158,28 +166,27 @@ const temasPrevia = builder.topics
     {eu ? (
       <div class="oficina">
           <header class="cabecalho-pagina cabeca">
-            <a class="volta" href={`/users/${eu.username}`}>
-              ver como você aparece pros outros &rarr;
+            <a class="volta" href={rota(lang, `/users/${eu.username}`)}>
+              {t(lang, 'conta.perfil.ver')} &rarr;
             </a>
-            <h1>Seu perfil, <span class="serif">só o que você quiser</span>.</h1>
+            <h1>{t(lang, 'conta.perfil.h1.antes')}<span class="serif">{t(lang, 'conta.perfil.h1.serif')}</span>{t(lang, 'conta.perfil.h1.depois')}</h1>
             <p class="sub">
-              O @{eu.username} é o que as pessoas veem em toda parte. Nome, bio e
-              o resto são opcionais — preencha o que ajudar quem for te encontrar.
+              {t(lang, 'conta.perfil.sub.antes')}@{eu.username}{t(lang, 'conta.perfil.sub.depois')}
             </p>
           </header>
 
           {/* ---------- quem você é ---------- */}
           <section class="bloco vem quem">
-            <p class="titulo-bloco">quem você é</p>
+            <p class="titulo-bloco">{t(lang, 'conta.perfil.quem.titulo')}</p>
 
-            {salvo === 'perfil' && <p class="aviso-ok" role="status">Pronto, seus dados foram salvos.</p>}
+            {salvo === 'perfil' && <p class="aviso-ok" role="status">{t(lang, 'conta.perfil.quem.salvo')}</p>}
             {erroPerfil && <p class="aviso-erro" role="alert">{erroPerfil}</p>}
 
             <form method="POST">
               <input type="hidden" name="formulario" value="perfil" />
 
               <div class="campo">
-                <label class="rotulo" for="fullName">nome</label>
+                <label class="rotulo" for="fullName">{t(lang, 'conta.perfil.nome.rotulo')}</label>
                 <input
                   class="entrada"
                   id="fullName"
@@ -191,12 +198,12 @@ const temasPrevia = builder.topics
                   autocomplete="name"
                 />
                 <span class="ajuda" id="ajuda-fullName">
-                  Opcional. Fica ao lado do @{eu.username}, nunca no lugar dele.
+                  {t(lang, 'conta.perfil.nome.ajuda.antes')}@{eu.username}{t(lang, 'conta.perfil.nome.ajuda.depois')}
                 </span>
               </div>
 
               <div class="campo">
-                <label class="rotulo" for="bio">bio</label>
+                <label class="rotulo" for="bio">{t(lang, 'conta.perfil.bio.rotulo')}</label>
                 <textarea
                   class="entrada"
                   id="bio"
@@ -204,12 +211,12 @@ const temasPrevia = builder.topics
                   maxlength="500"
                   aria-describedby="ajuda-bio">{perfil.bio}</textarea>
                 <span class="ajuda" id="ajuda-bio">
-                  Até 500 caracteres. De onde você fala, o que te interessa.
+                  {t(lang, 'conta.perfil.bio.ajuda')}
                 </span>
               </div>
 
               <div class:list={['campo', erroAvatar && 'com-erro']}>
-                <label class="rotulo" for="avatarUrl">endereço da sua imagem</label>
+                <label class="rotulo" for="avatarUrl">{t(lang, 'conta.perfil.avatar.rotulo')}</label>
                 <input
                   class="entrada mono"
                   id="avatarUrl"
@@ -223,12 +230,12 @@ const temasPrevia = builder.topics
                 />
                 {erroAvatar && <span class="erro-campo" id="erro-avatarUrl">{erroAvatar}</span>}
                 <span class="ajuda" id="ajuda-avatarUrl">
-                  Uma imagem já hospedada em algum lugar. Deixe em branco pra ficar sem.
+                  {t(lang, 'conta.perfil.avatar.ajuda')}
                 </span>
               </div>
 
               <div class="campo">
-                <label class="rotulo" for="preferredLocale">idioma</label>
+                <label class="rotulo" for="preferredLocale">{t(lang, 'conta.perfil.idioma.rotulo')}</label>
                 <select
                   class="entrada"
                   id="preferredLocale"
@@ -238,38 +245,33 @@ const temasPrevia = builder.topics
                   <option value="en" selected={perfil.preferredLocale === 'en'}>english</option>
                 </select>
                 <span class="ajuda" id="ajuda-preferredLocale">
-                  Fica guardado no seu perfil. A interface ainda só existe em português.
+                  {t(lang, 'conta.perfil.idioma.ajuda')}
                 </span>
               </div>
 
               <div class="acoes-form">
                 <span class="separador"></span>
-                <button class="botao" type="submit">salvar seus dados</button>
+                <button class="botao" type="submit">{t(lang, 'conta.perfil.quem.botao')}</button>
               </div>
             </form>
           </section>
 
           {/* ---------- perfil de builder ---------- */}
           <section class="bloco vem oficio">
-            <p class="titulo-bloco">o que você sabe fazer</p>
+            <p class="titulo-bloco">{t(lang, 'conta.perfil.oficio.titulo')}</p>
 
             <p class="intro-oficio">
-              Isto é opcional. Preencher é o que coloca o @{eu.username} em
-              <a href="/builders">mãos</a>, a lista de quem topa construir ideia
-              dos outros. Sem preencher você continua escrevendo, comentando e
-              entrando em qualquer ideia — só não aparece lá. Depois de salvo,
-              desmarcar a disponibilidade tira você da lista; o que você escreveu
-              aqui continua no seu perfil público.
+              {t(lang, 'conta.perfil.oficio.intro.antes')}@{eu.username}{t(lang, 'conta.perfil.oficio.intro.meio')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.oficio.intro.depois')}
             </p>
 
-            {salvo === 'builder' && <p class="aviso-ok" role="status">Pronto, salvei o que você sabe fazer.</p>}
+            {salvo === 'builder' && <p class="aviso-ok" role="status">{t(lang, 'conta.perfil.oficio.salvo')}</p>}
             {erroBuilder && <p class="aviso-erro" role="alert">{erroBuilder}</p>}
 
             <form method="POST">
               <input type="hidden" name="formulario" value="builder" />
 
               <div class="campo">
-                <label class="rotulo" for="headline">uma linha sobre você</label>
+                <label class="rotulo" for="headline">{t(lang, 'conta.perfil.headline.rotulo')}</label>
                 <input
                   class="entrada"
                   id="headline"
@@ -282,27 +284,25 @@ const temasPrevia = builder.topics
                 {/* o cartão ao lado já mostra onde a linha cai; o rótulo
                     só precisa dizer o que o cartão não tem como mostrar */}
                 <span class="ajuda" id="ajuda-headline">
-                  Até 140 caracteres.
+                  {t(lang, 'conta.perfil.headline.ajuda')}
                 </span>
               </div>
 
               <div class:list={['campo', erroTemas && 'com-erro']}>
-                <label class="rotulo" for="topics">temas</label>
+                <label class="rotulo" for="topics">{t(lang, 'conta.perfil.temas.rotulo')}</label>
                 <input
                   class="entrada"
                   id="topics"
                   name="topics"
                   type="text"
                   value={builder.topics}
-                  placeholder="educação, dados abertos, ilustração"
+                  placeholder={t(lang, 'conta.perfil.temas.exemplo')}
                   aria-describedby={erroTemas ? 'erro-topics ajuda-topics' : 'ajuda-topics'}
                   aria-invalid={erroTemas ? 'true' : undefined}
                 />
                 {erroTemas && <span class="erro-campo" id="erro-topics">{erroTemas}</span>}
                 <span class="ajuda" id="ajuda-topics">
-                  Separe por vírgula. Até {LIMITE_TEMAS} temas, cada um com no
-                  máximo {LIMITE_TAMANHO_TEMA} caracteres. É por eles que alguém
-                  lendo a lista decide te chamar pra uma ideia.
+                  {t(lang, 'conta.perfil.temas.ajuda', { max: LIMITE_TEMAS, tamanho: LIMITE_TAMANHO_TEMA })}
                 </span>
               </div>
 
@@ -312,17 +312,16 @@ const temasPrevia = builder.topics
                   <span class="caixa">
                     <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
                   </span>
-                  <span>estou disponível pra construir agora</span>
+                  <span>{t(lang, 'conta.perfil.disponivel')}</span>
                 </label>
                 <span class="ajuda">
-                  Desmarque quando estiver sem tempo: você sai da lista de mãos e
-                  volta marcando de novo. O cartão ao lado mostra o que acontece.
+                  {t(lang, 'conta.perfil.disponivel.ajuda')}
                 </span>
               </div>
 
               <div class="acoes-form">
                 <span class="separador"></span>
-                <button class="botao" type="submit">salvar o que você sabe fazer</button>
+                <button class="botao" type="submit">{t(lang, 'conta.perfil.oficio.botao')}</button>
               </div>
             </form>
           </section>
@@ -332,7 +331,7 @@ const temasPrevia = builder.topics
               grade de /builders renderiza, com o texto que está sendo
               digitado agora. Se divergir, o culpado é o CartaoMao. */}
           <aside class="vitrine vem" id="vitrine">
-            <p class="mono rotulo-vitrine">em mãos você aparece assim</p>
+            <p class="mono rotulo-vitrine">{t(lang, 'conta.perfil.vitrine.rotulo')}</p>
 
             <CartaoMao
               previa
@@ -343,33 +342,33 @@ const temasPrevia = builder.topics
             />
 
             <p class="nota-vitrine" id="nota-fora" hidden={builder.isOpenToWork}>
-              Com a disponibilidade desmarcada você não aparece na lista.
+              {t(lang, 'conta.perfil.vitrine.fora')}
             </p>
             {/* A nota anuncia recusa, e não corte: passando do limite o
                 envio volta com erro e nada é gravado. Dizer "só os
                 primeiros cabem" ensinaria um truncamento que não existe,
                 e prévia que promete o que o sistema não faz mente. */}
             <p class="nota-vitrine" id="nota-excesso" hidden>
-              Com mais de {LIMITE_TEMAS} temas não dá pra salvar — tire os que sobram.
+              {t(lang, 'conta.perfil.vitrine.excesso', { n: LIMITE_TEMAS })}
             </p>
             <p class="nota-vitrine">
               {bp
-                ? <>Salvar atualiza o que já está em <a href="/builders">mãos</a>.</>
-                : <>Você ainda não está em <a href="/builders">mãos</a>. Salvar coloca você lá.</>}
+                ? <>{t(lang, 'conta.perfil.vitrine.nota.dentro.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.dentro.depois')}</>
+                : <>{t(lang, 'conta.perfil.vitrine.nota.fora.antes')}<a href={rota(lang, '/builders')}>{t(lang, 'comum.nav.builders')}</a>{t(lang, 'conta.perfil.vitrine.nota.fora.depois')}</>}
             </p>
           </aside>
 
           <div class="conta">
-            <a href={`/users/${eu.username}`}>seu perfil público</a>
-            <a href="/sair">sair</a>
+            <a href={rota(lang, `/users/${eu.username}`)}>{t(lang, 'conta.perfil.link.publico')}</a>
+            <a href={rota(lang, '/sair')}>{t(lang, 'conta.perfil.link.sair')}</a>
           </div>
       </div>
     ) : (
       <div class="form-estreito">
         <Vazio
           falha
-          titulo="Não consegui carregar seu perfil"
-          texto="A API não respondeu. Seus dados continuam lá; tente de novo em instantes."
+          titulo={t(lang, 'conta.perfil.falha.titulo')}
+          texto={t(lang, 'conta.perfil.falha.texto')}
         />
       </div>
     )}
