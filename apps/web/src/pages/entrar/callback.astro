@@ -1,0 +1,89 @@
+---
+/* ================================================================
+   /entrar/callback — volta do provedor (Etapa 6)
+   ================================================================
+   A API redireciona pra cá depois do provedor:
+     ?code=<uso único, ~60s>&state=<state>      deu certo
+     ?error=<CÓDIGO>&state=<state>              deu errado (ACCOUNT_EXISTS,
+                                                ACCESS_DENIED, ...)
+
+   Aqui, no servidor: confere o `state` contra o cookie httpOnly, troca o
+   `code` por tokens (POST /auth/oauth/exchange) e grava a sessão. Token
+   nunca passa pelo endereço nem pelo JS do cliente; o `code` é curto e
+   vale uma vez. Sucesso redireciona; só o erro desenha tela.
+
+   O callback chega sem prefixo de idioma (é o que a API conhece), então
+   o idioma e o destino voltam do cookie que /entrar/<provedor> gravou.
+   Com PUBLIC_OAUTH desligada a rota não existe (404).
+   ================================================================ */
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/astro/Nav.astro';
+import Rodape from '../../components/astro/Rodape.astro';
+import { OAUTH_ATIVO, NOME_DO_PROVEDOR, consumirEstado, estadoConfere } from '../../lib/oauth';
+import { trocarCodigoOAuth } from '../../lib/sessao';
+import { idiomaDe, rota, t, type Chave } from '../../lib/i18n';
+
+if (!OAUTH_ATIVO) return new Response(null, { status: 404 });
+
+/* o `code` está no endereço: nada de cache nem de Referer carregando ele */
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+const estado = consumirEstado(Astro.cookies);
+const lang = estado?.lang ?? idiomaDe(Astro);
+const vinculo = estado?.modo === 'vincular';
+const provedor = estado ? NOME_DO_PROVEDOR[estado.provedor] : 'GitHub / Google';
+
+const params = Astro.url.searchParams;
+const code = params.get('code');
+const erroApi = params.get('error');
+
+let chaveErro: Chave | null = null;
+
+if (!estado || !estadoConfere(estado.state, params.get('state'))) {
+  chaveErro = 'auth.callback.erro.estado';
+} else if (erroApi || !code) {
+  chaveErro = erroApi === 'ACCOUNT_EXISTS'
+    ? 'auth.callback.erro.existe'
+    : erroApi === 'ACCESS_DENIED'
+      ? 'auth.callback.erro.negado'
+      : 'auth.callback.erro.generico';
+} else {
+  const r = await trocarCodigoOAuth(Astro.cookies, code);
+  if (r.ok) {
+    return Astro.redirect(
+      rota(lang, r.tipo === 'vinculo' ? '/perfil?conta=conectada' : estado.voltar),
+    );
+  }
+  if (r.codigo === 'ACCOUNT_EXISTS') chaveErro = 'auth.callback.erro.existe';
+  else if (r.codigo === 'PROVIDER_IN_USE') chaveErro = 'auth.callback.erro.emuso';
+  else if (r.codigo === 'CODE_EXPIRED' || [400, 401, 410].includes(r.status)) {
+    chaveErro = 'auth.callback.erro.expirado';
+  } else chaveErro = 'auth.callback.erro.generico';
+}
+
+const voltarHref = vinculo ? rota(lang, '/perfil') : rota(lang, '/entrar');
+const voltarTexto = vinculo ? t(lang, 'auth.callback.voltar.perfil') : t(lang, 'auth.callback.voltar.entrar');
+---
+
+<Layout title={t(lang, 'auth.callback.titulo')} description={t(lang, 'auth.callback.descricao')}>
+  <div class="palco">
+    <Nav />
+
+    <div class="form-estreito">
+      <header class="cabecalho-pagina">
+        <h1 class="titulo-duplo">
+          {vinculo ? t(lang, 'auth.callback.h1.vinculo.antes') : t(lang, 'auth.callback.h1.antes')}<span class="apagado">{vinculo ? t(lang, 'auth.callback.h1.vinculo.apagado') : t(lang, 'auth.callback.h1.apagado')}</span>
+        </h1>
+      </header>
+
+      <p class="aviso-erro" role="alert">{t(lang, chaveErro, { provedor })}</p>
+
+      <div class="acoes-form">
+        <a class="botao" href={voltarHref}>{voltarTexto}</a>
+      </div>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>

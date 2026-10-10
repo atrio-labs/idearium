@@ -34,7 +34,7 @@ Com a API fora do ar, `api.ts` nunca lança: a página sai sem conteúdo e com a
 | `PORT` | execução | `4321` | Porta do servidor Node. |
 | `NODE_ENV` | execução | `production` na imagem | Mantenha `production` em produção. |
 | `PUBLIC_NOTIFICACOES` | **build** | desligada | `1` liga as notificações (F6): a rota `/notificacoes`, o endpoint `/api/notificacoes/contagem` e o marcador na nav. Com qualquer outro valor, a rota e o endpoint respondem 404 e a nav não mostra nada. Só ligue quando a API tiver `GET /notifications` (Etapa 5 do backend); antes disso a tela diz que a API ainda não oferece notificações. Como é `PUBLIC_`, trocar exige novo build. |
-| `PUBLIC_OAUTH` | build | a ser adicionada | Flag futura para ligar o login por OAuth. |
+| `PUBLIC_OAUTH` | **build** | desligada | `1` liga a Etapa 6 no frontend: entrar com GitHub e Google (`/entrar/<provedor>`, `/entrar/callback`), `/recuperar-senha`, `/redefinir-senha`, `/verificar-email/<token>`, contas conectadas e aviso de email não verificado no perfil. Desligada, nada disso aparece e as rotas novas respondem 404. Só ligue quando a Etapa 6 do backend estiver no ar. Contrato em `ROADMAP_FRONTEND.md`. |
 
 ### Cookies e HTTPS
 

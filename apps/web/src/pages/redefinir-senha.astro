@@ -1,0 +1,130 @@
+---
+/* ================================================================
+   /redefinir-senha?token= — a senha nova (Etapa 6)
+   ================================================================
+   O link do email traz o token no endereço. Ele sai da URL assim que
+   possível: o formulário o leva em campo oculto, e a página não aceita
+   cache nem manda Referer. Regras de senha iguais às de /criar-conta
+   (mínimo 10, máximo 200); a API é quem decide de fato.
+
+   Token que a API recusa vira "link não vale mais" com saída pra pedir
+   outro. Sucesso leva a /entrar com o aviso de senha trocada.
+
+   Com PUBLIC_OAUTH desligada a rota não existe (404).
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import { OAUTH_ATIVO } from '../lib/oauth';
+import { mensagemDeErro, redefinirSenha } from '../lib/sessao';
+import { idiomaDe, rota, t } from '../lib/i18n';
+
+if (!OAUTH_ATIVO) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+let token = Astro.url.searchParams.get('token') ?? '';
+let erro: string | null = null;
+let linkInvalido = !token;
+
+if (Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  token = String(dados.get('token') ?? '') || token;
+  const senha = String(dados.get('senha') ?? '');
+  const confirma = String(dados.get('confirma') ?? '');
+
+  if (!token) {
+    linkInvalido = true;
+  } else if (!senha || !confirma) {
+    erro = t(lang, 'auth.redefinir.erro.vazio');
+  } else if (senha.length < 10) {
+    erro = t(lang, 'auth.redefinir.erro.curta');
+  } else if (senha !== confirma) {
+    erro = t(lang, 'auth.redefinir.erro.diferente');
+  } else {
+    const r = await redefinirSenha(token, senha);
+    if (r.ok) return Astro.redirect(rota(lang, '/entrar?senha=redefinida'), 303);
+
+    if (r.codigo === 'TOKEN_INVALID' || r.codigo === 'TOKEN_EXPIRED' || r.status === 410) {
+      linkInvalido = true;
+    } else if (r.status === 400) {
+      /* validação da senha: a API já responde no idioma do x-lang */
+      erro = mensagemDeErro(r.dado, t(lang, 'auth.redefinir.erro.falha'));
+    } else {
+      erro = t(lang, 'auth.redefinir.erro.falha');
+    }
+  }
+}
+---
+
+<Layout title={t(lang, 'auth.redefinir.titulo')} description={t(lang, 'auth.redefinir.descricao')}>
+  <div class="palco">
+    <Nav />
+
+    <div class="form-estreito">
+      {linkInvalido ? (
+        <Fragment>
+          <header class="cabecalho-pagina">
+            <h1 class="titulo-duplo">{t(lang, 'auth.redefinir.invalido.h1.antes')}<span class="apagado">{t(lang, 'auth.redefinir.invalido.h1.apagado')}</span></h1>
+            <p class="apoio" style="margin-top:16px">{t(lang, 'auth.redefinir.invalido.texto')}</p>
+          </header>
+          <div class="acoes-form">
+            <a class="botao" href={rota(lang, '/recuperar-senha')}>{t(lang, 'auth.redefinir.invalido.acao')}</a>
+          </div>
+        </Fragment>
+      ) : (
+        <Fragment>
+          <header class="cabecalho-pagina">
+            <h1 class="titulo-duplo">{t(lang, 'auth.redefinir.h1.antes')}<span class="apagado">{t(lang, 'auth.redefinir.h1.apagado')}</span></h1>
+            <p class="apoio" style="margin-top:16px">{t(lang, 'auth.redefinir.sub')}</p>
+          </header>
+
+          <form method="POST">
+            <input type="hidden" name="token" value={token} />
+
+            {erro && <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>{erro}</p>}
+
+            <div class={erro ? 'campo com-erro' : 'campo'}>
+              <label class="rotulo" for="senha">{t(lang, 'auth.redefinir.campo.senha')}</label>
+              <input
+                class="entrada"
+                id="senha"
+                name="senha"
+                type="password"
+                required
+                minlength="10"
+                maxlength="200"
+                autocomplete="new-password"
+                aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
+                autofocus={!erro}
+              />
+              <span class="ajuda" id="ajuda-senha">{t(lang, 'auth.redefinir.ajuda')}</span>
+            </div>
+
+            <div class={erro ? 'campo com-erro' : 'campo'}>
+              <label class="rotulo" for="confirma">{t(lang, 'auth.redefinir.campo.confirma')}</label>
+              <input
+                class="entrada"
+                id="confirma"
+                name="confirma"
+                type="password"
+                required
+                minlength="10"
+                maxlength="200"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <div class="acoes-form">
+              <button class="botao" type="submit">{t(lang, 'auth.redefinir.botao')}</button>
+            </div>
+          </form>
+        </Fragment>
+      )}
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>

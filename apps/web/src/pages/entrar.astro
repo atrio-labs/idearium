@@ -32,6 +32,8 @@ import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
+import BotoesSociais from '../components/astro/BotoesSociais.astro';
+import { OAUTH_ATIVO } from '../lib/oauth';
 import { entrar, destinoSeguro, comSessao } from '../lib/sessao';
 import { rotuloDoStatus, type Rfc } from '../lib/api';
 import { idiomaDe, rota, separarIdioma, t } from '../lib/i18n';
@@ -46,6 +48,8 @@ const voltar = separarIdioma(
   destinoSeguro(Astro.url.searchParams.get('voltar'), Astro.url.origin),
 ).caminho;
 const pediramVolta = voltar !== '/';
+/* depois de /redefinir-senha (só existe com a flag ligada) */
+const senhaRedefinida = OAUTH_ATIVO && Astro.url.searchParams.get('senha') === 'redefinida';
 
 /* Quem já está logado não tem o que fazer aqui. Se veio de um guard de
    rota, mando direto pro destino em vez da raiz. */
@@ -207,6 +211,8 @@ const atos = [
           </p>
         </header>
 
+        {senhaRedefinida && <p class="aviso-ok" role="status">{t(lang, 'auth.entrar.redefinida')}</p>}
+
         <form method="POST" action={acao}>
           {/* o erro só existe depois de um POST, que recarrega a página
               inteira — leitor de tela não anuncia live region que já veio
@@ -248,7 +254,9 @@ const atos = [
               aria-describedby={erro ? 'ajuda-senha erro-form' : 'ajuda-senha'}
             />
             <span class="ajuda" id="ajuda-senha">
-              {t(lang, 'conta.entrar.ajuda.senha')}
+              {OAUTH_ATIVO
+                ? <a href={rota(lang, '/recuperar-senha')}>{t(lang, 'auth.entrar.esqueci')}</a>
+                : t(lang, 'conta.entrar.ajuda.senha')}
             </span>
           </div>
 
@@ -258,6 +266,8 @@ const atos = [
             <a class="botao leve" href={linkCriar}>{t(lang, 'conta.entrar.botao.criar')}</a>
           </div>
         </form>
+
+        {OAUTH_ATIVO && <BotoesSociais lang={lang} voltar={voltar} />}
       </div>
 
       {/* ---- coluna que acompanha: a consequência do ato ---- */}

@@ -310,3 +310,75 @@ Sequencial, mas F4 e F5 podem trocar de ordem sem prejuízo.
 Para go-live público falta ainda, fora desta lista: página `/sobre`,
 `/governanca`, `/codigo-de-conduta` e `/transparencia` — hoje são links mortos
 no rodapé do átrio.
+
+---
+
+## Contratos propostos ao backend
+
+Frontend da Etapa 6 do backend (OAuth, reset de senha, verificação de email),
+pronto atrás de `PUBLIC_OAUTH=1`. O `ROADMAP_BACKEND.md` define os endpoints,
+mas não define como o callback devolve os tokens nem alguns campos. O que
+segue é **proposta, a combinar com o Kae**; o que o frontend assume está aqui.
+
+**Provedores:** só GitHub e Google. Eles são jeito de entrar, não de identidade
+(`VISAO.md` §5.3): nome e foto de lá não entram na interface.
+
+**Login por provedor**
+
+1. O botão leva a `GET <WEB>/entrar/<provedor>`. O servidor do web gera um
+   `state` aleatório, grava em cookie httpOnly de 10min e redireciona para
+   `GET <API>/auth/<provedor>?redirect=<WEB>/entrar/callback&state=<state>`.
+2. A API conduz o provedor. No callback do provedor, redireciona para
+   `<WEB>/entrar/callback?code=<código>&state=<state>`. O `code` é de uso
+   único e vale ~60s. Em falha: `?error=<CÓDIGO>&state=<state>`, com
+   `ACCOUNT_EXISTS` e `ACCESS_DENIED` tratados pelo web.
+3. O servidor do web confere `state` contra o cookie e chama
+   `POST /auth/oauth/exchange { code }`, que responde `{ accessToken,
+   refreshToken }` como `/auth/login`. O web grava os cookies httpOnly
+   (`gravarSessao`). Nenhum token passa por URL ou JS do cliente.
+4. **A API deve validar `redirect` contra uma lista de origens permitidas**
+   (ex.: `WEB_ORIGINS`), senão o fluxo vira redirect aberto.
+
+**Erros** (corpo `{ message, code }`; o web lê `code`):
+
+| Situação | Resposta |
+| :-- | :-- |
+| Já existe conta com o mesmo email (login por provedor) | `409` com `code: ACCOUNT_EXISTS`. O web diz: entre com a senha e conecte o provedor no perfil. |
+| Provedor já ligado a outro usuário (vínculo) | `409` com `code: PROVIDER_IN_USE` |
+| `code` de troca expirado, usado ou inválido | `410` ou `400`/`401` com `code: CODE_EXPIRED` quando der |
+| Token de reset ou de verificação expirado | `410` com `code: TOKEN_EXPIRED` |
+| Token de reset ou de verificação inválido | `400` ou `404` com `code: TOKEN_INVALID` |
+| Desvincular o último método de entrada | `409` com `code: LAST_LOGIN_METHOD` |
+
+**Vincular e desvincular (conta logada)**
+
+- `POST /users/me/link-<provedor> { redirect, state }` (Bearer) responde
+  `{ url }`, a URL de autorização do provedor. A API amarra o `state` ao usuário.
+  O retorno cai no mesmo `/entrar/callback`; o `POST /auth/oauth/exchange`
+  responde `{ linked: "<provedor>" }` (sem tokens) e o web leva ao perfil.
+- `DELETE /users/me/link-<provedor>` (Bearer). A API recusa com `409
+  LAST_LOGIN_METHOD` se a conta ficaria sem senha nem provedor; o web
+  também desabilita o botão e explica por quê.
+
+**Campos novos em `GET /users/me`** (o web só os lê com a flag ligada):
+`emailVerified: boolean`, `hasPassword: boolean`,
+`linkedProviders: ("github" | "google")[]`. `hasPassword` ausente é tratado
+como `true`.
+
+**Senha esquecida e verificação**
+
+- `POST /auth/forgot-password { email }`: sempre `2xx` neutro, exista o email
+  ou não. O web mostra a mesma mensagem; só `5xx`, `429` e rede viram "não
+  consegui agora".
+- `POST /auth/reset-password { token, newPassword }`: `newPassword` com as
+  regras do registro (10 a 200 caracteres). O link do email aponta para
+  `<WEB>/redefinir-senha?token=<token>`.
+- `POST /auth/verify-email/:token`: o link do email aponta para
+  `<WEB>/verificar-email/<token>`, e o servidor do web faz o POST ao abrir.
+  Risco conhecido: scanner de email que abre o link antes da pessoa gasta o
+  token. Se acontecer, a API aceita o token mais de uma vez por alguns minutos
+  ou o web passa a pedir um clique.
+- `POST /auth/resend-verification` (Bearer, sem corpo).
+- Templates de email no idioma de `preferredLocale`; os links do email levam o
+  prefixo `/en` quando for o caso.
+

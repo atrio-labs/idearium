@@ -22,6 +22,8 @@ interface ImportMetaEnv {
   readonly PUBLIC_API_URL?: string;
   /** '1' liga as notificações (F6). Desligada por padrão */
   readonly PUBLIC_NOTIFICACOES?: string;
+  /** '1' liga OAuth, recuperação de senha e verificação de email (Etapa 6) */
+  readonly PUBLIC_OAUTH?: string;
 }
 
 interface ImportMeta {

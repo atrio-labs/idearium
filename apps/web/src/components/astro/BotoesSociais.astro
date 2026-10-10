@@ -1,0 +1,48 @@
+---
+/* ================================================================
+   BotoesSociais.astro — "continuar com GitHub / Google" (Etapa 6)
+   ================================================================
+   Só texto, sem logo de terceiro. Cada botão é um link pra
+   /entrar/<provedor>, que gera o state e vai pra API (pages/entrar/
+   [provedor].ts). O chamador só renderiza isto com PUBLIC_OAUTH=1.
+
+   `data-astro-reload`: o destino redireciona pra outra origem, e o
+   ClientRouter não deve tentar buscar isso por fetch.
+   ================================================================ */
+import { PROVEDORES } from '../../lib/oauth';
+import { rota, t, type Idioma } from '../../lib/i18n';
+
+interface Props {
+  lang: Idioma;
+  /** destino pós-login, sem prefixo de idioma; '/' quando não há */
+  voltar?: string;
+}
+
+const { lang, voltar = '/' } = Astro.props;
+const query = voltar !== '/' ? `?voltar=${encodeURIComponent(voltar)}` : '';
+---
+
+<div class="sociais">
+  <p class="ou" aria-hidden="true"><span>{t(lang, 'auth.social.ou')}</span></p>
+  <div class="botoes">
+    {PROVEDORES.map((p) => (
+      <a class="botao-secundario" href={rota(lang, `/entrar/${p}${query}`)} data-astro-reload>
+        {t(lang, p === 'github' ? 'auth.social.github' : 'auth.social.google')}
+      </a>
+    ))}
+  </div>
+  <p class="apoio nota">{t(lang, 'auth.social.nota')}</p>
+</div>
+
+<style>
+  .sociais { margin-top: 28px; }
+  .ou {
+    display: flex; align-items: center; gap: 14px;
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: var(--t-35);
+  }
+  .ou::before, .ou::after { content: ''; flex: 1; height: 1px; background: var(--t-12); }
+  .botoes { display: grid; gap: 8px; }
+  .nota { margin-top: 14px; font-size: 12.5px; }
+</style>

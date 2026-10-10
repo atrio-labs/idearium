@@ -1,0 +1,94 @@
+---
+/* ================================================================
+   /recuperar-senha — pede o link de nova senha (Etapa 6)
+   ================================================================
+   POST /auth/forgot-password { email }. A resposta pra pessoa é sempre
+   a mesma, exista o email ou não: dizer "não achei esse email" entrega
+   a lista de quem tem conta. Só quando a API não respondeu (rede, 5xx,
+   429) a tela diz que falhou, porque aí o texto neutro seria mentira.
+
+   Com PUBLIC_OAUTH desligada a rota não existe (404).
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import { OAUTH_ATIVO } from '../lib/oauth';
+import { pedirRecuperacaoDeSenha } from '../lib/sessao';
+import { idiomaDe, rota, t } from '../lib/i18n';
+
+if (!OAUTH_ATIVO) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+let erro: string | null = null;
+let enviado = false;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  email = String(dados.get('email') ?? '').trim().toLowerCase();
+
+  if (!email) {
+    erro = t(lang, 'auth.recuperar.erro.vazio');
+  } else {
+    const r = await pedirRecuperacaoDeSenha(email);
+    if (r.status === 0 || r.status === 429 || r.status >= 500) {
+      erro = t(lang, 'auth.recuperar.erro.falha');
+    } else {
+      enviado = true;
+    }
+  }
+}
+---
+
+<Layout title={t(lang, 'auth.recuperar.titulo')} description={t(lang, 'auth.recuperar.descricao')}>
+  <div class="palco">
+    <Nav />
+
+    <div class="form-estreito">
+      <header class="cabecalho-pagina">
+        <h1 class="titulo-duplo">{t(lang, 'auth.recuperar.h1.antes')}<span class="apagado">{t(lang, 'auth.recuperar.h1.apagado')}</span></h1>
+        <p class="apoio" style="margin-top:16px">{t(lang, 'auth.recuperar.sub')}</p>
+      </header>
+
+      {enviado ? (
+        <Fragment>
+          <p class="aviso-ok" role="status">{t(lang, 'auth.recuperar.enviado')}</p>
+          <div class="acoes-form">
+            <a class="botao" href={rota(lang, '/entrar')}>{t(lang, 'auth.recuperar.voltar')}</a>
+          </div>
+        </Fragment>
+      ) : (
+        <form method="POST">
+          {erro && <p class="aviso-erro" role="alert" tabindex="-1" autofocus>{erro}</p>}
+
+          <div class="campo">
+            <label class="rotulo" for="email">{t(lang, 'auth.recuperar.campo.email')}</label>
+            <input
+              class="entrada"
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              required
+              maxlength="254"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              autofocus={!erro}
+            />
+          </div>
+
+          <div class="acoes-form">
+            <button class="botao" type="submit">{t(lang, 'auth.recuperar.botao')}</button>
+            <span class="separador"></span>
+            <a class="botao-secundario" href={rota(lang, '/entrar')}>{t(lang, 'auth.recuperar.voltar')}</a>
+          </div>
+        </form>
+      )}
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>

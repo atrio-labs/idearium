@@ -17,6 +17,7 @@
    dois caminhos isso vira HTML.
    ================================================================ */
 import { pastelDe } from '../../lib/pseudonimo';
+import { idiomaDe, t } from '../../lib/i18n';
 
 interface Props {
   username: string;
@@ -48,7 +49,8 @@ const {
    contrato com a página até ela ser redesenhada. */
 const pastel = pastelDe(username);
 
-const VAZIO_HEADLINE = 'uma linha sobre você aparece aqui';
+const lang = idiomaDe(Astro);
+const VAZIO_HEADLINE = t(lang, 'auth.mao.vazio');
 
 const Marca = href ? 'a' : 'div';
 ---
@@ -81,7 +83,7 @@ const Marca = href ? 'a' : 'div';
   <div class="chips" style="margin-bottom: 0" data-chips>
     {/* disponível é estado vivo: chip de destaque, o único lilás */}
     <span class:list={['chip', 'vivo', !isOpenToWork && 'escondido']} data-disponivel>
-      <span class="ponto"></span>disponível pra construir
+      <span class="ponto"></span>{t(lang, 'auth.mao.disponivel')}
     </span>
     {topics.map((t) => <span class="chip pequeno" data-tema>{t}</span>)}
     {/* Sempre no papel quando é prévia, escondido por classe: quem

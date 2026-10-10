@@ -264,3 +264,71 @@ export function destinoSeguro(bruto: string | null, origem: string): string {
     return '/';
   }
 }
+
+/* ================================================================
+   Etapa 6: OAuth, recuperação de senha, verificação de email
+   ================================================================
+   Chamadas acrescentadas depois das demais; só valem com PUBLIC_OAUTH=1
+   (ver lib/oauth.ts). Não devolvem texto de interface: a página traduz
+   `status` e `codigo`, que são o contrato com a API. `codigo` vem do
+   campo `code` do corpo de erro (ex.: ACCOUNT_EXISTS), quando houver. */
+
+export interface RespostaAuth {
+  ok: boolean;
+  /** 0 = não consegui falar com a API */
+  status: number;
+  codigo: string | null;
+  dado: any;
+}
+
+async function chamarAuth(caminho: string, corpo: unknown = {}): Promise<RespostaAuth> {
+  try {
+    const r = await postJson(caminho, corpo);
+    const codigo = typeof r.dado?.code === 'string' ? r.dado.code : null;
+    return { ok: r.ok, status: r.status, codigo, dado: r.dado };
+  } catch {
+    return { ok: false, status: 0, codigo: null, dado: null };
+  }
+}
+
+export const pedirRecuperacaoDeSenha = (email: string) =>
+  chamarAuth('/auth/forgot-password', { email });
+
+export const redefinirSenha = (token: string, novaSenha: string) =>
+  chamarAuth('/auth/reset-password', { token, newPassword: novaSenha });
+
+export const verificarEmail = (token: string) =>
+  chamarAuth(`/auth/verify-email/${encodeURIComponent(token)}`);
+
+/** Troca o código de uso único do callback. Login: a API devolve os
+ *  tokens como em /auth/login e eles viram cookie aqui. Vínculo: devolve
+ *  só `{ linked }` e nada de sessão muda. */
+export async function trocarCodigoOAuth(cookies: AstroCookies, code: string) {
+  const r = await chamarAuth('/auth/oauth/exchange', { code });
+  if (r.ok && r.dado?.accessToken && r.dado?.refreshToken) {
+    gravarSessao(cookies, r.dado);
+    return { ...r, tipo: 'sessao' as const };
+  }
+  if (r.ok && r.dado?.linked) return { ...r, tipo: 'vinculo' as const };
+  return { ...r, ok: false, tipo: null };
+}
+
+/** Os três abaixo exigem sessão (Bearer do cookie). */
+export function reenviarVerificacao(cookies: AstroCookies) {
+  return comSessao(cookies, 'POST', '/auth/resend-verification');
+}
+
+/** Pede à API a URL de autorização do provedor pra vincular à conta
+ *  logada. A API amarra o `state` ao usuário e devolve `{ url }`. */
+export function iniciarVinculo(
+  cookies: AstroCookies,
+  provedor: string,
+  redirect: string,
+  state: string,
+) {
+  return comSessao<{ url?: string }>(cookies, 'POST', `/users/me/link-${provedor}`, { redirect, state });
+}
+
+export function desvincular(cookies: AstroCookies, provedor: string) {
+  return comSessao(cookies, 'DELETE', `/users/me/link-${provedor}`);
+}
