@@ -119,8 +119,8 @@
   --color-t-90:  #1F1F1F;            /* corpo */
   --color-t-75:  #3D3D3D;            /* corpo longo, um passo abaixo */
   --color-t-65:  #6B6B6B;            /* apoio: o cinza médio da referência */
-  --color-t-50:  #8C8C8C;            /* metadado */
-  --color-t-35:  #B5B5B5;            /* a parte apagada do título em dois tons */
+  --color-t-50:  #737373;            /* metadado: 4,7:1 no branco, AA em texto pequeno */
+  --color-t-35:  #8C8C8C;            /* a parte apagada do título em dois tons: 3,4:1, AA de texto grande. O #B5B5B5 da referência dava 2:1 */
   --color-t-12:  #E3E3E3;            /* fio, borda */
   --color-t-07:  #F0F0F0;            /* hover, fundo leve */
   --color-tinta: #0A0A0A;            /* o preto do botão primário */
@@ -338,7 +338,7 @@ button:focus-visible {
 }
 
 /* --- botões ---
-   Pílula, 38px de altura. Preto é a ação; cinza é a alternativa.
+   Pílula, 40px de altura (alvo de toque mínimo). Preto é a ação; cinza é a alternativa.
    O hover muda só o tom: botão que pula promete mais do que faz. */
 .botao,
 .botao-secundario {
@@ -346,7 +346,7 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 38px;
+  height: 40px;
   padding: 0 18px;
   font-family: inherit;
   font-size: 13.5px;
