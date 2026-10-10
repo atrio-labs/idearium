@@ -71,6 +71,7 @@ export interface Versao {
   id: string;
   version: number;
   body: string;
+  authorId: string;
   createdAt: string;
 }
 

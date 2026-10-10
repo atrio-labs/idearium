@@ -679,7 +679,7 @@ const corpoHtml = paraHtml(rfc.body);
             <div class="linha"><span>publicada</span><b>{haQuantoTempo(rfc.publishedAt)}</b></div>
           )}
           <div class="linha"><span>última mudança</span><b>{haQuantoTempo(rfc.updatedAt)}</b></div>
-          <div class="linha"><span>versões</span><b>{versoes.length || 1}</b></div>
+          <div class="linha"><span>versões</span>{versoes.length > 1 ? <a href={`/rfcs/${rfc.slug}/versoes`} style="color:var(--t-90)"><b>{versoes.length}</b></a> : <b>{versoes.length || 1}</b>}</div>
           {versoes.length > 1 && (
             <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
               Nada é apagado: cada edição do corpo vira uma versão nova.

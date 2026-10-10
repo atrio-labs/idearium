@@ -1,0 +1,420 @@
+---
+/* ================================================================
+   /rfcs/:slug/versoes — versões anteriores e o que mudou entre elas
+   ================================================================
+   VISAO §6: nada se deleta. Cada edição do corpo vira uma versão, e
+   esta tela é onde isso fica à vista: a lista de versões, o diff
+   entre duas quaisquer e o texto integral de cada uma.
+
+   SSR, sem prerender: a RFC e as versões são lidas COM sessão (o
+   rascunho só existe pra quem escreveu), do mesmo jeito que
+   /rfcs/[slug].astro.
+
+   Estados da querystring (tudo GET, funciona sem JS):
+     (nada)        compara a última versão com a anterior
+     ?de=N&para=M compara qualquer par
+     ?v=N          mostra o texto completo da versão N
+
+   O texto da versão vai em <pre>, como foi escrito (markdown cru), e
+   NÃO passa pelo renderer de markdown da página da RFC: esse parser
+   está em troca e esta tela não deve depender dele.
+
+   Só o corpo é versionado. Título e resumo mostram sempre o estado
+   atual, e a tela diz isso.
+   ================================================================ */
+import Layout from '../../../layouts/Layout.astro';
+import Nav from '../../../components/astro/Nav.astro';
+import Rodape from '../../../components/astro/Rodape.astro';
+import Vazio from '../../../components/astro/Vazio.astro';
+import { comSessao } from '../../../lib/sessao';
+import { compararVersoes } from '../../../lib/diff';
+import { haQuantoTempo, codigoRfc, type Rfc, type Versao } from '../../../lib/api';
+
+const { slug } = Astro.params;
+const usuario = Astro.locals.usuario;
+
+/* Com sessão a resposta pode trazer rascunho: nada de cache. Sem
+   sessão é igual pra todo mundo e o CDN pode segurar. */
+Astro.response.headers.set(
+  'Cache-Control',
+  usuario ? 'private, no-store' : 'public, s-maxage=60, stale-while-revalidate=600',
+);
+
+const leituraRfc = await comSessao<Rfc>(Astro.cookies, 'GET', `/rfcs/${slug}`);
+const rfc = leituraRfc.ok ? leituraRfc.dado : null;
+/* 404 é "não existe pra você"; qualquer outra falha é servidor fora. */
+const semRede = !rfc && leituraRfc.status !== 404;
+
+if (!rfc && !semRede) return Astro.redirect('/rfcs');
+if (semRede) Astro.response.status = 503;
+
+let versoes: Versao[] = [];
+let falhaVersoes = false;
+if (rfc) {
+  const r = await comSessao<Versao[]>(Astro.cookies, 'GET', `/rfcs/${rfc.id}/versions`);
+  falhaVersoes = !r.ok;
+  versoes = r.ok && Array.isArray(r.dado) ? [...r.dado].sort((a, b) => b.version - a.version) : [];
+}
+
+const porNumero = new Map(versoes.map((v) => [v.version, v]));
+
+/* Número vindo da URL: só inteiro positivo conta. Texto, vazio ou
+   decimal viram "inválido" e nunca chegam a um 500. */
+function numero(nome: string): { dado: number | null; presente: boolean } {
+  const bruto = Astro.url.searchParams.get(nome);
+  if (bruto == null || bruto === '') return { dado: null, presente: false };
+  return { dado: /^[1-9]\d*$/.test(bruto) ? Number(bruto) : null, presente: true };
+}
+
+const pedidoV = numero('v');
+const pedidoDe = numero('de');
+const pedidoPara = numero('para');
+
+/* Quem escreveu: só dá pra nomear sem chamada extra quando é o autor
+   da RFC ou a própria pessoa logada. Nos outros casos omite. */
+function autoria(v: Versao): string | null {
+  if (v.authorId === rfc?.author.id) return rfc.author.username;
+  if (usuario && v.authorId === usuario.id) return usuario.username;
+  return null;
+}
+
+const dataLonga = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', {
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+  });
+
+const maisNova = versoes[0];
+const haComparacao = versoes.length > 1;
+
+/* O que a tela mostra, em ordem de precedência. */
+let modo: 'texto' | 'diff' | 'invalido' | 'unica' | 'falha' | 'sem-versao' = 'diff';
+let mensagemInvalida = '';
+let versaoTexto: Versao | undefined;
+let de: Versao | undefined;
+let para: Versao | undefined;
+
+if (falhaVersoes) {
+  modo = 'falha';
+} else if (versoes.length === 0) {
+  modo = 'sem-versao';
+} else if (pedidoV.presente) {
+  versaoTexto = pedidoV.dado != null ? porNumero.get(pedidoV.dado) : undefined;
+  if (versaoTexto) {
+    modo = 'texto';
+  } else {
+    modo = 'invalido';
+    mensagemInvalida = `Não existe a versão “${Astro.url.searchParams.get('v')}” desta ideia. As versões vão de v1 a v${maisNova.version}.`;
+  }
+} else if (!haComparacao) {
+  modo = 'unica';
+} else if (pedidoDe.presente || pedidoPara.presente) {
+  de = pedidoDe.dado != null ? porNumero.get(pedidoDe.dado) : undefined;
+  para = pedidoPara.dado != null ? porNumero.get(pedidoPara.dado) : undefined;
+  if (!de || !para) {
+    modo = 'invalido';
+    mensagemInvalida = `Não consegui comparar essas versões. Escolha duas entre v1 e v${maisNova.version}.`;
+  }
+} else {
+  para = versoes[0];
+  de = versoes[1];
+}
+
+const resumo = modo === 'diff' && de && para ? compararVersoes(de.body, para.body) : null;
+const mesmaVersao = modo === 'diff' && de && para && de.version === para.version;
+
+/* A versão anterior à N na lista, pra "ver o que mudou". */
+const anteriorDe = (n: number) => versoes.find((v) => v.version < n);
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+const titulo = rfc ? `Versões · ${rfc.title}` : 'Versões · Idearium';
+---
+
+<Layout title={titulo}>
+  <div class="palco">
+    <Nav atual="rfcs" />
+
+    {!rfc ? (
+      <>
+        <header class="cabecalho-pagina">
+          <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+          <h1>Não consegui abrir esta <span class="serif">ideia</span>.</h1>
+        </header>
+        <Vazio
+          falha
+          titulo="O servidor não respondeu"
+          texto="Não consegui falar com a API. A ideia e as versões dela continuam onde estavam; tente de novo em instantes."
+          acaoHref="/rfcs"
+          acaoTexto="ver as ideias abertas"
+        />
+      </>
+    ) : (
+      <>
+        <header class="cabecalho-pagina">
+          <a class="volta" href={`/rfcs/${rfc.slug}`}>&larr; voltar para a ideia</a>
+          <p class="mono" style="margin:14px 0 0; font-size:11px; color:var(--t-35)">{codigoRfc(rfc.number)}</p>
+          <h1>Versões de <span class="serif">{rfc.title}</span></h1>
+          <p class="sub">
+            Nada é apagado: cada edição do corpo vira uma versão nova, e dá para comparar
+            quaisquer duas. Só o corpo é versionado; o título e o resumo mostram sempre o
+            estado de agora.
+          </p>
+        </header>
+
+        {falhaVersoes && (
+          <p class="aviso-api" role="status">
+            <b>Não consegui carregar as versões.</b> A API não respondeu. A ideia está
+            intacta; recarregue em instantes.
+          </p>
+        )}
+
+        {modo === 'sem-versao' && (
+          <Vazio
+            titulo="Esta ideia ainda está na primeira versão"
+            texto="Quando o corpo for editado, a versão anterior fica guardada aqui e dá para ver o que mudou."
+            acaoHref={`/rfcs/${rfc.slug}`}
+            acaoTexto="voltar para a ideia"
+          />
+        )}
+
+        {modo === 'unica' && (
+          <Vazio
+            titulo="Esta ideia ainda está na primeira versão"
+            texto="Quando o corpo for editado, a versão anterior fica guardada aqui e dá para ver o que mudou. Por enquanto, só existe o texto original."
+            acaoHref={`/rfcs/${rfc.slug}/versoes?v=${maisNova.version}`}
+            acaoTexto="ler o texto da v1"
+          />
+        )}
+
+        {modo === 'invalido' && (
+          <p class="aviso-erro" role="alert">
+            <b>Versão não encontrada.</b> {mensagemInvalida}
+          </p>
+        )}
+
+        {versoes.length > 0 && (
+          <div class="versoes-layout">
+            <div class="versoes-principal">
+              {haComparacao && (
+                <form class="comparar bloco" method="get" action={`/rfcs/${rfc.slug}/versoes`}>
+                  <p class="titulo-bloco">comparar</p>
+                  <div class="comparar-campos">
+                    <label class="campo">
+                      <span class="rotulo">de (antes)</span>
+                      <select class="entrada" name="de">
+                        {versoes.map((v) => (
+                          <option value={v.version} selected={v.version === (de?.version ?? versoes[1]?.version)}>
+                            v{v.version} · {haQuantoTempo(v.createdAt)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label class="campo">
+                      <span class="rotulo">para (depois)</span>
+                      <select class="entrada" name="para">
+                        {versoes.map((v) => (
+                          <option value={v.version} selected={v.version === (para?.version ?? versoes[0].version)}>
+                            v{v.version} · {haQuantoTempo(v.createdAt)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button class="botao" type="submit">comparar</button>
+                  </div>
+                </form>
+              )}
+
+              {modo === 'texto' && versaoTexto && (
+                <section class="bloco" aria-labelledby="titulo-texto">
+                  <p class="titulo-bloco" id="titulo-texto">
+                    texto da v{versaoTexto.version} · {haQuantoTempo(versaoTexto.createdAt)}
+                  </p>
+                  <pre class="texto-versao">{versaoTexto.body}</pre>
+                  <p class="nota-versao">
+                    Este é o markdown como foi escrito, sem formatação aplicada.
+                    {anteriorDe(versaoTexto.version) && (
+                      <>
+                        {' '}<a href={`/rfcs/${rfc.slug}/versoes?de=${anteriorDe(versaoTexto.version)!.version}&para=${versaoTexto.version}`}>Ver o que mudou em relação à v{anteriorDe(versaoTexto.version)!.version}</a>.
+                      </>
+                    )}
+                  </p>
+                </section>
+              )}
+
+              {modo === 'diff' && de && para && (
+                <section class="bloco" aria-labelledby="titulo-diff">
+                  <p class="titulo-bloco" id="titulo-diff">
+                    o que mudou · v{de.version} → v{para.version}
+                  </p>
+
+                  {mesmaVersao ? (
+                    <p class="nota-versao">Você escolheu a mesma versão dos dois lados, então não há o que comparar.</p>
+                  ) : resumo && resumo.identico ? (
+                    <p class="nota-versao">Essas duas versões têm o corpo idêntico.</p>
+                  ) : resumo && (
+                    <>
+                      <p class="resumo-diff">
+                        <span class="chip pequeno"><span aria-hidden="true">−</span> {plural(resumo.removidas, 'linha tirada', 'linhas tiradas')}</span>
+                        <span class="chip pequeno"><span aria-hidden="true">+</span> {plural(resumo.acrescidas, 'linha acrescentada', 'linhas acrescentadas')}</span>
+                      </p>
+                      <div class="diff" role="group" aria-label={`Diferença entre a v${de.version} e a v${para.version}`}>
+                        {resumo.blocos.map((b) => {
+                          if (b.tipo === 'recolhido') {
+                            return (
+                              <div class="errata trecho" data-aberta="nao">
+                                <button class="gatilho" type="button" aria-expanded="false">
+                                  <span class="chevron" aria-hidden="true"></span>
+                                  {plural(b.linhas.length, 'linha igual', 'linhas iguais')}
+                                </button>
+                                <div class="fole"><div>
+                                  {b.linhas.map((l) => (
+                                    <div class="dl igual"><span class="sinal" aria-hidden="true"> </span><span class="txt">{l.texto || ' '}</span></div>
+                                  ))}
+                                </div></div>
+                              </div>
+                            );
+                          }
+                          if (b.tipo === 'igual') {
+                            return b.linhas.map((l) => (
+                              <div class="dl igual"><span class="sinal" aria-hidden="true"> </span><span class="txt">{l.texto || ' '}</span></div>
+                            ));
+                          }
+                          const removido = b.tipo === 'removido';
+                          return b.linhas.map((l) => {
+                            const pedacos = l.pedacos ?? [{ texto: l.texto || ' ', mudou: false }];
+                            const Marca = removido ? 'del' : 'ins';
+                            return (
+                              <Marca class={`dl ${b.tipo}`}>
+                                <span class="sinal" aria-hidden="true">{removido ? '−' : '+'}</span>
+                                <span class="so-leitor">{removido ? 'removido: ' : 'acrescentado: '}</span>
+                                <span class="txt">{pedacos.map((p) => p.mudou ? <span class="palavra">{p.texto}</span> : p.texto)}</span>
+                              </Marca>
+                            );
+                          });
+                        })}
+                      </div>
+                      <noscript><style>.trecho .fole {grid-template-rows: 1fr !important;}</style></noscript>
+                    </>
+                  )}
+                </section>
+              )}
+            </div>
+
+            <aside class="versoes-lado">
+              <div class="bloco">
+                <p class="titulo-bloco">todas as versões</p>
+                <ol class="lista-versoes">
+                  {versoes.map((v) => {
+                    const ant = anteriorDe(v.version);
+                    const quem = autoria(v);
+                    const aberta = (modo === 'texto' && versaoTexto?.version === v.version)
+                      || (modo === 'diff' && (de?.version === v.version || para?.version === v.version));
+                    return (
+                      <li class={aberta ? 'atual' : undefined}>
+                        <div class="v-linha">
+                          <a class="v-num" href={`/rfcs/${rfc.slug}/versoes?v=${v.version}`}>v{v.version}</a>
+                          {v.version === maisNova.version && <span class="chip pequeno">atual</span>}
+                        </div>
+                        <time class="v-data" datetime={v.createdAt} title={dataLonga(v.createdAt)}>
+                          {haQuantoTempo(v.createdAt)} · {dataLonga(v.createdAt)}
+                        </time>
+                        {quem && <span class="v-data">por @{quem}</span>}
+                        <span class="v-acoes">
+                          <a href={`/rfcs/${rfc.slug}/versoes?v=${v.version}`}>ler texto</a>
+                          {ant && <a href={`/rfcs/${rfc.slug}/versoes?de=${ant.version}&para=${v.version}`}>o que mudou</a>}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </aside>
+          </div>
+        )}
+      </>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style is:global>
+  .versoes-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .versoes-layout { grid-template-columns: minmax(0, 1fr); } }
+  .versoes-principal { display: grid; gap: 14px; min-width: 0; }
+
+  .comparar-campos { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .comparar-campos .campo { margin: 0; flex: 1 1 160px; }
+
+  .lista-versoes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .lista-versoes li { padding: 10px 12px; border-radius: var(--r-dentro); display: grid; gap: 3px; }
+  .lista-versoes li.atual { background: var(--rebaixo); }
+  .v-linha { display: flex; align-items: center; gap: 8px; }
+  .v-num { font-family: var(--font-mono); font-size: 12px; color: var(--t-90); text-decoration: none; }
+  .v-num:hover { text-decoration: underline; }
+  .v-data { font-size: 12px; color: var(--t-50); }
+  .v-acoes { display: flex; gap: 12px; font-size: 12.5px; }
+  .v-acoes a { color: var(--t-65); }
+  .v-acoes a:hover { color: var(--t-100); }
+
+  .texto-versao {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--t-75);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .nota-versao { margin: 12px 0 0; font-size: 12.5px; color: var(--t-50); }
+  .nota-versao a { color: var(--t-90); }
+
+  .resumo-diff { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
+
+  /* --- diff, no idioma da errata (global.css §8) --- */
+  .diff { font-size: 14px; line-height: 1.6; }
+  .diff .dl {
+    display: flex; gap: 10px;
+    padding: 1px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--t-75);
+  }
+  .diff .sinal { flex: 0 0 1ch; font-family: var(--font-mono); font-size: 12px; color: var(--t-50); user-select: none; }
+  .diff .txt { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+
+  /* removido: o riscado da errata, com tinta apagada */
+  .diff del.dl { background: var(--rebaixo); color: var(--t-50); }
+  .diff del.dl .txt { text-decoration: line-through; text-decoration-thickness: 1px; }
+  .diff del.dl .palavra { color: var(--t-65); background: var(--t-07); border-radius: 3px; }
+
+  /* acrescido: a menta do craft, que é a cor de "deu certo" no resto do app */
+  .diff ins.dl { background: color-mix(in srgb, var(--color-saude) 30%, transparent); color: var(--t-100); }
+  .diff ins.dl .palavra { background: color-mix(in srgb, var(--color-saude) 75%, transparent); border-radius: 3px; }
+
+  .diff .errata.trecho { margin: 6px 0; padding-top: 8px; border-top: 1px dashed var(--t-12); }
+  .diff .trecho .fole > div { padding-top: 6px; }
+
+  .so-leitor {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+</style>
+
+<script>
+  /* Trechos iguais recolhidos: mesmo fole 0fr → 1fr da errata. Sem JS
+     o <noscript> acima mantém tudo aberto. */
+  function ligarTrechos() {
+    document.querySelectorAll<HTMLElement>('.diff .trecho').forEach((el) => {
+      const gatilho = el.querySelector<HTMLButtonElement>('.gatilho');
+      if (!gatilho || gatilho.dataset.ligado) return;
+      gatilho.dataset.ligado = 'sim';
+      gatilho.addEventListener('click', () => {
+        const abrindo = el.dataset.aberta !== 'sim';
+        el.dataset.aberta = abrindo ? 'sim' : 'nao';
+        gatilho.setAttribute('aria-expanded', String(abrindo));
+      });
+    });
+  }
+  document.addEventListener('astro:page-load', ligarTrechos);
+</script>
