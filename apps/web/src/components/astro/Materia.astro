@@ -23,8 +23,8 @@
    feDisplacementMap, sem JS. Dois motivos levaram ao canvas:
    1. Custo: filtro SVG de blur grande e displacement é refeito pelo
       navegador a cada repintura da área (scroll, hover no cartão).
-      Numa grade com 20 cartões isso pesa. O canvas é pintado UMA vez
-      por elemento e depois é só bitmap.
+      Numa grade com 20 cartões isso pesa. O canvas só desenha quando
+      e onde precisa (ver VIVO, NA GPU).
    2. Contrato: /rfcs/nova e /rfcs/:slug/editar procuram o <canvas>
       dentro da .capa (a prévia ao vivo troca data-lab e pede
       repintura por um evento `resize`). Trocar o elemento quebraria
@@ -33,8 +33,29 @@
    com a mesma semente: não é a imagem final, mas é quente, tem as
    mesmas manchas grosseiras e nunca fica um buraco cinza.
 
-   Estático de propósito: animar a ondulação exigiria refazer o
-   deslocamento por pixel a cada quadro, e o ganho não paga.
+   VIVO, NA GPU
+   A imagem se mexe devagar, como um fundo de gradiente "mesh": as
+   manchas derivam em trajetórias fechadas, a ondulação das caneluras
+   respira e o grão cintila de leve. É fundo, não protagonista, então
+   tudo é lento e de pouca amplitude.
+   Na CPU isso não pagaria (o deslocamento do vidro é por pixel, a
+   cada quadro). Por isso o desenho vivo é um fragment shader WebGL:
+   - UM contexto WebGL compartilhado, num canvas fora da página. Cada
+     <canvas data-materia> visível é renderizado nele no próprio
+     tamanho e copiado com drawImage pro 2D do canvas da página. Um
+     contexto por cartão bateria no limite de ~16 contextos por aba.
+   - Só anima o que está na tela (IntersectionObserver), a 30 fps,
+     com a aba visível. O gradiente é borrado: renderiza a no máximo
+     1 px por px CSS e com teto de pixels por canvas.
+   - Loop sem salto: o relógio dá a volta a cada CICLO segundos e
+     todo movimento é seno de múltiplo inteiro dessa volta, então o
+     fim do ciclo é idêntico ao começo. Em t = 0 a imagem é a mesma
+     composição estática de compor(), a que a CPU desenhava.
+   - prefers-reduced-motion: desenha o quadro de t = 0 e para.
+   - Sem WebGL (ou se o shader não compila, ou se o contexto cai): o
+     caminho antigo na CPU, pintado uma vez, estático.
+   A prévia de /rfcs/nova e /editar continua trocando data-lab e
+   disparando `resize`: o dataset é relido a cada quadro.
    ================================================================ */
 
 interface Props {
@@ -276,33 +297,352 @@ const fundo = [
     cv.dataset.pintado = chave;
   }
 
-  /* Só pinta o que está perto da tela: uma listagem longa não paga
-     todas as imagens de uma vez no carregamento. */
-  let olho: IntersectionObserver | undefined;
+  /* ================================================================
+     Caminho CPU: o fallback estático, sem WebGL.
+     Só pinta o que está perto da tela: uma listagem longa não paga
+     todas as imagens de uma vez no carregamento.
+     ================================================================ */
+  let olhoCpu: IntersectionObserver | undefined;
 
-  function observarTudo() {
-    olho?.disconnect();
-    olho = new IntersectionObserver((entradas) => {
+  function observarCpu() {
+    olhoCpu?.disconnect();
+    olhoCpu = new IntersectionObserver((entradas) => {
       for (const e of entradas) {
         if (!e.isIntersecting) continue;
-        olho!.unobserve(e.target);
+        olhoCpu!.unobserve(e.target);
         pintar(e.target as HTMLCanvasElement);
       }
     }, { rootMargin: '300px' });
-    document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia]').forEach((cv) => olho!.observe(cv));
+    document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia]').forEach((cv) => olhoCpu!.observe(cv));
   }
+
+  /* ================================================================
+     Caminho GPU: o gradiente vivo.
+     ================================================================ */
+  const CICLO = 32;                // s; tudo volta ao começo a cada ciclo
+  const FPS = 30;
+  const GRAO_FPS = 10;             // o grão troca mais devagar que o quadro: cintila, não chia
+  const LIMITE_PIXELS_GL = 360_000; // teto por canvas; o gradiente é borrado, não pede retina
+  const DERIVA = 0.08;             // amplitude da deriva das manchas, em fração do lado
+  const TAU = Math.PI * 2;
+  const MAX_MANCHAS = 8;
+
+  const VERT = `
+attribute vec2 p;
+void main() { gl_Position = vec4(p, 0.0, 1.0); }
+`;
+
+  /* Mesmo desenho de pintar(), por pixel: base de manchas (radial com
+     paradas 0 / 0.45 / 1, composição source-over sobre a areia),
+     vidro canelado que desloca a leitura da base, brilho por canelura
+     e grão. As manchas chegam já posicionadas pro quadro. */
+  const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 uRes;
+uniform vec4 uM[8];
+uniform vec3 uC[8];
+uniform float uCanelura;
+uniform float uForca;
+uniform float uOnda;
+uniform float uOndaFreq;
+uniform float uOndaFase;
+uniform vec3 uGrao;
+
+const float TAU = 6.28318530718;
+const vec3 AREIA = vec3(217.0, 195.0, 165.0) / 255.0;
+
+float hash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+vec3 base(vec2 q) {
+  vec3 cor = AREIA;
+  float maior = max(uRes.x, uRes.y);
+  for (int i = 0; i < 8; i++) {
+    vec4 m = uM[i];
+    float d = distance(q, m.xy * uRes) / (m.z * maior);
+    float a = d < 0.45
+      ? mix(1.0, 0.55, d / 0.45)
+      : mix(0.55, 0.0, clamp((d - 0.45) / 0.55, 0.0, 1.0));
+    cor = mix(cor, uC[i], a * m.w);
+  }
+  return cor;
+}
+
+void main() {
+  vec2 px = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  float ondula = uOnda * sin(px.y / uRes.y * TAU * uOndaFreq + uOndaFase + px.x / uRes.x * 2.2);
+  float u = fract(px.x / uCanelura + ondula);
+  vec2 s = vec2(
+    clamp(px.x + uForca * uCanelura * sin(TAU * u), 0.0, uRes.x - 1.0),
+    clamp(px.y + uForca * uCanelura * 0.25 * cos(TAU * u), 0.0, uRes.y - 1.0)
+  );
+  float luz = 1.0 + 0.07 * cos(TAU * u);
+  vec2 g = floor(gl_FragCoord.xy);
+  float n = (hash(g + uGrao.xy) - 0.5) * 0.8
+          + (hash(g + uGrao.xy + uGrao.z * 17.0) - 0.5) * 0.35;
+  gl_FragColor = vec4(clamp(base(s) * luz + n * (22.0 / 255.0), 0.0, 1.0), 1.0);
+}
+`;
+
+  const UNIFORMES = ['uRes', 'uM', 'uC', 'uCanelura', 'uForca', 'uOnda', 'uOndaFreq', 'uOndaFase', 'uGrao'] as const;
+  interface Gpu {
+    gl: WebGLRenderingContext;
+    tela: HTMLCanvasElement;
+    u: Record<(typeof UNIFORMES)[number], WebGLUniformLocation | null>;
+  }
+
+  function criarGpu(): Gpu | null {
+    try {
+      const tela = document.createElement('canvas');
+      const gl = tela.getContext('webgl', {
+        alpha: false, antialias: false, depth: false, stencil: false,
+        premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power',
+      });
+      if (!gl) throw new Error('sem contexto webgl');
+
+      const compilar = (tipo: number, fonte: string) => {
+        const sh = gl.createShader(tipo)!;
+        gl.shaderSource(sh, fonte);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh) ?? 'shader');
+        return sh;
+      };
+      const prog = gl.createProgram()!;
+      gl.attachShader(prog, compilar(gl.VERTEX_SHADER, VERT));
+      gl.attachShader(prog, compilar(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
+      gl.useProgram(prog);
+
+      // um triângulo que cobre a tela inteira
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, 'p');
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+      const u = {} as Gpu['u'];
+      for (const nome of UNIFORMES) u[nome] = gl.getUniformLocation(prog, nome);
+
+      tela.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        console.warn('[materia] contexto WebGL perdido; imagem volta a ser estática');
+        gpu = null;
+        visiveis.clear();
+        ajustarLaco();
+        olhoGpu?.disconnect();
+        observarCpu();
+      });
+      return { gl, tela, u };
+    } catch (erro) {
+      console.warn('[materia] WebGL indisponível; imagem estática na CPU', erro);
+      return null;
+    }
+  }
+
+  /* Estado de cada canvas da página. O movimento sai de uma semente
+     própria (semente, lab e tipo), separada da de compor(): a
+     composição de t = 0 continua a mesma de sempre. */
+  interface Vivo {
+    chave: string;
+    c: Composicao;
+    /** por mancha: fase x, fase y, fase do raio, voltas em x, voltas em y */
+    mov: [number, number, number, number, number][];
+    grao: [number, number];
+    W: number;
+    H: number;
+    escala: number;
+    ctx: CanvasRenderingContext2D | null;
+  }
+
+  const estados = new WeakMap<HTMLCanvasElement, Vivo>();
+  const visiveis = new Set<HTMLCanvasElement>();
+  const m4 = new Float32Array(MAX_MANCHAS * 4);
+  const c3 = new Float32Array(MAX_MANCHAS * 3);
+
+  function estado(cv: HTMLCanvasElement) {
+    let v = estados.get(cv);
+    if (!v) {
+      v = { chave: '', c: compor('mancha', '', 0), mov: [], grao: [0, 0], W: 0, H: 0, escala: 1, ctx: null };
+      estados.set(cv, v);
+    }
+    return v;
+  }
+
+  function medir(v: Vivo, w: number, h: number) {
+    if (!w || !h) { v.W = v.H = 0; return; }
+    let escala = Math.min(window.devicePixelRatio || 1, 1);
+    if (w * h * escala * escala > LIMITE_PIXELS_GL) escala = Math.sqrt(LIMITE_PIXELS_GL / (w * h));
+    v.escala = escala;
+    v.W = Math.max(8, Math.round(w * escala));
+    v.H = Math.max(8, Math.round(h * escala));
+  }
+
+  /* data-lab/data-materia/data-semente são relidos a cada quadro: a
+     prévia de /rfcs/nova troca o lab e a imagem acompanha. */
+  function atualizarDados(cv: HTMLCanvasElement, v: Vivo) {
+    const { materia: tipo = 'mancha', lab = '', semente: s = '0' } = cv.dataset;
+    const chave = `${tipo}|${lab}|${s}`;
+    if (chave === v.chave) return;
+    const semente = parseInt(s, 10) || 0;
+    v.chave = chave;
+    v.c = compor(tipo, lab, semente);
+    const r = prng((semente ^ hashTexto(lab) ^ hashTexto(tipo) ^ 0x9e3779b9) >>> 0);
+    const voltasX = [1, -1, 2];
+    const voltasY = [1, -1];
+    v.mov = v.c.manchas.map(() => [
+      r() * TAU, r() * TAU, r() * TAU,
+      voltasX[Math.floor(r() * voltasX.length)],
+      voltasY[Math.floor(r() * voltasY.length)],
+    ]);
+    v.grao = [r() * 500, r() * 500];
+  }
+
+  /* F é a fase do ciclo, 0..2π. Todo movimento é sen/cos de um
+     múltiplo inteiro de F, menos o próprio valor em F = 0: no fim do
+     ciclo a imagem volta exatamente ao começo (sem salto) e em F = 0
+     ela é a composição estática de compor(). */
+  function desenhar(cv: HTMLCanvasElement, F: number, quadroGrao: number) {
+    if (!gpu) return;
+    const v = estado(cv);
+    atualizarDados(cv, v);
+    if (!v.W || !v.H) return;
+
+    const { gl, tela, u } = gpu;
+    if (cv.width !== v.W || cv.height !== v.H) { cv.width = v.W; cv.height = v.H; }
+    if (tela.width < v.W || tela.height < v.H) {
+      tela.width = Math.max(tela.width, v.W);
+      tela.height = Math.max(tela.height, v.H);
+    }
+
+    const c = v.c;
+    m4.fill(0);
+    for (let i = 0; i < MAX_MANCHAS; i++) {
+      m4[i * 4 + 2] = 1;                    // raio > 0 nas vagas sem mancha (alpha 0)
+      const m = c.manchas[i];
+      if (!m) continue;
+      const [fx, fy, fr, kx, ky] = v.mov[i];
+      m4[i * 4]     = m.x + DERIVA * (Math.sin(kx * F + fx) - Math.sin(fx));
+      m4[i * 4 + 1] = m.y + DERIVA * (Math.cos(ky * F + fy) - Math.cos(fy));
+      m4[i * 4 + 2] = m.r * (1 + 0.06 * (Math.sin(2 * F + fr) - Math.sin(fr)));
+      m4[i * 4 + 3] = m.a;
+      c3[i * 3]     = m.cor[0] / 255;
+      c3[i * 3 + 1] = m.cor[1] / 255;
+      c3[i * 3 + 2] = m.cor[2] / 255;
+    }
+
+    gl.viewport(0, 0, v.W, v.H);
+    gl.uniform2f(u.uRes, v.W, v.H);
+    gl.uniform4fv(u.uM, m4);
+    gl.uniform3fv(u.uC, c3);
+    gl.uniform1f(u.uCanelura, c.canelura * v.escala);
+    gl.uniform1f(u.uForca, c.forca);
+    // a ondulação respira (amplitude) e escorre (fase): uma volta por ciclo
+    gl.uniform1f(u.uOnda, c.onda * (1 + 0.3 * Math.sin(2 * F)));
+    gl.uniform1f(u.uOndaFreq, c.ondaFreq);
+    gl.uniform1f(u.uOndaFase, c.fase + F);
+    gl.uniform3f(u.uGrao, v.grao[0], v.grao[1], quadroGrao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    v.ctx ??= cv.getContext('2d');
+    // o viewport fica no canto de baixo do GL, que é o de cima da imagem
+    v.ctx?.drawImage(tela, 0, tela.height - v.H, v.W, v.H, 0, 0, v.W, v.H);
+  }
+
+  /* ---------- o laço ---------- */
+  const reduzido = matchMedia('(prefers-reduced-motion: reduce)');
+  let relogio = 0;                         // s dentro do ciclo; só anda com o laço rodando
+  let raf = 0;
+  let ultimo = 0;
+
+  const fase = () => (TAU * relogio) / CICLO;
+  const quadroDoGrao = () => Math.floor(relogio * GRAO_FPS);
+
+  function quadro(agora: number) {
+    raf = requestAnimationFrame(quadro);
+    const dt = agora - ultimo;
+    if (dt < 1000 / FPS - 2) return;
+    ultimo = agora;
+    // teto no passo: uma aba que engasgou não pula pedaço do movimento
+    relogio = (relogio + Math.min(dt, 100) / 1000) % CICLO;
+    const F = fase(), g = quadroDoGrao();
+    for (const cv of visiveis) desenhar(cv, F, g);
+  }
+
+  function ajustarLaco() {
+    const anima = !!gpu && !document.hidden && !reduzido.matches && visiveis.size > 0;
+    if (anima && !raf) {
+      ultimo = performance.now();
+      raf = requestAnimationFrame(quadro);
+    } else if (!anima && raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+  }
+
+  let olhoGpu: IntersectionObserver | undefined;
+
+  function observarGpu() {
+    olhoGpu?.disconnect();
+    visiveis.clear();
+    olhoGpu = new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        const cv = e.target as HTMLCanvasElement;
+        if (!e.isIntersecting) { visiveis.delete(cv); continue; }
+        medir(estado(cv), e.boundingClientRect.width, e.boundingClientRect.height);
+        visiveis.add(cv);
+        desenhar(cv, fase(), quadroDoGrao());   // pinta já, sem esperar o laço
+      }
+      ajustarLaco();
+    }, { rootMargin: '100px' });
+    document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia]').forEach((cv) => olhoGpu!.observe(cv));
+    ajustarLaco();
+  }
+
+  /* reduced motion: o quadro de t = 0 e mais nada. Ao voltar, o
+     movimento recomeça do 0, sem salto. */
+  reduzido.addEventListener('change', () => {
+    if (!gpu) return;
+    relogio = 0;
+    for (const cv of visiveis) desenhar(cv, 0, 0);
+    ajustarLaco();
+  });
+
+  document.addEventListener('visibilitychange', ajustarLaco);
+
+  let gpu = criarGpu();
 
   // `astro:page-load` já dispara na carga inicial com o ClientRouter ativo,
   // e de novo a cada navegação. Sem chamada direta: seria observar duas vezes.
-  document.addEventListener('astro:page-load', observarTudo);
+  document.addEventListener('astro:page-load', () => (gpu ? observarGpu() : observarCpu()));
+  // os canvas da página que sai não são mais desenhados
+  document.addEventListener('astro:before-swap', () => { visiveis.clear(); ajustarLaco(); });
 
-  /* No resize só repinta o que já foi pintado; o resto continua na fila
-     do observador. A chave em data-pintado faz a repintura ser no-op
-     quando nada mudou. */
+  /* resize (de verdade ou o sintético da prévia de /rfcs/nova): na GPU
+     remede e redesenha os visíveis, o que também cobre o caso parado
+     (reduced motion). Na CPU só repinta o que já foi pintado; o resto
+     continua na fila do observador, e a chave em data-pintado faz a
+     repintura ser no-op quando nada mudou. */
   let t: ReturnType<typeof setTimeout>;
   addEventListener('resize', () => {
     clearTimeout(t);
     t = setTimeout(() => {
+      if (gpu) {
+        for (const cv of visiveis) {
+          const caixa = cv.getBoundingClientRect();
+          medir(estado(cv), caixa.width, caixa.height);
+          desenhar(cv, fase(), quadroDoGrao());
+        }
+        return;
+      }
       document.querySelectorAll<HTMLCanvasElement>('canvas[data-materia][data-pintado]').forEach(pintar);
     }, 180);
   });
