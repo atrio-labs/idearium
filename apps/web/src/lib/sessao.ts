@@ -17,6 +17,7 @@
    ================================================================ */
 import type { AstroCookies } from 'astro';
 import { idiomaDaRequisicao } from './requisicao';
+import { rota, separarIdioma, t } from './i18n';
 
 const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
 const PROD = import.meta.env.PROD;
@@ -93,8 +94,8 @@ export async function entrar(cookies: AstroCookies, email: string, senha: string
     return {
       ok: false as const,
       erro: r.status === 401
-        ? 'Email ou senha não conferem.'
-        : mensagemDeErro(r.dado, 'Não consegui entrar agora. Tente de novo em instantes.'),
+        ? t(idiomaDaRequisicao(), 'sessao.login.invalido')
+        : mensagemDeErro(r.dado, t(idiomaDaRequisicao(), 'sessao.login.falha')),
     };
   }
   gravarSessao(cookies, r.dado);
@@ -110,8 +111,8 @@ export async function criarConta(
     return {
       ok: false as const,
       erro: r.status === 409
-        ? 'Já existe conta com esse nome de usuário ou email.'
-        : mensagemDeErro(r.dado, 'Não consegui criar a conta agora.'),
+        ? t(idiomaDaRequisicao(), 'sessao.conta.existe')
+        : mensagemDeErro(r.dado, t(idiomaDaRequisicao(), 'sessao.conta.falha')),
     };
   }
   gravarSessao(cookies, r.dado);
@@ -223,18 +224,21 @@ export async function comSessao<T = any>(
       ok: r.ok,
       status: r.status,
       dado: r.ok ? (dado as T) : null,
-      erro: r.ok ? undefined : mensagemDeErro(dado, `A API respondeu ${r.status}.`),
+      erro: r.ok ? undefined : mensagemDeErro(dado, t(idiomaDaRequisicao(), 'sessao.api.status', { status: r.status })),
     };
   } catch {
-    return { ok: false, status: 0, dado: null, erro: 'Não consegui falar com o servidor.' };
+    return { ok: false, status: 0, dado: null, erro: t(idiomaDaRequisicao(), 'sessao.rede') };
   }
 }
 
 /** Guarda de rota: manda pro login guardando pra onde a pessoa queria ir. */
 export function exigirSessao(usuario: UsuarioSessao | null, urlAtual: URL) {
   if (usuario) return null;
-  const destino = urlAtual.pathname + urlAtual.search;
-  return `/entrar?voltar=${encodeURIComponent(destino)}`;
+  /* Normaliza o prefixo: `pathname` pode chegar com ou sem /en, e o
+     destino e o login têm de ficar no idioma de quem foi barrado. */
+  const lang = idiomaDaRequisicao();
+  const destino = rota(lang, separarIdioma(urlAtual.pathname).caminho) + urlAtual.search;
+  return `${rota(lang, '/entrar')}?voltar=${encodeURIComponent(destino)}`;
 }
 
 /** Valida o `?voltar=` que `exigirSessao` monta. Só caminho da própria

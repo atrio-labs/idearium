@@ -151,6 +151,23 @@ async function buscar<T>(caminho: string, aoFalhar: T): Promise<T> {
   }
 }
 
+/** Chamada de baixo nível pra quem precisa do status (a busca separa
+ *  400 de queda, a tag separa 404 de queda). Manda o x-lang da
+ *  requisição, como `buscar`, e nunca lança: `status` 0 é rede fora.
+ *  Não marca a falha da requisição; quem chama decide o que é queda. */
+export async function chamarApi<T>(
+  caminho: string,
+): Promise<{ status: number; dado: T | null }> {
+  try {
+    const r = await fetch(BASE + caminho, {
+      headers: { Accept: 'application/json', 'x-lang': idiomaDaRequisicao() },
+    });
+    return { status: r.status, dado: r.ok ? ((await r.json()) as T) : null };
+  } catch {
+    return { status: 0, dado: null };
+  }
+}
+
 const vazio = <T>(): Pagina<T> => ({
   data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
 });

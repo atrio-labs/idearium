@@ -43,6 +43,11 @@ import atrio from '../i18n/atrio';
 import labs from '../i18n/labs';
 import conta from '../i18n/conta';
 import erro from '../i18n/erro';
+import busca from '../i18n/busca';
+import tags from '../i18n/tags';
+import builders from '../i18n/builders';
+import usuario from '../i18n/usuario';
+import sessao from '../i18n/sessao';
 
 export type Idioma = 'pt-BR' | 'en';
 export const IDIOMAS: readonly Idioma[] = ['pt-BR', 'en'];
@@ -52,8 +57,10 @@ export const IDIOMA_PADRAO: Idioma = 'pt-BR';
 const PREFIXO: Record<Idioma, string> = { 'pt-BR': '', en: '/en' };
 
 const DICIONARIOS = {
-  'pt-BR': { ...comum['pt-BR'], ...atrio['pt-BR'], ...labs['pt-BR'], ...conta['pt-BR'], ...erro['pt-BR'] },
-  en:      { ...comum.en,       ...atrio.en,       ...labs.en, ...conta.en, ...erro.en },
+  'pt-BR': { ...comum['pt-BR'], ...atrio['pt-BR'], ...labs['pt-BR'], ...conta['pt-BR'], ...erro['pt-BR'],
+             ...busca['pt-BR'], ...tags['pt-BR'], ...builders['pt-BR'], ...usuario['pt-BR'], ...sessao['pt-BR'] },
+  en:      { ...comum.en,       ...atrio.en,       ...labs.en, ...conta.en, ...erro.en,
+             ...busca.en, ...tags.en, ...builders.en, ...usuario.en, ...sessao.en },
 };
 
 export type Chave = keyof (typeof DICIONARIOS)['pt-BR'];
