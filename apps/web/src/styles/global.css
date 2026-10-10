@@ -1181,3 +1181,32 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
   .dupla-materia { min-height: 0; }
   .dupla-materia.so-desktop { display: none; }
 }
+
+/* corpo de comentário (markdown sem título nem tabela): o mesmo traço
+   do corpo da RFC, em escala de conversa */
+.corpo-comentario { font-size: 15px; line-height: 1.6; color: var(--t-75); overflow-wrap: anywhere; }
+.corpo-comentario p { margin: 0 0 10px; white-space: normal; }
+.corpo-comentario > :last-child { margin-bottom: 0; }
+.corpo-comentario ul { margin: 0 0 10px; padding-left: 20px; list-style: disc; }
+.corpo-comentario ol { margin: 0 0 10px; padding-left: 22px; list-style: decimal; }
+.corpo-comentario li { margin-bottom: 3px; }
+.corpo-comentario strong { font-weight: 550; color: var(--t-100); }
+.corpo-comentario em { font-style: italic; }
+.corpo-comentario code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; background: var(--rebaixo); padding: 1px 5px; border-radius: 5px;
+}
+.corpo-comentario pre {
+  margin: 0 0 10px; padding: 12px 14px; background: var(--rebaixo);
+  border-radius: var(--r-dentro); overflow-x: auto;
+}
+.corpo-comentario pre code { background: none; padding: 0; }
+.corpo-comentario blockquote { margin: 0 0 10px; padding: 2px 0 2px 14px; border-left: 2px solid var(--t-12); }
+.corpo-comentario blockquote p { color: var(--t-65); }
+.corpo-comentario a {
+  color: var(--t-100); text-decoration: underline;
+  text-decoration-color: var(--t-35); text-underline-offset: 3px;
+}
+.corpo-comentario a:hover { text-decoration-color: var(--t-100); }
+.corpo-comentario a.mencao { text-decoration: none; font-weight: 500; }
+.corpo-comentario a.mencao:hover { text-decoration: underline; }
