@@ -1,380 +1,224 @@
 ---
 /* ================================================================
-   index.astro — o átrio, direção Matéria
+   index.astro — o átrio, direção minimalista
    ================================================================
    Consome a API a cada requisição (SSR), com cache HTTP pra quem não
    está logado (lib/cache.ts): ideia nova aparece sem rebuild.
 
-   Página de referência do i18n: todo texto vem de src/i18n/atrio.ts e
-   comum.ts, e todo link passa por `rota`.
+   Página de referência do i18n: todo texto vem de src/i18n/atrio.ts,
+   labs.ts e comum.ts, e todo link passa por `rota`.
 
    Estrutura, de cima pra baixo:
-     nav          pílula flutuante, sticky
-     abertura     explica o ciclo ENSINANDO o vocabulário
-     destaque     uma RFC, com matéria + trilha + errata + pedido
-     grade        as demais ideias
-     labs         os seis domínios
-     chamada      escrever uma ideia
+     nav
+     herói      frase âncora em dois tons; apoio e duas ações à
+                direita; a Materia larga embaixo
+     frase      o que o Idearium é, em dois tons, e três colunas
+                curtas: propor, discutir, construir
+     recentes   as três ideias mais novas (CartaoIdeia)
+     labs       os seis domínios, cada um com a sua Materia
      rodapé
+
+   Saiu do átrio anterior: o destaque com trilha, errata e pedido, o
+   chip que percorria o ciclo e os rostos empilhados (VISAO §9: o
+   átrio mostra ideias, não a plateia delas).
    ================================================================ */
 import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import Materia from '../components/astro/Materia.astro';
 import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
+import CartaoLab from '../components/astro/CartaoLab.astro';
 import Vazio from '../components/astro/Vazio.astro';
-import {
-  listarLabs, listarDestaques, listarRfcs, listarVersoes, listarInscricoes,
-  listarComentarios, apiIndisponivel,
-  rotuloDoStatus, nomeDoLab, codigoRfc, haQuantoTempo, materiaDaRfc,
-} from '../lib/api';
+import { listarLabs, listarRfcs, apiIndisponivel } from '../lib/api';
 import { idiomaDe, rota, t } from '../lib/i18n';
 import { cachePublico } from '../lib/cache';
 
 const lang = idiomaDe(Astro);
-const labs = await listarLabs();
+const [labs, pagina] = await Promise.all([
+  listarLabs(),
+  /* três cabem numa linha da grade; a listagem completa está em /rfcs */
+  listarRfcs({ limit: 3, sort: 'recent' }),
+]);
+const recentes = pagina.data;
 
-/* O átrio precisa de 4 RFCs (1 destaque + 3 na grade) e /rfcs/featured
-   devolve 3. Em vez de duas chamadas, uso a listagem: mesma ordem de
-   recência, e sobra margem se o número de destaques mudar.
-   Anotado no ROADMAP_FRONTEND como ponto de contrato com o Kae. */
-const pagina = await listarRfcs({ limit: 4, sort: 'recent' });
-const [destaque, ...outras] = pagina.data;
-
-/* Só o destaque carrega o detalhe: os cartões da grade não precisam. */
-const versoes   = destaque ? await listarVersoes(destaque.id) : [];
-const inscritos = destaque ? await listarInscricoes(destaque.id) : [];
-const comentarios = destaque ? await listarComentarios(destaque.id) : null;
-
-const ativos = inscritos.filter((i) => i.leftAt == null);
-const mostrados = ativos.slice(0, 4);
-const restantes = ativos.length - mostrados.length;
-
-/* A errata compara as duas últimas versões do corpo. Não existe
-   endpoint de diff, então acho o primeiro parágrafo que mudou — que é
-   o caso real de errata: uma frase corrigida, não o texto reescrito. */
-function acharErrata(vs: typeof versoes) {
-  if (vs.length < 2) return null;
-  const ordenadas = [...vs].sort((a, b) => a.version - b.version);
-  const antes = ordenadas.at(-2)!;
-  const agora = ordenadas.at(-1)!;
-  const pa = antes.body.split('\n');
-  const pb = agora.body.split('\n');
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const a = (pa[i] ?? '').trim();
-    const b = (pb[i] ?? '').trim();
-    if (a && b && a !== b) {
-      return { de: a, para: b, versao: agora.version, data: agora.createdAt };
-    }
-  }
-  return null;
-}
-const errata = acharErrata(versoes);
-
-/* A trilha: cada barrinha é um passo dado, não porcentagem. Os passos
-   nomeados vêm do que existe de fato — versões, discussão, inscrições. */
-const nComentarios = comentarios?.meta.total ?? 0;
-const passos = destaque ? [
-  { dado: versoes.length >= 1, titulo: t(lang, 'atrio.passo.escrita'),
-    resto: t(lang, 'atrio.passo.escrita.resto', { codigo: codigoRfc(destaque.number, lang) }) },
-  { dado: nComentarios > 0, titulo: t(lang, 'atrio.passo.discutida'),
-    resto: nComentarios === 0 ? t(lang, 'atrio.passo.discutida.nenhum')
-      : t(lang, nComentarios === 1 ? 'atrio.passo.discutida.um' : 'atrio.passo.discutida.varios',
-          { n: nComentarios }) },
-  { dado: ativos.length > 0, titulo: t(lang, 'atrio.passo.inscricao'),
-    resto: ativos.length === 0 ? t(lang, 'atrio.passo.inscricao.nenhum')
-      : t(lang, ativos.length === 1 ? 'atrio.passo.inscricao.um' : 'atrio.passo.inscricao.varios',
-          { n: ativos.length }) },
-] : [];
-const passosDados = passos.filter((p) => p.dado).length;
-
-const m = destaque ? materiaDaRfc(destaque) : null;
 const semRede = apiIndisponivel();
 cachePublico(Astro, semRede);
 
-/* O chip demonstrativo percorre o ciclo no cliente; os rótulos vão
-   prontos no idioma da página, pelo atributo data-ciclo. */
-const ciclo = (['DRAFT', 'IN_DISCUSSION', 'IN_BUILDING', 'PUBLISHED'] as const)
-  .map((s) => rotuloDoStatus(s, lang));
+const colunas = [
+  { titulo: t(lang, 'atrio.propor.titulo'), texto: t(lang, 'atrio.propor.texto') },
+  { titulo: t(lang, 'atrio.discutir.titulo'), texto: t(lang, 'atrio.discutir.texto') },
+  { titulo: t(lang, 'atrio.construir.titulo'), texto: t(lang, 'atrio.construir.texto') },
+];
 ---
 
 <Layout title={t(lang, 'atrio.titulo')}>
   <div class="palco">
     <Nav />
 
-    {/* ============ ABERTURA ============ */}
-    <header class="abertura vem">
-      <h1>{t(lang, 'atrio.abertura.antes')}<span class="serif">{t(lang, 'atrio.abertura.serif')}</span>{t(lang, 'atrio.abertura.depois')}</h1>
-      <p class="sub">{t(lang, 'atrio.abertura.sub')}</p>
-
-      {/* O chip percorre o ciclo UMA vez quando a abertura entra em
-          vista, e para em "publicada". Ciclo único, não loop: o ponto
-          de "em discussão" já respira em 2.6s. */}
-      <p class="demo-ciclo" id="demo-ciclo" data-ciclo={JSON.stringify(ciclo)}>
-        {t(lang, 'atrio.ciclo')}
-        <span class="chip pequeno" id="chip-demo">
-          <span class="ponto"></span><span class="rotulo-estado" id="chip-demo-txt">{ciclo[0]}</span>
-        </span>
-      </p>
-
-      <div class="fluxo">
-        <div class="etapa">
-          <span class="n">01</span>
-          <h3>{t(lang, 'atrio.etapa1.titulo')}</h3>
-          <p>{t(lang, 'atrio.etapa1.texto')}</p>
-          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[0]}</span></div>
-        </div>
-        <div class="etapa">
-          <span class="n">02</span>
-          <h3>{t(lang, 'atrio.etapa2.titulo')}</h3>
-          <p>{t(lang, 'atrio.etapa2.texto')}</p>
-          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno vivo"><span class="ponto"></span>{ciclo[1]}</span></div>
-        </div>
-        <div class="etapa">
-          <span class="n">03</span>
-          <h3>{t(lang, 'atrio.etapa3.titulo')}</h3>
-          <p>{t(lang, 'atrio.etapa3.texto')}</p>
-          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[2]}</span></div>
-        </div>
-        <div class="etapa">
-          <span class="n">04</span>
-          <h3>{t(lang, 'atrio.etapa4.titulo')}</h3>
-          <p>{t(lang, 'atrio.etapa4.texto')}</p>
-          <div class="vira">{t(lang, 'atrio.vira')} <span class="chip pequeno">{ciclo[3]}</span></div>
+    {/* ============ HERÓI ============ */}
+    <header class="heroi">
+      <h1 class="titulo-duplo grande">
+        {t(lang, 'atrio.heroi.antes')}<span class="apagado">{t(lang, 'atrio.heroi.apagado')}</span>
+      </h1>
+      <div class="lado">
+        <p class="apoio">{t(lang, 'atrio.heroi.apoio')}</p>
+        <div class="acoes">
+          <a class="botao" href={rota(lang, '/rfcs/nova')}>{t(lang, 'atrio.heroi.escrever')}</a>
+          <a class="botao-secundario" href={rota(lang, '/rfcs')}>{t(lang, 'atrio.heroi.ver')}</a>
         </div>
       </div>
     </header>
 
-    {/* ============ DESTAQUE ============ */}
-    <div class="faixa-rotulo">
-      <span class="r">{t(lang, 'atrio.faixa.rotulo')}</span>
-      <a href={rota(lang, '/rfcs')}>{t(lang, 'atrio.faixa.todas')}</a>
-    </div>
+    {/* semente fixa: a capa do átrio é sempre a mesma imagem */}
+    <figure class="imagem-heroi">
+      <Materia tipo="mancha" lab="idearium" semente={2026} alt={t(lang, 'atrio.heroi.alt')} />
+    </figure>
 
-    {semRede && (
-      <p class="aviso-api">
-        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'atrio.aviso.texto')}
-      </p>
-    )}
-
-    {destaque && m ? (
-      <article class="cartao destaque vem">
-        <figure class="materia">
-          <Materia
-            tipo={m.tipo}
-            lab={destaque.lab.slug}
-            semente={m.semente}
-            legenda={`${destaque.lab.glyph} ${nomeDoLab(destaque.lab, lang)} · ${haQuantoTempo(destaque.publishedAt, lang)}`}
-            alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(destaque.number, lang) })}
-          />
-        </figure>
-
-        <div class="conteudo">
-          <div class="chips">
-            <span class="chip pastel" style={`background: var(--color-${destaque.lab.slug})`}>
-              {nomeDoLab(destaque.lab, lang)}
-            </span>
-            {destaque.status === 'IN_DISCUSSION'
-              ? <span class="chip vivo"><span class="ponto"></span>{rotuloDoStatus(destaque.status, lang)}</span>
-              : <span class="chip">{rotuloDoStatus(destaque.status, lang)}</span>}
-            <span class="codigo">{codigoRfc(destaque.number, lang)}</span>
+    {/* ============ FRASE + COLUNAS ============ */}
+    <section class="secao frase">
+      <h2 class="titulo-duplo">
+        {t(lang, 'atrio.frase.antes')}<span class="apagado">{t(lang, 'atrio.frase.apagado')}</span>
+      </h2>
+      <div class="colunas">
+        {colunas.map((c) => (
+          <div>
+            <h3>{c.titulo}</h3>
+            <p class="apoio">{c.texto}</p>
           </div>
-
-          <h1>{destaque.title}</h1>
-          <p class="resumo">{destaque.summary}</p>
-
-          <div class="trilha">
-            <div class="cabeca">
-              <span class="titulo">{t(lang, 'atrio.trilha.titulo')}</span>
-              <span class="versao">v0.{versoes.length || 1} · {haQuantoTempo(destaque.updatedAt, lang)}</span>
-            </div>
-
-            <div class="barras" role="img" aria-label={t(lang, 'atrio.trilha.barras', { dados: passosDados, total: passos.length })}>
-              {passos.map((p) => <i class={p.dado ? 'feito' : ''}></i>)}
-            </div>
-
-            <div class="passos">
-              {passos.map((p) => (
-                <div class:list={['passo', p.dado && 'dado']}>
-                  <span class="caixa">
-                    {p.dado && (
-                      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 6.3 L4.4 9.2 L10.5 3" /></svg>
-                    )}
-                  </span>
-                  <span><b>{p.titulo}</b> {p.resto}</span>
-                </div>
-              ))}
-            </div>
-
-            {errata && (
-              <div class="errata" data-aberta="nao">
-                <button class="gatilho" type="button" aria-expanded="false">
-                  <span class="chevron"></span> {t(lang, 'atrio.errata.gatilho')}
-                </button>
-                <div class="fole"><div><div class="corpo">
-                  <span class="riscado">{errata.de}</span>
-                  {errata.para}
-                  <span class="data">{t(lang, 'atrio.errata.data', { quando: haQuantoTempo(errata.data, lang), versao: errata.versao })}</span>
-                </div></div></div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div class="pedido">
-          <div class="texto">
-            <p class="rotulo">{t(lang, 'atrio.pedido.rotulo')}</p>
-            <p>
-              {ativos.length === 0
-                ? <>{t(lang, 'atrio.pedido.ninguem')}<b>{t(lang, 'atrio.pedido.ninguem.forte')}</b></>
-                : <>{t(lang, 'atrio.pedido.alguem.antes')}<b>{t(lang,
-                    ativos.length === 1 ? 'atrio.pedido.alguem.um' : 'atrio.pedido.alguem.varios',
-                    { n: ativos.length })}</b>{t(lang, 'atrio.pedido.alguem.depois')}</>}
-            </p>
-          </div>
-          <div class="acoes">
-            <a class="botao" href={rota(lang, `/rfcs/${destaque.slug}`)}>{t(lang, 'atrio.acao.construir')}</a>
-            <a class="botao leve" href={rota(lang, `/rfcs/${destaque.slug}#discussao`)}>{t(lang, 'atrio.acao.discussao')}</a>
-            {mostrados.length > 0 && (
-              <span class="rostos" aria-label={t(lang, 'atrio.rostos', { n: ativos.length })}>
-                {mostrados.map((i, n) => (
-                  <span style={`background: var(--color-${labs[n % (labs.length || 1)]?.slug ?? 'cidades'})`}>
-                    {i.user.username.slice(0, 2).toUpperCase()}
-                  </span>
-                ))}
-                {restantes > 0 && <span style="background: var(--color-t-12)">+{restantes}</span>}
-              </span>
-            )}
-          </div>
-        </div>
-      </article>
-    ) : (
-      <Vazio
-        falha={semRede}
-        titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'atrio.vazio.titulo')}
-        texto={t(lang, semRede ? 'atrio.vazio.falha.texto' : 'atrio.vazio.texto')}
-        acaoHref={semRede ? undefined : rota(lang, '/rfcs/nova')}
-        acaoTexto={semRede ? undefined : t(lang, 'comum.acao.escrever.primeira')}
-      />
-    )}
-
-    {/* ============ GRADE ============ */}
-    {outras.length > 0 && (
-      <div class="grade">
-        {outras.map((rfc) => <CartaoIdeia rfc={rfc} />)}
+        ))}
       </div>
-    )}
+    </section>
+
+    {/* ============ IDEIAS RECENTES ============ */}
+    <section class="secao">
+      <div class="cabeca-secao">
+        <h2 class="titulo-duplo">
+          {t(lang, 'atrio.recentes.antes')}<span class="apagado">{t(lang, 'atrio.recentes.apagado')}</span>
+        </h2>
+        <a class="botao-secundario" href={rota(lang, '/rfcs')}>{t(lang, 'atrio.recentes.todas')}</a>
+      </div>
+
+      {semRede && (
+        <p class="aviso-api">
+          <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'atrio.aviso.texto')}
+        </p>
+      )}
+
+      {recentes.length > 0 ? (
+        <div class="grade">
+          {recentes.map((rfc) => <CartaoIdeia rfc={rfc} />)}
+        </div>
+      ) : (
+        <Vazio
+          falha={semRede}
+          titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'atrio.vazio.titulo')}
+          texto={t(lang, semRede ? 'atrio.vazio.falha.texto' : 'atrio.vazio.texto')}
+          acaoHref={semRede ? undefined : rota(lang, '/rfcs/nova')}
+          acaoTexto={semRede ? undefined : t(lang, 'comum.acao.escrever.primeira')}
+        />
+      )}
+    </section>
 
     {/* ============ LABS ============ */}
     {labs.length > 0 && (
-      <div class="labs-faixa vem">
-        {labs.map((lab) => (
-          <a class="lab-card" href={rota(lang, `/labs/${lab.slug}`)}>
-            <span class="fita" style={`background: var(--color-${lab.slug})`}></span>
-            <span class="txt">
-              <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeDoLab(lab, lang)}</span>
-              <span class="qtd">
-                {t(lang, lab.rfcsCount === 1 ? 'labs.qtd.um' : 'labs.qtd.varios', { n: lab.rfcsCount })}
-              </span>
-            </span>
-          </a>
-        ))}
-      </div>
+      <section class="secao">
+        <div class="cabeca-secao">
+          <h2 class="titulo-duplo">
+            {t(lang, 'labs.h1.antes')}<span class="apagado">{t(lang, 'labs.h1.apagado')}</span>
+          </h2>
+          <a class="botao-secundario" href={rota(lang, '/labs')}>{t(lang, 'atrio.labs.todos')}</a>
+        </div>
+        <div class="grade-labs">
+          {labs.map((lab) => <CartaoLab lab={lab} />)}
+        </div>
+      </section>
     )}
-
-    {/* ============ CHAMADA ============ */}
-    <section class="cartao chamada vem">
-      <h2>{t(lang, 'atrio.chamada.antes')}<span class="serif">{t(lang, 'atrio.chamada.serif')}</span></h2>
-      <p>{t(lang, 'atrio.chamada.texto')}</p>
-      <a class="botao" href={rota(lang, '/rfcs/nova')}>{t(lang, 'atrio.chamada.acao')}</a>
-    </section>
 
     <Rodape />
   </div>
 </Layout>
 
+<style>
+  /* O tom apagado do global (#B5B5B5) fica abaixo de 3:1 no branco e
+     no cinza da moldura. Título grande pede 3:1 (AA texto grande);
+     este cinza dá 3,7:1 no branco e 3,2:1 no cinza. */
+  .titulo-duplo .apagado { color: #858585; }
+
+  /* ---------- herói ---------- */
+  .heroi {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: var(--espaco-7);
+    align-items: end;
+    padding: var(--espaco-9) 4px var(--espaco-7);
+  }
+  .heroi .titulo-duplo { max-width: 14ch; }
+  .heroi .lado { display: grid; gap: var(--espaco-5); justify-items: start; }
+  .acoes { display: flex; gap: var(--espaco-2); flex-wrap: wrap; }
+
+  /* alvo de toque: o botão global tem 38px */
+  .acoes .botao,
+  .acoes .botao-secundario,
+  .cabeca-secao .botao-secundario { height: 44px; padding: 0 22px; }
+
+  .imagem-heroi {
+    position: relative;
+    margin: 0;
+    height: clamp(240px, 42vw, 560px);
+    border-radius: var(--r-fora);
+    overflow: hidden;
+  }
+  .imagem-heroi :global(canvas) { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ---------- seções ---------- */
+  .secao { padding: var(--espaco-9) 4px 0; }
+  .secao:last-of-type { padding-bottom: var(--espaco-8); }
+
+  .frase .titulo-duplo { max-width: 26ch; }
+  .colunas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--espaco-6);
+    margin-top: var(--espaco-8);
+  }
+  .colunas h3 {
+    margin: 0 0 var(--espaco-2);
+    font-size: 17px;
+    letter-spacing: -0.015em;
+    color: var(--t-100);
+  }
+
+  .cabeca-secao {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--espaco-5);
+    flex-wrap: wrap;
+    margin-bottom: var(--espaco-7);
+  }
+  .cabeca-secao .titulo-duplo { max-width: 20ch; }
+
+  .grade-labs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--espaco-3);
+  }
+
+  @media (max-width: 900px) {
+    .heroi { grid-template-columns: 1fr; gap: var(--espaco-5); padding-top: var(--espaco-8); }
+    .colunas { grid-template-columns: 1fr; gap: var(--espaco-5); margin-top: var(--espaco-6); }
+    .secao { padding-top: var(--espaco-8); }
+  }
+</style>
+
 <script>
-  /* ---------- entrada por IntersectionObserver ----------
-     dispara as micro-animações nomeadas do global.css (.vem → .veio) */
-  function ligarEntrada() {
-    const olho = new IntersectionObserver((entradas) => {
-      for (const e of entradas) {
-        if (!e.isIntersecting) continue;
-        e.target.classList.add('veio');
-        olho.unobserve(e.target);
-      }
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-
-    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
-      el.style.animationDelay = (i * 70) + 'ms';
-      olho.observe(el);
-    });
-  }
-
-  /* ---------- chip demonstrativo: swap em três fases ----------
-     Percorre o ciclo UMA vez e para em "publicada". Os rótulos vêm do
-     servidor já no idioma da página (data-ciclo); a posição 1 é
-     "em discussão", o único estado que respira. */
-  function ligarChipDemo() {
-    const linha = document.getElementById('demo-ciclo');
-    const chip = document.getElementById('chip-demo');
-    const txt = document.getElementById('chip-demo-txt');
-    if (!linha || !chip || !txt) return;
-    const CICLO: string[] = JSON.parse(linha.dataset.ciclo ?? '[]');
-    if (CICLO.length === 0) return;
-
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      txt.textContent = CICLO[CICLO.length - 1];
-      return;
-    }
-
-    const dur = parseInt(getComputedStyle(txt).getPropertyValue('--swap-dur')) || 150;
-    let i = 0;
-
-    const passo = () => {
-      i++;
-      txt.classList.add('saindo');
-      setTimeout(() => {
-        txt.textContent = CICLO[i];
-        chip.classList.toggle('vivo', i === 1);
-        txt.classList.remove('saindo');
-        txt.classList.add('entrando-de-baixo');
-        void txt.offsetWidth;                 // reflow: sem isso o salto anima
-        txt.classList.remove('entrando-de-baixo');
-        if (i < CICLO.length - 1) setTimeout(passo, 1100);
-      }, dur);
-    };
-
-    const olho = new IntersectionObserver((entradas) => {
-      for (const e of entradas) {
-        if (!e.isIntersecting) continue;
-        olho.unobserve(e.target);
-        setTimeout(passo, 900);
-      }
-    }, { threshold: 0.6 });
-
-    olho.observe(linha);
-  }
-
-  /* ---------- errata: fole 0fr → 1fr ---------- */
-  function ligarErrata() {
-    document.querySelectorAll<HTMLElement>('.errata').forEach((el) => {
-      const gatilho = el.querySelector<HTMLButtonElement>('.gatilho');
-      if (!gatilho) return;
-      gatilho.addEventListener('click', () => {
-        const abrindo = el.dataset.aberta !== 'sim';
-        el.dataset.aberta = abrindo ? 'sim' : 'nao';
-        gatilho.setAttribute('aria-expanded', String(abrindo));
-      });
-    });
-  }
-
-  /* Só `astro:page-load`: com o ClientRouter ativo ele já dispara na
-     carga inicial E em cada navegação. Chamar os dois duplicava os
-     listeners e a errata alternava duas vezes por clique. */
+  /* .vem → .veio: o CartaoIdeia nasce com opacidade 0 (global.css) e
+     aparece por opacidade quando entra na tela. Sem isto ele não
+     apareceria. */
   document.addEventListener('astro:page-load', () => {
-    ligarEntrada();
-    ligarChipDemo();
-    ligarErrata();
+    const olho = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.vem').forEach((el) => olho.observe(el));
   });
 </script>
