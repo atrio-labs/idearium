@@ -22,6 +22,7 @@
     "@types/react-dom": "^19.2.3",
     "astro": "^6.2.1",
     "diff": "^9.0.0",
+    "markdown-it": "^15.0.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.4"

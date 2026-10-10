@@ -45,6 +45,7 @@ import {
   materiaDaRfc,
   type Rfc, type Versao, type Inscricao, type Comentario, type Tag, type Pagina,
 } from '../../lib/api';
+import { renderizarMarkdown } from '../../lib/markdown';
 
 /* Esta é a única página pública em SSR. Motivo: ela precisa saber
    coisas que dependem de QUEM está lendo — se você já se inscreveu, se
@@ -308,59 +309,10 @@ const textoDiscussaoVazia = falhaComentarios
       ? 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comece você, logo abaixo.'
       : 'A discussão é o que transforma uma ideia solta em proposta com escopo. Comentar exige conta.';
 
-/* Markdown mínimo: a API guarda o corpo em markdown e ainda não há
-   renderer no projeto. Isto cobre o que o editor produz hoje (h2,
-   lista, parágrafo, negrito, código) e ESCAPA todo o resto.
-
-   Escapar primeiro e só então injetar tags é o que impede que o corpo
-   de uma RFC escrita por qualquer pessoa vire HTML na página. Quando
-   entrar um renderer de verdade na F4, ele precisa sanitizar também. */
-function escapar(s: string) {
-  return s.replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!
-  ));
-}
-
-function emLinha(s: string) {
-  return escapar(s)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-}
-
-function paraHtml(md: string) {
-  const saida: string[] = [];
-  let lista: string[] = [];
-  let paragrafo: string[] = [];
-
-  const fechaLista = () => {
-    if (!lista.length) return;
-    saida.push('<ul>' + lista.map((i) => `<li>${emLinha(i)}</li>`).join('') + '</ul>');
-    lista = [];
-  };
-  /* Em markdown, o parágrafo termina em linha VAZIA, não em quebra de
-     linha: o corpo vem hard-wrapped em ~80 colunas. Tratar cada linha
-     como um parágrafo partia o texto em pedaços soltos. */
-  const fechaParagrafo = () => {
-    if (!paragrafo.length) return;
-    saida.push(`<p>${emLinha(paragrafo.join(' '))}</p>`);
-    paragrafo = [];
-  };
-  const fechaTudo = () => { fechaParagrafo(); fechaLista(); };
-
-  for (const linha of md.split('\n')) {
-    const t = linha.trim();
-    if (!t) { fechaTudo(); continue; }
-    if (t.startsWith('## ')) { fechaTudo(); saida.push(`<h2>${emLinha(t.slice(3))}</h2>`); continue; }
-    if (t.startsWith('# '))  { fechaTudo(); saida.push(`<h2>${emLinha(t.slice(2))}</h2>`); continue; }
-    if (t.startsWith('- '))  { fechaParagrafo(); lista.push(t.slice(2)); continue; }
-    fechaLista();
-    paragrafo.push(t);
-  }
-  fechaTudo();
-  return saida.join('');
-}
-
-const corpoHtml = paraHtml(rfc.body);
+/* O corpo vem em markdown escrito por qualquer pessoa. O renderer e as
+   regras de segurança dele moram em lib/markdown.ts, o mesmo que o
+   editor usa na prévia: o que se vê ao escrever é o que se lê aqui. */
+const corpoHtml = renderizarMarkdown(rfc.body);
 ---
 
 <Layout title={`${codigoRfc(rfc.number)} · ${rfc.title}`} description={rfc.summary}>

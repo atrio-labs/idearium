@@ -841,6 +841,64 @@ button:focus-visible {
   background: var(--rebaixo); padding: 1px 5px; border-radius: 5px;
 }
 
+/* O resto do que lib/markdown.ts produz. A ênfase segue a regra da
+   folha: incremento fracionário de peso, nunca o 700 do <strong>. */
+.corpo-rfc h3 {
+  font-size: 15px; font-weight: 460; letter-spacing: -0.014em;
+  margin: 22px 0 8px; color: var(--t-100);
+}
+.corpo-rfc h3:first-child { margin-top: 0; }
+.corpo-rfc strong { font-weight: 470; color: var(--t-100); }
+.corpo-rfc em { font-style: italic; }
+.corpo-rfc a {
+  color: var(--t-90);
+  text-decoration: underline;
+  text-decoration-color: var(--t-35);
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;              /* URL crua não estoura a coluna */
+  transition: text-decoration-color 200ms var(--ease);
+}
+.corpo-rfc a:hover { text-decoration-color: var(--t-90); }
+.corpo-rfc ol { margin: 0 0 14px; padding-left: 22px; color: var(--t-75); list-style: decimal; }
+.corpo-rfc li > ul,
+.corpo-rfc li > ol { margin: 5px 0 0; }
+/* lista "solta" (itens separados por linha vazia) embrulha cada item
+   num <p>; sem isto ela ganharia o respiro de parágrafo entre itens */
+.corpo-rfc li > p { margin: 0 0 5px; }
+.corpo-rfc blockquote {
+  margin: 0 0 14px;
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--t-12);
+}
+.corpo-rfc blockquote p { color: var(--t-65); }
+.corpo-rfc blockquote > :last-child { margin-bottom: 0; }
+.corpo-rfc pre {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: var(--rebaixo);
+  border-radius: var(--r-dentro);
+  overflow-x: auto;
+}
+.corpo-rfc pre code {
+  background: none; padding: 0; border-radius: 0;
+  font-size: 12px; line-height: 1.6; color: var(--t-90);
+}
+.corpo-rfc hr { border: 0; border-top: 1px solid var(--t-07); margin: 24px 0; }
+/* tabela larga rola dentro dela mesma em vez de alargar a página */
+.corpo-rfc table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0 0 14px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  color: var(--t-75);
+}
+.corpo-rfc th,
+.corpo-rfc td { padding: 7px 14px 7px 0; border-bottom: 1px solid var(--t-07); vertical-align: top; }
+.corpo-rfc th { font-weight: 460; color: var(--t-90); border-bottom-color: var(--t-12); }
+@media (prefers-reduced-motion: reduce) { .corpo-rfc a { transition: none; } }
+
 /* --- coluna lateral --- */
 .lado-rfc { display: grid; gap: 14px; position: sticky; top: 86px; }
 @media (max-width: 900px) { .lado-rfc { position: static; } }
