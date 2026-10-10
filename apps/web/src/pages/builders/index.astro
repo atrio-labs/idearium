@@ -25,7 +25,8 @@ import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import CartaoMao from '../../components/astro/CartaoMao.astro';
-import { LIMITE_API, obterPerfil, type Autor, type Pagina } from '../../lib/api';
+import { LIMITE_API, chamarApi, obterPerfil, type Autor, type Pagina } from '../../lib/api';
+import { t, rota, idiomaDe } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
 
 interface Builder {
@@ -36,7 +37,7 @@ interface Builder {
   updatedAt: string;
 }
 
-const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+const lang = idiomaDe(Astro);
 
 const TETO_PAGINAS = 20;               // trava contra paginação infinita
 
@@ -53,19 +54,13 @@ let truncada = false;
 async function listarMaos(): Promise<Builder[]> {
   const todos: Builder[] = [];
   for (let page = 1; ; page++) {
-    try {
-      const r = await fetch(
-        `${BASE}/builders?isOpenToWork=true&page=${page}&limit=${LIMITE_API}`,
-        { headers: { Accept: 'application/json' } },
-      );
-      if (!r.ok) { semRede = true; break; }
-      const p = (await r.json()) as Pagina<Builder>;
-      todos.push(...p.data);
-      if (page >= p.meta.totalPages || p.data.length === 0) break;
-    } catch {
-      semRede = true;
-      break;
-    }
+    /* `chamarApi` manda o x-lang e nunca lança: rede fora vem como status 0. */
+    const r = await chamarApi<Pagina<Builder>>(
+      `/builders?isOpenToWork=true&page=${page}&limit=${LIMITE_API}`,
+    );
+    if (!r.dado) { semRede = true; break; }
+    todos.push(...r.dado.data);
+    if (page >= r.dado.meta.totalPages || r.dado.data.length === 0) break;
     if (page >= TETO_PAGINAS) { truncada = true; break; }
   }
   return todos;
@@ -98,27 +93,21 @@ cachePublico(Astro, semRede);
 ---
 
 <Layout
-  title="Idearium · Mãos"
-  description="Quem preencheu perfil dizendo o que sabe fazer e topa construir ideia dos outros."
+  title={t(lang, 'builders.titulo')}
+  description={t(lang, 'builders.descricao')}
 >
   <div class="palco">
     <Nav atual="builders" />
 
     <header class="cabecalho-pagina">
-      <span class="mono rotulo-lista">mãos disponíveis</span>
-      <h1>Quem topa <span class="serif">construir</span>.</h1>
-      <p class="sub">
-        Ninguém aqui cobra e ninguém contrata: não é marketplace nem diretório
-        de freelancer. São pessoas que escreveram o que sabem fazer e topam
-        construir ideia dos outros de graça. O contato acontece em público, na
-        discussão de uma ideia — não há mensagem privada, proposta nem preço.
-      </p>
+      <span class="mono rotulo-lista">{t(lang, 'builders.rotulo')}</span>
+      <h1>{t(lang, 'builders.h1.antes')}<span class="serif">{t(lang, 'builders.h1.serif')}</span>{t(lang, 'builders.h1.depois')}</h1>
+      <p class="sub">{t(lang, 'builders.sub')}</p>
     </header>
 
     {semRede && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
-        incompleta ou vazia por isso, não por falta de gente.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'builders.aviso.resto')}
       </p>
     )}
 
@@ -126,12 +115,12 @@ cachePublico(Astro, semRede);
       <div class="linha-lista">
         <p class="contagem">
           {/* uma string só: entre duas interpolações o espaço se perde */}
-          {contagemConfiavel && `${maos.length} ${maos.length === 1 ? 'pessoa' : 'pessoas'} · `}
-          quem atualizou o perfil por último aparece primeiro
+          {contagemConfiavel && t(lang, maos.length === 1 ? 'builders.contagem.um' : 'builders.contagem.varios', { n: maos.length })}
+          {t(lang, 'builders.contagem.ordem')}
         </p>
         {/* A regra dita em voz alta pra ninguém ler posição como mérito */}
         <p class="contagem regra">
-          sem contagem por pessoa, sem ordem por atividade
+          {t(lang, 'builders.regra')}
         </p>
       </div>
     )}
@@ -149,7 +138,7 @@ cachePublico(Astro, semRede);
             headline={m.headline}
             topics={m.topics}
             isOpenToWork={m.isOpenToWork}
-            href={`/users/${m.user.username}`}
+            href={rota(lang, `/users/${m.user.username}`)}
           />
         ))}
 
@@ -157,17 +146,15 @@ cachePublico(Astro, semRede);
             Em /perfil ele se monta enquanto a pessoa escreve — ou volta
             inteiro, se o que faltou foi só marcar a disponibilidade. */}
         {!jaEstaNaLista && (
-          <a class="builder-card slot" href="/perfil">
+          <a class="builder-card slot" href={rota(lang, '/perfil')}>
             <span class="mono marca-slot">
-              {soPausado ? 'o seu está guardado' : 'o seu entra aqui'}
+              {t(lang, soPausado ? 'builders.slot.pausado.marca' : 'builders.slot.novo.marca')}
             </span>
             <p class="frase">
-              {soPausado
-                ? 'Você escreveu o seu cartão e está fora da lista agora. Marcar a disponibilidade em perfil traz ele de volta, do jeito que ficou.'
-                : 'Uma linha sobre o que você sabe fazer e os temas que te puxam. Você vê o cartão se montando enquanto escreve.'}
+              {t(lang, soPausado ? 'builders.slot.pausado.frase' : 'builders.slot.novo.frase')}
             </p>
             <span class="chip pequeno oco">
-              {soPausado ? 'voltar pra lista em perfil' : 'preencher em perfil'} &rarr;
+              {t(lang, soPausado ? 'builders.slot.pausado.acao' : 'builders.slot.novo.acao')} &rarr;
             </span>
           </a>
         )}
@@ -175,12 +162,10 @@ cachePublico(Astro, semRede);
     ) : (
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : 'Ninguém disponível agora'}
-        texto={semRede
-          ? 'As pessoas continuam lá. Só não consegui carregar a lista agora.'
-          : 'A lista mostra quem marcou que topa construir neste momento. Preencher leva um minuto: uma linha sobre o que você sabe fazer e os assuntos que te puxam. A primeira pode ser você.'}
-        acaoHref={semRede ? undefined : '/perfil'}
-        acaoTexto={semRede ? undefined : 'preencher o meu'}
+        titulo={t(lang, semRede ? 'comum.vazio.falha.titulo' : 'builders.vazio.titulo')}
+        texto={t(lang, semRede ? 'builders.queda.texto' : 'builders.vazio.texto')}
+        acaoHref={semRede ? undefined : rota(lang, '/perfil')}
+        acaoTexto={semRede ? undefined : t(lang, 'builders.vazio.acao')}
       />
     )}
 

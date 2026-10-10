@@ -30,13 +30,14 @@ import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { nomeCurtoDoLab, type Autor, type LabResumo, type Pagina, type RfcStatus } from '../../lib/api';
+import { nomeDoLab, chamarApi, type Autor, type LabResumo, type Pagina, type RfcStatus } from '../../lib/api';
+import { t, rota, idiomaDe } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
 
-/* A api.ts ainda não expõe /tags/:slug — ela é de outro agente e está
-   sendo editada em paralelo. Até lá a chamada mora aqui, com o mesmo
+/* A api.ts ainda não expõe /tags/:slug, então a chamada mora aqui, mas
+   passa por `chamarApi` pra mandar o x-lang da requisição. Mesmo
    contrato: nunca lança, e separa tag inexistente de servidor mudo. */
-const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+const lang = idiomaDe(Astro);
 
 interface TagCheia {
   id: string;
@@ -69,19 +70,14 @@ let rfcs: RfcDaTag[] = [];
 let total = 0;
 let caiu = false;
 
-try {
-  const r = await fetch(`${BASE}/tags/${encodeURIComponent(slug!)}?limit=100`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (r.ok) {
-    const corpo = (await r.json()) as { tag: TagCheia; rfcs: Pagina<RfcDaTag> };
-    tag = corpo.tag;
-    rfcs = corpo.rfcs.data;
-    total = corpo.rfcs.meta.total;
-  } else if (r.status !== 404) {
-    caiu = true;
-  }
-} catch {
+const r = await chamarApi<{ tag: TagCheia; rfcs: Pagina<RfcDaTag> }>(
+  `/tags/${encodeURIComponent(slug!)}?limit=100`,
+);
+if (r.dado) {
+  tag = r.dado.tag;
+  rfcs = r.dado.rfcs.data;
+  total = r.dado.rfcs.meta.total;
+} else if (r.status !== 404) {
   caiu = true;
 }
 
@@ -110,8 +106,8 @@ cachePublico(Astro, caiu);
 ---
 
 <Layout
-  title={`Idearium · #${titulo}`}
-  description={`Ideias marcadas com ${titulo}.`}
+  title={t(lang, 'tags.slug.titulo', { nome: titulo ?? '' })}
+  description={t(lang, 'tags.slug.descricao', { nome: titulo ?? '' })}
 >
   <div class="palco">
     <Nav />
@@ -121,7 +117,7 @@ cachePublico(Astro, caiu);
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
     <header class="cabecalho-pagina">
-      <a class="volta" href="/tags">&larr; todas as tags</a>
+      <a class="volta" href={rota(lang, '/tags')}>{t(lang, 'tags.slug.volta')}</a>
 
       {/* A tag aparece como a peça que ela é no resto do sistema, no
           tamanho de quem é o assunto da página — não como um título
@@ -129,26 +125,23 @@ cachePublico(Astro, caiu);
       <h1 class="selo-tag">{titulo}</h1>
 
       {tag && (
-        <p class="sub">
-          Ideias de qualquer laboratório marcadas com esta tag por quem as
-          escreveu.
-        </p>
+        <p class="sub">{t(lang, 'tags.slug.sub')}</p>
       )}
 
       {tag && atravessa.length > 0 && (
         <div class="atravessa">
           <span class="mono r">
-            atravessa{total > rfcs.length && ` · nas ${rfcs.length} mais recentes`}
+            {t(lang, 'tags.slug.atravessa')}{total > rfcs.length && t(lang, 'tags.slug.atravessa.recorte', { n: rfcs.length })}
           </span>
           {atravessa.map((a, i) => (
             <span class="chip pastel" style={`background: var(--color-${a.lab.slug}); --i:${i}`}>
               <span class="glyph" aria-hidden="true">{a.lab.glyph}</span>
-              {nomeCurtoDoLab(a.lab.name)}
+              {nomeDoLab(a.lab, lang)}
               <span class="quantas">{a.quantas}</span>
             </span>
           ))}
           {atravessa.length === 1 && (
-            <span class="por-enquanto">um laboratório só, por enquanto.</span>
+            <span class="por-enquanto">{t(lang, 'tags.slug.umlab')}</span>
           )}
         </div>
       )}
@@ -156,19 +149,18 @@ cachePublico(Astro, caiu);
 
     {caiu && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
-        vazia por isso, não por falta de ideias.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'tags.slug.aviso.resto')}
       </p>
     )}
 
     {tag && rfcs.length > 0 && (
       <p class="contagem">
-        {total} {total === 1 ? 'ideia pública' : 'ideias públicas'}
-        {total > rfcs.length && ` · mostrando as ${rfcs.length} mais recentes`}
+        {t(lang, total === 1 ? 'tags.slug.contagem.um' : 'tags.slug.contagem.varios', { n: total })}
+        {total > rfcs.length && t(lang, 'tags.slug.contagem.mostrando', { n: rfcs.length })}
         {fora > 0 && (fora === 1
-          ? ' · e mais 1 que não está pública: rascunho ou arquivada'
-          : ` · e mais ${fora} que não estão públicas: rascunhos ou arquivadas`)}
-        {' · '}<a href={`/buscar?q=${encodeURIComponent(titulo ?? '')}`}>procurar esta palavra no texto das ideias</a>
+          ? t(lang, 'tags.slug.fora.um')
+          : t(lang, 'tags.slug.fora.varios', { n: fora }))}
+        {' · '}<a href={rota(lang, `/buscar?q=${encodeURIComponent(titulo ?? '')}`)}>{t(lang, 'tags.slug.procurar')}</a>
       </p>
     )}
 
@@ -181,22 +173,22 @@ cachePublico(Astro, caiu);
     ) : caiu ? (
       <Vazio
         falha
-        titulo="O servidor não respondeu"
-        texto="Assim que a API voltar, as ideias desta tag aparecem aqui."
+        titulo={t(lang, 'comum.vazio.falha.titulo')}
+        texto={t(lang, 'tags.slug.queda.texto')}
       />
     ) : !tag ? (
       <Vazio
-        titulo={`Não existe a tag "${slug}"`}
-        texto="Ou ela nunca foi usada, ou o endereço veio com um erro de digitação."
-        acaoHref="/tags"
-        acaoTexto="ver as tags que existem"
+        titulo={t(lang, 'tags.slug.inexistente.titulo', { slug: slug ?? '' })}
+        texto={t(lang, 'tags.slug.inexistente.texto')}
+        acaoHref={rota(lang, '/tags')}
+        acaoTexto={t(lang, 'tags.slug.inexistente.acao')}
       />
     ) : (
       <Vazio
-        titulo={`Nenhuma ideia pública com ${titulo}`}
-        texto="A tag existe, mas as ideias que a usavam foram arquivadas ou ainda são rascunho."
-        acaoHref="/tags"
-        acaoTexto="ver outras tags"
+        titulo={t(lang, 'tags.slug.vazia.titulo', { nome: titulo ?? '' })}
+        texto={t(lang, 'tags.slug.vazia.texto')}
+        acaoHref={rota(lang, '/tags')}
+        acaoTexto={t(lang, 'tags.slug.vazia.acao')}
       />
     )}
 

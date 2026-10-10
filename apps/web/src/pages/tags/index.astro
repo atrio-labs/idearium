@@ -33,14 +33,15 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import type { Pagina } from '../../lib/api';
+import { chamarApi, type Pagina } from '../../lib/api';
+import { t, rota, idiomaDe } from '../../lib/i18n';
 import { nivelDeUso } from '../../lib/peso-tag';
 import { cachePublico } from '../../lib/cache';
 
-/* A api.ts ainda não expõe /tags — ela é de outro agente e está sendo
-   editada em paralelo. Até lá a chamada mora aqui, com o mesmo
-   contrato: nunca lança, e separa "não há tag" de "servidor mudo". */
-const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
+/* A api.ts ainda não expõe /tags, então a chamada mora aqui, mas passa
+   por `chamarApi` pra mandar o x-lang da requisição. Mesmo contrato:
+   nunca lança, e separa "não há tag" de "servidor mudo". */
+const lang = idiomaDe(Astro);
 
 interface TagResumo {
   id: string;
@@ -59,18 +60,11 @@ let tags: TagResumo[] = [];
 let total = 0;
 let caiu = false;
 
-try {
-  const r = await fetch(`${BASE}/tags?limit=${LIMITE_API}`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (r.ok) {
-    const p = (await r.json()) as Pagina<TagResumo>;
-    tags = p.data;
-    total = p.meta.total;
-  } else {
-    caiu = true;
-  }
-} catch {
+const r = await chamarApi<Pagina<TagResumo>>(`/tags?limit=${LIMITE_API}`);
+if (r.dado) {
+  tags = r.dado.data;
+  total = r.dado.meta.total;
+} else {
   caiu = true;
 }
 
@@ -78,13 +72,13 @@ try {
    topo da escala. O peso é relativo a ela: o acervo é novo e "marca
    duas ideias" é o máximo que existe hoje. */
 const maiorUso = tags[0]?.usageCount ?? 0;
-const temOrfas = tags.some((t) => t.usageCount === 0);
+const temOrfas = tags.some((tg) => tg.usageCount === 0);
 cachePublico(Astro, caiu);
 ---
 
 <Layout
-  title="Idearium · Tags"
-  description="Os recortes que atravessam os laboratórios, ordenados por uso."
+  title={t(lang, 'tags.titulo')}
+  description={t(lang, 'tags.descricao')}
 >
   <div class="palco">
     <Nav />
@@ -94,42 +88,35 @@ cachePublico(Astro, caiu);
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
     <header class="cabecalho-pagina">
-      <span class="mono rotulo-pagina">tags</span>
-      <h1>Recortes que <span class="serif">atravessam</span> os labs.</h1>
-      <p class="sub">
-        Uma tag junta ideias de laboratórios diferentes que tratam da mesma
-        coisa. Quem escreve a ideia escolhe as dela.
-      </p>
+      <span class="mono rotulo-pagina">{t(lang, 'tags.rotulo')}</span>
+      <h1>{t(lang, 'tags.h1.antes')}<span class="serif">{t(lang, 'tags.h1.serif')}</span>{t(lang, 'tags.h1.depois')}</h1>
+      <p class="sub">{t(lang, 'tags.sub')}</p>
     </header>
 
     {caiu && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> A lista abaixo pode estar
-        incompleta ou vazia por isso, não por falta de tags.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'tags.aviso.resto')}
       </p>
     )}
 
     {tags.length > 0 ? (
       <>
         <p class="contagem">
-          {total} {total === 1 ? 'tag' : 'tags'}
-          {total > tags.length && ` · mostrando as ${tags.length} mais usadas`}
+          {t(lang, total === 1 ? 'tags.contagem.um' : 'tags.contagem.varios', { n: total })}
+          {total > tags.length && t(lang, 'tags.contagem.mostrando', { n: tags.length })}
         </p>
 
         <div class="cartao painel-tags vem">
-          <p class="origem">
-            Ninguém escolheu esta lista. Cada palavra entrou junto com uma
-            ideia, escrita por quem a propôs.
-          </p>
+          <p class="origem">{t(lang, 'tags.origem')}</p>
 
           <div class="nuvem-tags">
-            {tags.map((t, i) => (
+            {tags.map((tg, i) => (
               <a
                 class="tag"
-                href={`/tags/${t.slug}`}
-                data-peso={nivelDeUso(t.usageCount, maiorUso)}
+                href={rota(lang, `/tags/${tg.slug}`)}
+                data-peso={nivelDeUso(tg.usageCount, maiorUso)}
                 style={`--i:${Math.min(i, 24)}`}
-              >{t.name}</a>
+              >{tg.name}</a>
             ))}
           </div>
 
@@ -138,22 +125,18 @@ cachePublico(Astro, caiu);
               deixar a pessoa descobrir clicando numa palavra escura e
               caindo numa página vazia. */}
           <p class="escala">
-            Da mais usada para a menos usada. A tinta mede quantas ideias
-            usam a palavra, contando também rascunho e arquivada — que não
-            abrem na página da tag.
-            {temOrfas && ' As de contorno pontilhado não são usadas por ideia nenhuma.'}
+            {t(lang, 'tags.escala')}
+            {temOrfas && t(lang, 'tags.escala.orfas')}
           </p>
         </div>
       </>
     ) : (
       <Vazio
         falha={caiu}
-        titulo={caiu ? 'O servidor não respondeu' : 'Nenhuma tag ainda'}
-        texto={caiu
-          ? 'Assim que a API voltar, as tags aparecem aqui.'
-          : 'Tag nasce junto com a ideia. Quando alguém marcar a primeira, ela fica listada aqui.'}
-        acaoHref={caiu ? undefined : '/rfcs'}
-        acaoTexto={caiu ? undefined : 'ver as ideias'}
+        titulo={t(lang, caiu ? 'comum.vazio.falha.titulo' : 'tags.vazio.titulo')}
+        texto={t(lang, caiu ? 'tags.queda.texto' : 'tags.vazio.texto')}
+        acaoHref={caiu ? undefined : rota(lang, '/rfcs')}
+        acaoTexto={caiu ? undefined : t(lang, 'tags.acao.ideias')}
       />
     )}
 

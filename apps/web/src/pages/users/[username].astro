@@ -20,12 +20,13 @@ import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
 import {
-  obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario,
-  haQuantoTempo, apiIndisponivel,
+  obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario, apiIndisponivel,
 } from '../../lib/api';
+import { t, rota, idiomaDe } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
 
 const { username } = Astro.params;
+const lang = idiomaDe(Astro);
 
 /* As três em paralelo: pra username desconhecido as listas voltam 404,
    que api.ts trata como vazio e não como queda. */
@@ -43,34 +44,45 @@ cachePublico(Astro, semRede);
 const publicas = escritas.data.filter((r) => r.status !== 'DRAFT');
 const construindo = inscricoes.data.filter((i) => i.leftAt == null && i.rfc);
 const bp = perfil?.builderProfile;
+
+/* "por aqui desde setembro de 2026": mês e ano pelo Intl no idioma da
+   interface. Antes isto cortava o "há" do tempo relativo, o que só
+   funcionava em português. UTC pra data não andar um dia conforme o
+   fuso do servidor. */
+const desde = perfil
+  ? new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric', timeZone: 'UTC' })
+      .format(new Date(perfil.createdAt))
+  : '';
 ---
 
 {!perfil ? (
-  <Layout title="Idearium · Perfil">
+  <Layout title={t(lang, 'usuario.titulo')}>
     <div class="palco">
       <Nav atual="builders" />
       <Vazio
         falha={semRede}
-        titulo={semRede ? 'O servidor não respondeu' : `Não existe ninguém com o nome @${username}`}
+        titulo={semRede
+          ? t(lang, 'comum.vazio.falha.titulo')
+          : t(lang, 'usuario.inexistente.titulo', { username: username ?? '' })}
         texto={semRede
-          ? 'Tente recarregar em instantes.'
-          : 'Confira se o nome está escrito certo. O @ é o identificador da pessoa e não muda.'}
-        acaoHref="/rfcs"
-        acaoTexto="ver as ideias"
+          ? t(lang, 'labs.vazio.falha.texto')
+          : t(lang, 'usuario.inexistente.texto')}
+        acaoHref={rota(lang, '/rfcs')}
+        acaoTexto={t(lang, 'usuario.acao.ideias')}
       />
       <Rodape />
     </div>
   </Layout>
 ) : (
 <Layout
-  title={`Idearium · @${perfil.username}`}
-  description={bp?.headline ?? perfil.bio ?? `Perfil público de @${perfil.username}.`}
+  title={t(lang, 'usuario.titulo.nome', { username: perfil.username })}
+  description={bp?.headline ?? perfil.bio ?? t(lang, 'usuario.descricao', { username: perfil.username })}
 >
   <div class="palco">
     <Nav atual="builders" />
 
     <header class="cabecalho-pagina">
-      <a class="volta" href="/rfcs">&larr; todas as ideias</a>
+      <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'usuario.volta')}</a>
     </header>
 
     <section class="perfil-topo vem">
@@ -83,17 +95,17 @@ const bp = perfil?.builderProfile;
 
       <div class="chips" style="margin-bottom:14px">
         {bp?.isOpenToWork && (
-          <span class="chip vivo"><span class="ponto"></span>disponível pra construir</span>
+          <span class="chip vivo"><span class="ponto"></span>{t(lang, 'usuario.disponivel')}</span>
         )}
-        {bp?.topics?.map((t) => <span class="chip pequeno">{t}</span>)}
+        {bp?.topics?.map((topico) => <span class="chip pequeno">{topico}</span>)}
       </div>
 
-      <p class="meta">por aqui desde {haQuantoTempo(perfil.createdAt).replace('há', '')}</p>
+      <p class="meta">{t(lang, 'usuario.desde', { quando: desde })}</p>
     </section>
 
     {/* ---------- o que escreveu ---------- */}
     <div class="faixa-rotulo">
-      <span class="r">ideias que escreveu</span>
+      <span class="r">{t(lang, 'usuario.escreveu')}</span>
       <span class="mono" style="font-size:11px; color:var(--t-35)">
         {publicas.length}
       </span>
@@ -105,8 +117,8 @@ const bp = perfil?.builderProfile;
       </div>
     ) : (
       <Vazio
-        titulo="Ainda não escreveu nenhuma ideia"
-        texto="Escrever não é obrigatório: dá pra contribuir só construindo, ou só discutindo."
+        titulo={t(lang, 'usuario.escreveu.vazio.titulo')}
+        texto={t(lang, 'usuario.escreveu.vazio.texto')}
       />
     )}
 
@@ -114,7 +126,7 @@ const bp = perfil?.builderProfile;
     {construindo.length > 0 && (
       <>
         <div class="faixa-rotulo">
-          <span class="r">onde está construindo</span>
+          <span class="r">{t(lang, 'usuario.construindo')}</span>
           <span class="mono" style="font-size:11px; color:var(--t-35)">
             {construindo.length}
           </span>
