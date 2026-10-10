@@ -8,20 +8,24 @@
 
 ---
 
-## Status atual (atualizado 2026-07-31)
+## Status atual (atualizado 2026-10-10)
 
 | Etapa | Status | Notas |
 |---|---|---|
-| F0. Fundação e design system | ✅ feito | direção Matéria portada, átrio de pé |
-| F1. Leitura pública | ✅ feito | 5 telas ligadas na API real, 21 rotas no build |
-| F2. Identidade | ⏳ próxima | destravada — Etapa 1 pronta. Traz o adapter SSR |
-| F3. Participação | ⏳ planejada | destravada — Etapa 3 pronta |
-| F4. Autoria | ⏳ planejada | destravada — Etapa 2 pronta |
-| F5. Descoberta | ⏳ planejada | destravada — Etapa 4 pronta |
+| F0. Fundação e design system | ✅ refeito em 2026-10-10 | direção minimalista substituiu a Matéria |
+| F1. Leitura pública | ✅ feito | todas as páginas em SSR com cache HTTP curto |
+| F2. Identidade | ✅ feito | sessão SSR com cookies httpOnly |
+| F3. Participação | ✅ feito | inscrição e comentários |
+| F4. Autoria | ✅ feito | editor com prévia do markdown (markdown-it) e histórico de versões com diff |
+| F5. Descoberta | ✅ feito | busca por idioma, tags, mãos |
+| i18n pt-BR / en | ✅ feito | prefixo `/en`, dicionários por área em `src/i18n/` |
+| Institucionais | ✅ feito | `/sobre`, `/governanca`, `/codigo-de-conduta`, `/transparencia`; conduta e transparência são rascunho a revisar |
+| Testes | ✅ unitários no CI | vitest (125 casos); e2e Playwright + axe roda local, fora do CI |
 | F6. Notificações | 🚧 front pronto atrás de flag | `PUBLIC_NOTIFICACOES`; espera Etapa 5 do backend e o contrato (ver F6) |
 
-**O frontend é o gargalo, não o backend.** F1 a F5 consomem endpoints que já
-existem e já têm teste e2e. Nada além da F6 depende de código novo do Kae.
+**Agora o gargalo é o backend.** F6 e o login social (Etapa 6) estão prontos
+no front atrás de `PUBLIC_NOTIFICACOES` e `PUBLIC_OAUTH`, esperando a API e o
+aceite dos contratos propostos (seções F6 e "Contratos propostos ao backend").
 
 ### Pendências externas (não-código)
 
@@ -31,9 +35,15 @@ existem e já têm teste e2e. Nada além da F6 depende de código novo do Kae.
       build arg); falta só o host (Railway/Fly, ver `ROADMAP_BACKEND.md`).
 - [ ] Alinhar a versão do Node: `apps/api/Dockerfile` usa `node:20-alpine`,
       enquanto `.nvmrc`, o CI e `apps/web/Dockerfile` usam 22.
-- [x] Self-host de Inter e Newsreader. Feito com `@fontsource-variable/*`
-      (subsets latin e latin-ext), declarado em `global.css`; nenhum request
-      vai ao Google Fonts. A Departure Mono já era self-hosted.
+- [x] Self-host de fontes. Só a Inter ficou (`@fontsource-variable/inter`,
+      latin e latin-ext); nenhum request vai ao Google Fonts.
+- [ ] Revisar o rascunho de `/codigo-de-conduta` e da seção de privacidade de
+      `/transparencia`, publicar o custo mensal real e definir o canal de
+      contato com os mantenedores (citado na conduta).
+- [ ] Atualizar `VISAO.md` §12 com a direção visual minimalista (consenso
+      Kae e Gabriele).
+- [ ] Criar os apps OAuth no GitHub e no Google e a conta no Resend quando a
+      Etapa 6 começar.
 
 ---
 
@@ -64,17 +74,19 @@ Já decidida e em uso desde a F0:
 | Framework | Astro 6 | conteúdo público estático por padrão, SSR só onde precisa |
 | Ilhas | React 19 | só onde há estado real; a maior parte do site não precisa |
 | CSS | Tailwind 4 + CSS nomeado | Tailwind pro layout, CSS à mão pra identidade e animação |
-| Fontes | Inter, Newsreader (OFL), Departure Mono (MIT) | licenças compatíveis com CC BY-SA |
+| Fontes | Inter (OFL), self-hosted | licença compatível com CC BY-SA; uma família só na direção minimalista |
 
 ### Decisão: renderização
 
-**Híbrido.** Páginas públicas pré-renderizadas; rotas com sessão em SSR.
+**SSR em tudo, com cache HTTP curto no público** (mudou em 2026-10-10; antes
+era híbrido com as páginas públicas pré-renderizadas).
 
-- **Público** (átrio, lista, RFC, lab, perfil, busca): `prerender = true`. É bem
-  comum digital — as RFCs precisam indexar em buscador, e o Astro entrega HTML
-  pronto sem custo de runtime.
-- **Com sessão** (entrar, escrever, editar, notificações): SSR via
-  `@astrojs/node`, com o refresh token em **cookie httpOnly**.
+- **Público** (átrio, lista, RFC, lab, perfil, busca, institucionais): SSR com
+  `Cache-Control: public, s-maxage=60, stale-while-revalidate=600` quando não
+  há sessão (`lib/cache.ts`). Continua indexável e conteúdo novo aparece sem
+  rebuild. O pré-render exigia rebuild a cada RFC nova.
+- **Com sessão**: SSR via `@astrojs/node`, `private, no-store`, com o refresh
+  token em **cookie httpOnly**.
 
 **Por que não islands puras com token no `localStorage`:** o backend implementou
 refresh token opaco, hashado, com rotação e `revokedAt` (`ROADMAP_BACKEND` §2.5).
