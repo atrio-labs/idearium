@@ -1,0 +1,284 @@
+---
+/* ================================================================
+   /moderacao — o painel dos mantenedores (C2)
+   ================================================================
+   Atrás de PUBLIC_MODERACAO: desligada, 404. Ligada, exige sessão e
+   role MAINTAINER (vem de /auth/me; a API é quem decide de verdade, e
+   devolve 403 se o role no front estiver velho).
+
+   Uma fila de reportes e um formulário por reporte: ação sobre o
+   conteúdo (ocultar/reexibir a ideia, suspender/reativar a conta),
+   desfecho do reporte (resolver/descartar) e um MOTIVO obrigatório,
+   que vira a `resolution` do reporte. Tudo POST pra própria URL, sem
+   JavaScript; sucesso é 303 de volta pra mesma fila.
+
+   Sem número de vaidade (VISAO §9): o único número é o tamanho da
+   fila do filtro atual, que é contagem operacional.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import { exigirSessao } from '../lib/sessao';
+import { haQuantoTempo } from '../lib/api';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import {
+  STATUS_DA_FILA, agirNoAlvo, decidirReporte, ehAcaoNoAlvo, ehMantenedor, ehStatusDaFila,
+  enderecoDoAlvo, idValido, listarReportes, moderacaoLigada, type StatusDaFila,
+} from '../lib/moderacao';
+
+if (!moderacaoLigada()) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+
+const aquiComIdioma = new URL(rota(lang, Astro.url.pathname) + Astro.url.search, Astro.url);
+const paraLogin = exigirSessao(Astro.locals.usuario, aquiComIdioma);
+if (paraLogin) return Astro.redirect(rota(lang, paraLogin));
+
+const mantenedor = ehMantenedor(Astro.locals.usuario);
+if (!mantenedor) Astro.response.status = 403;
+
+const statusBruto = Astro.url.searchParams.get('status');
+const status: StatusDaFila = ehStatusDaFila(statusBruto) ? statusBruto : 'OPEN';
+const bruta = Number(Astro.url.searchParams.get('pagina'));
+const pagina = Number.isInteger(bruta) && bruta > 1 ? bruta : 1;
+
+const endereco = (s: StatusDaFila, n = 1) => {
+  const p = new URLSearchParams();
+  if (s !== 'OPEN') p.set('status', s);
+  if (n > 1) p.set('pagina', String(n));
+  const qs = p.toString();
+  return rota(lang, '/moderacao') + (qs ? `?${qs}` : '');
+};
+
+let erro: { id: string; texto: string } | null = null;
+let motivoEnviado = '';
+
+if (mantenedor && Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  const id = String(dados.get('id') ?? '');
+  const tipoAlvo = String(dados.get('tipo') ?? '');
+  const alvoId = String(dados.get('alvo') ?? '');
+  const acao = String(dados.get('acao') ?? 'nenhuma');
+  const desfecho = String(dados.get('desfecho') ?? '');
+  const motivo = String(dados.get('motivo') ?? '').trim().slice(0, 1000);
+  motivoEnviado = motivo;
+
+  const acaoValida = acao === 'nenhuma' || (
+    ehAcaoNoAlvo(acao) && (
+      ((acao === 'ocultar' || acao === 'reexibir') && tipoAlvo === 'RFC') ||
+      ((acao === 'suspender' || acao === 'reativar') && tipoAlvo === 'USER')
+    )
+  );
+  const desfechoValido = desfecho === 'RESOLVED' || desfecho === 'DISMISSED' || desfecho === '';
+
+  if (!idValido(id) || !idValido(alvoId) || !acaoValida || !desfechoValido) {
+    erro = { id, texto: t(lang, 'moderacao.erro.acao') };
+  } else if (!motivo) {
+    erro = { id, texto: t(lang, 'moderacao.erro.motivo') };
+  } else {
+    let ok = true;
+    let negado = false;
+    if (ehAcaoNoAlvo(acao)) {
+      const r = await agirNoAlvo(Astro.cookies, acao, alvoId, motivo);
+      ok = r.ok;
+      negado = r.status === 403;
+    }
+    let parcial = false;
+    if (ok && desfecho) {
+      const r = await decidirReporte(Astro.cookies, id, desfecho as 'RESOLVED' | 'DISMISSED', motivo);
+      ok = r.ok;
+      negado = r.status === 403;
+      parcial = !r.ok && ehAcaoNoAlvo(acao);
+    }
+    if (ok) return Astro.redirect(endereco(status, pagina), 303);
+    erro = {
+      id,
+      texto: t(lang, negado ? 'moderacao.erro.sem.permissao' : parcial ? 'moderacao.erro.parcial' : 'moderacao.erro.falha'),
+    };
+  }
+}
+
+const estado = mantenedor
+  ? await listarReportes(Astro.cookies, status, pagina)
+  : ({ tipo: 'proibido' } as const);
+if (estado.tipo === 'sem-sessao') return Astro.redirect(rota(lang, exigirSessao(null, aquiComIdioma)!));
+
+const meta = estado.tipo === 'ok' ? estado.meta : null;
+const tipoRotulo = { RFC: 'rfc', COMMENT: 'comentario', USER: 'usuario' } as const;
+---
+
+<Layout title={`Idearium · ${t(lang, 'moderacao.painel.titulo')}`}>
+  <div class="palco">
+    <Nav />
+
+    <header class="cabeca-painel">
+      <h1 class="titulo-duplo">
+        {t(lang, 'moderacao.painel.antes')}{' '}
+        <span class="apagado">{t(lang, 'moderacao.painel.apagado')}</span>
+      </h1>
+      <p class="apoio">{t(lang, 'moderacao.painel.apoio')}</p>
+    </header>
+
+    {estado.tipo === 'proibido' && (
+      <Vazio titulo={t(lang, 'moderacao.painel.negado.titulo')} texto={t(lang, 'moderacao.painel.negado.texto')} />
+    )}
+    {estado.tipo === 'indisponivel' && (
+      <Vazio titulo={t(lang, 'moderacao.painel.indisponivel.titulo')} texto={t(lang, 'moderacao.painel.indisponivel.texto')} />
+    )}
+    {estado.tipo === 'erro' && (
+      <Vazio falha titulo={t(lang, 'moderacao.painel.erro.titulo')} texto={t(lang, 'moderacao.painel.erro.texto')} />
+    )}
+
+    {estado.tipo === 'ok' && (
+      <>
+        <nav class="filtros" aria-label={t(lang, 'moderacao.painel.filtro')}>
+          {STATUS_DA_FILA.map((s) => (
+            <a
+              class:list={['chip', s === status && 'ativo']}
+              href={endereco(s)}
+              aria-current={s === status ? 'page' : undefined}
+            >{t(lang, `moderacao.status.${s}`)}</a>
+          ))}
+          {meta && <span class="fila">{t(lang, 'moderacao.painel.fila', { n: meta.total })}</span>}
+        </nav>
+
+        {estado.itens.length === 0 ? (
+          <Vazio titulo={t(lang, 'moderacao.painel.vazio.titulo')} texto={t(lang, 'moderacao.painel.vazio.texto')} />
+        ) : (
+          <ul class="reportes">
+            {estado.itens.map((r) => {
+              const href = enderecoDoAlvo(r, lang);
+              const aberto = r.status === 'OPEN';
+              const oculta = r.target?.hidden === true;
+              const suspensa = r.target?.suspended === true;
+              const erroAqui = erro?.id === r.id ? erro.texto : null;
+              const idErro = `erro-${r.id}`;
+              return (
+                <li class="reporte">
+                  <div class="cabeca-reporte">
+                    <span class="chip">{t(lang, `moderacao.item.alvo.${tipoRotulo[r.targetType]}`)}</span>
+                    <span class="chip">{t(lang, `moderacao.motivo.${r.reason as 'other'}`)}</span>
+                    {oculta && <span class="chip">{t(lang, 'moderacao.item.oculta')}</span>}
+                    {suspensa && <span class="chip">{t(lang, 'moderacao.item.suspensa')}</span>}
+                    <span class="quando">
+                      {t(lang, 'moderacao.item.por', { quem: r.reporter ? `@${r.reporter.username}` : t(lang, 'moderacao.item.anonimo') })}
+                      {' · '}{haQuantoTempo(r.createdAt, lang)}
+                    </span>
+                  </div>
+
+                  {r.target?.excerpt && <p class="trecho">{r.target.excerpt}</p>}
+                  {r.details && <p class="detalhes">{r.details}</p>}
+                  {href && <a class="ver" href={href}>{t(lang, 'moderacao.item.ver')}</a>}
+
+                  {!aberto && r.resolution && (
+                    <p class="decisao">{t(lang, 'moderacao.item.decisao', { texto: r.resolution })}</p>
+                  )}
+
+                  {(aberto || r.targetType !== 'COMMENT') && (
+                    <form method="post" class="decidir">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input type="hidden" name="tipo" value={r.targetType} />
+                      <input type="hidden" name="alvo" value={r.targetId} />
+                      {erroAqui && <p class="aviso-erro" role="alert" id={idErro}>{erroAqui}</p>}
+
+                      {r.targetType !== 'COMMENT' && (
+                        <fieldset class="opcoes">
+                          <legend class="rotulo">{t(lang, 'moderacao.form.alvo')}</legend>
+                          <label class="opcao"><input type="radio" name="acao" value="nenhuma" checked /><span>{t(lang, 'moderacao.form.alvo.nenhuma')}</span></label>
+                          {r.targetType === 'RFC' && (
+                            <label class="opcao">
+                              <input type="radio" name="acao" value={oculta ? 'reexibir' : 'ocultar'} />
+                              <span>{t(lang, oculta ? 'moderacao.form.alvo.reexibir' : 'moderacao.form.alvo.ocultar')}</span>
+                            </label>
+                          )}
+                          {r.targetType === 'USER' && (
+                            <label class="opcao">
+                              <input type="radio" name="acao" value={suspensa ? 'reativar' : 'suspender'} />
+                              <span>{t(lang, suspensa ? 'moderacao.form.alvo.reativar' : 'moderacao.form.alvo.suspender')}</span>
+                            </label>
+                          )}
+                        </fieldset>
+                      )}
+
+                      {aberto && (
+                        <fieldset class="opcoes">
+                          <legend class="rotulo">{t(lang, 'moderacao.form.desfecho')}</legend>
+                          <label class="opcao"><input type="radio" name="desfecho" value="RESOLVED" checked /><span>{t(lang, 'moderacao.form.desfecho.resolver')}</span></label>
+                          <label class="opcao"><input type="radio" name="desfecho" value="DISMISSED" /><span>{t(lang, 'moderacao.form.desfecho.descartar')}</span></label>
+                        </fieldset>
+                      )}
+
+                      <div class:list={['campo', erroAqui && 'com-erro']}>
+                        <label class="rotulo" for={`motivo-${r.id}`}>{t(lang, 'moderacao.form.motivo')}</label>
+                        <textarea
+                          class="entrada"
+                          id={`motivo-${r.id}`}
+                          name="motivo"
+                          required
+                          maxlength="1000"
+                          aria-describedby={erroAqui ? `${idErro} ajuda-${r.id}` : `ajuda-${r.id}`}
+                          aria-invalid={erroAqui ? 'true' : undefined}
+                        >{erro?.id === r.id ? motivoEnviado : ''}</textarea>
+                        <span class="ajuda" id={`ajuda-${r.id}`}>{t(lang, 'moderacao.form.motivo.ajuda')}</span>
+                      </div>
+
+                      <button class="botao" type="submit">{t(lang, 'moderacao.form.enviar')}</button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {meta && meta.totalPages > 1 && (
+          <nav class="paginas" aria-label={t(lang, 'moderacao.painel.paginacao')}>
+            {pagina > 1
+              ? <a class="botao-secundario" href={endereco(status, pagina - 1)} rel="prev">{t(lang, 'moderacao.painel.pagina.anterior')}</a>
+              : <span></span>}
+            <span class="rotulo-pagina">{t(lang, 'moderacao.painel.pagina.rotulo', { n: pagina, total: meta.totalPages })}</span>
+            {pagina < meta.totalPages
+              ? <a class="botao-secundario" href={endereco(status, pagina + 1)} rel="next">{t(lang, 'moderacao.painel.pagina.proxima')}</a>
+              : <span></span>}
+          </nav>
+        )}
+      </>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .cabeca-painel { padding: 48px 4px 24px; display: grid; gap: 16px; justify-items: start; }
+
+  .filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 4px 24px; }
+  .filtros .chip { min-height: 40px; display: inline-flex; align-items: center; text-decoration: none; }
+  .filtros .chip.ativo { background: var(--tinta); color: #fff; }
+  .filtros .fila { margin-left: 8px; font-size: 12.5px; color: var(--t-65); font-variant-numeric: tabular-nums; }
+
+  .reportes { list-style: none; margin: 0; padding: 0; max-width: 760px; }
+  .reporte { padding: 24px 4px; border-top: 1px solid var(--t-12); display: grid; gap: 10px; }
+  .reporte:last-child { border-bottom: 1px solid var(--t-12); }
+  .cabeca-reporte { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .quando { font-size: 12.5px; color: var(--t-65); }
+  .trecho, .detalhes, .decisao { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--t-75); overflow-wrap: anywhere; white-space: pre-wrap; }
+  .trecho { color: var(--t-100); }
+  .decisao { font-size: 13.5px; color: var(--t-65); }
+  .ver { font-size: 13px; color: var(--t-100); min-height: 40px; display: inline-flex; align-items: center; text-underline-offset: 3px; }
+
+  .decidir { margin-top: 8px; padding: 16px; background: var(--rebaixo); border-radius: var(--r-dentro); }
+  .opcoes { border: 0; margin: 0 0 12px; padding: 0; display: grid; }
+  .opcoes legend { padding: 0; margin-bottom: 4px; }
+  .opcao { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; color: var(--t-75); cursor: pointer; }
+  .opcao input { width: 18px; height: 18px; margin: 0; accent-color: var(--tinta); flex: none; }
+  .opcao input:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
+  .decidir .botao { height: 44px; }
+
+  .paginas { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; max-width: 760px; margin-top: 24px; }
+  .paginas a[rel="next"] { justify-self: end; }
+  .rotulo-pagina { font-size: 12.5px; color: var(--t-65); font-variant-numeric: tabular-nums; }
+</style>

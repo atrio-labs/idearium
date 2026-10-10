@@ -39,6 +39,8 @@ import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Materia from '../../components/astro/Materia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
+import BotaoReportar from '../../components/astro/BotaoReportar.astro';
+import { autorSuspenso, moderacaoLigada, ocultaParaMim } from '../../lib/moderacao';
 import { comSessao } from '../../lib/sessao';
 import { cachePublico } from '../../lib/cache';
 import {
@@ -112,6 +114,12 @@ async function ler<T>(caminho: string, aoFalhar: T): Promise<Leitura<T>> {
 const leituraRfc = await ler<Rfc | null>(`/rfcs/${slug}`, null);
 const rfc = leituraRfc.dado;
 
+/* Moderação (PUBLIC_MODERACAO): RFC oculta só aparece pra autor e
+   mantenedores; pra o resto, uma tela que diz o que houve. */
+const oculta = ocultaParaMim(rfc, usuario);
+const ocultaVisivel = moderacaoLigada() && !!rfc?.hiddenAt && !oculta;
+const voltarComPagina = () => `${voltar}${comPagina()}`;
+
 /* Ideia que não existe pra quem pede é 404 de verdade, com a tela de
    vazio, e não redirect pra lista: redirect esconderia de quem mandou o
    link que o endereço está errado. Servidor fora é 503 e é outra coisa:
@@ -140,7 +148,7 @@ const ciclo = cicloLigado();
 let erroAtualizacao: string | null = null;
 let textoAtualizacao: string | null = null;
 
-if (rfc && Astro.request.method === 'POST') {
+if (rfc && !oculta && Astro.request.method === 'POST') {
   if (!usuario) return Astro.redirect(paraEntrar);
 
   const dados = await Astro.request.formData();
@@ -366,7 +374,7 @@ cachePublico(
 );
 ---
 
-{rfc ? (
+{rfc && !oculta ? (
 <Layout title={`${codigoRfc(rfc.number, lang)} · ${rfc.title}`} description={rfc.summary} imagem={`/og/rfc/${rfc.slug}.png`}>
   {/* data-previa é o interruptor da vitrine: o botão de participação o
       liga, e daqui pra baixo cada peça que vai mudar se mostra mudando.
@@ -417,6 +425,12 @@ cachePublico(
           {t(lang, 'ciclo.virou.abrir')}<span class="so-leitor"> ({t(lang, 'ciclo.virou.externo')})</span>
         </a>
       </aside>
+    )}
+
+    {ocultaVisivel && (
+      <p class="aviso-rascunho">
+        <b>{t(lang, 'moderacao.estado.oculta.aviso')}</b>{t(lang, 'moderacao.estado.oculta.aviso.texto')}<a href={rota(lang, '/contestar')}>{t(lang, 'moderacao.estado.oculta.aviso.acao')}</a>
+      </p>
     )}
 
     <figure class="capa-larga">
@@ -470,9 +484,14 @@ cachePublico(
                   <span class="inicial" aria-hidden="true">
                     {iniciais(c.author.username)}
                   </span>
-                  <a href={rota(lang, `/users/${c.author.username}`)}>@{c.author.username}</a>
+                  {autorSuspenso(c.author)
+                    ? <span class="quando" title={t(lang, 'moderacao.estado.suspenso.rotulo')}>{t(lang, 'moderacao.estado.suspenso')}</span>
+                    : <a href={rota(lang, `/users/${c.author.username}`)}>@{c.author.username}</a>}
                   <span class="quando">{haQuantoTempo(c.createdAt, lang)}</span>
                   {c.isEdited && <span class="quando">{t(lang, 'rfcs.det.editado')}</span>}
+                  {!c.isDeleted && c.author.id !== usuario?.id && (
+                    <BotaoReportar tipo="comentario" id={c.id} voltar={voltarComPagina()} />
+                  )}
                 </div>
 
                 {emEdicao ? (
@@ -688,7 +707,7 @@ cachePublico(
 
         <div class="bloco">
           <p class="titulo-bloco">{t(lang, 'rfcs.det.historico')}</p>
-          <div class="linha"><span>{t(lang, 'rfcs.det.escrita.por')}</span><a href={rota(lang, `/users/${rfc.author.username}`)}><b>@{rfc.author.username}</b></a></div>
+          <div class="linha"><span>{t(lang, 'rfcs.det.escrita.por')}</span>{autorSuspenso(rfc.author) ? <b>{t(lang, 'moderacao.estado.suspenso')}</b> : <a href={rota(lang, `/users/${rfc.author.username}`)}><b>@{rfc.author.username}</b></a>}</div>
           {rfc.publishedAt && (
             <div class="linha"><span>{t(lang, 'rfcs.det.publicada')}</span><b>{haQuantoTempo(rfc.publishedAt, lang)}</b></div>
           )}
@@ -699,6 +718,7 @@ cachePublico(
               {t(lang, 'rfcs.det.versoes.nota')}
             </p>
           )}
+          {rfc.author.id !== usuario?.id && <BotaoReportar tipo="rfc" id={rfc.id} voltar={voltarComPagina()} />}
         </div>
 
         {tags.length > 0 && (
@@ -724,13 +744,22 @@ cachePublico(
       <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
     </header>
 
-    <Vazio
-      falha={semRede}
-      titulo={t(lang, semRede ? 'rfcs.det.falha.titulo' : 'rfcs.det.inexistente.titulo')}
-      texto={t(lang, semRede ? 'rfcs.det.falha.texto' : 'rfcs.det.inexistente.texto')}
-      acaoHref={semRede ? undefined : rota(lang, '/rfcs')}
-      acaoTexto={semRede ? undefined : t(lang, 'rfcs.det.inexistente.acao')}
-    />
+    {oculta ? (
+      <Vazio
+        titulo={t(lang, 'moderacao.estado.oculta.titulo')}
+        texto={t(lang, 'moderacao.estado.oculta.texto')}
+        acaoHref={rota(lang, '/rfcs')}
+        acaoTexto={t(lang, 'moderacao.estado.oculta.acao')}
+      />
+    ) : (
+      <Vazio
+        falha={semRede}
+        titulo={t(lang, semRede ? 'rfcs.det.falha.titulo' : 'rfcs.det.inexistente.titulo')}
+        texto={t(lang, semRede ? 'rfcs.det.falha.texto' : 'rfcs.det.inexistente.texto')}
+        acaoHref={semRede ? undefined : rota(lang, '/rfcs')}
+        acaoTexto={semRede ? undefined : t(lang, 'rfcs.det.inexistente.acao')}
+      />
+    )}
 
     <Rodape />
   </div>

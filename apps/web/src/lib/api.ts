@@ -34,6 +34,8 @@ export interface Autor {
   username: string;
   fullName: string | null;
   avatarUrl: string | null;
+  /** PROPOSTA (docs/contratos/moderacao.md): conta suspensa, anonimizada pela API */
+  suspended?: boolean;
 }
 
 export interface LabResumo {
@@ -70,6 +72,8 @@ export interface Rfc extends RfcResumo {
   body: string;
   visibility: string;
   archivedAt: string | null;
+  /** PROPOSTA (docs/contratos/moderacao.md): quando a moderação ocultou a ideia */
+  hiddenAt?: string | null;
   translationOfId: string | null;
 }
 

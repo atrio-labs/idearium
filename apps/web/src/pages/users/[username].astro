@@ -19,6 +19,7 @@ import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
+import BotaoReportar from '../../components/astro/BotaoReportar.astro';
 import {
   obterPerfil, listarRfcsDoUsuario, listarInscricoesDoUsuario, apiIndisponivel,
 } from '../../lib/api';
@@ -97,6 +98,9 @@ const desde = perfil
       </div>
 
       <p class="apoio">{t(lang, 'usuario.desde', { quando: desde })}</p>
+      {Astro.locals.usuario?.id !== perfil.id && (
+        <BotaoReportar tipo="usuario" id={perfil.id} voltar={rota(lang, `/users/${perfil.username}`)} />
+      )}
     </header>
 
     {/* ---------- o que escreveu ---------- */}

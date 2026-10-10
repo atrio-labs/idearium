@@ -1,0 +1,155 @@
+---
+/* ================================================================
+   /reportar — reportar conteúdo ou pessoa (C2)
+   ================================================================
+   Atrás de PUBLIC_MODERACAO: desligada, a rota responde 404. Ligada,
+   exige sessão. Querystring: ?tipo=rfc|comentario|usuario&id=...&voltar=...
+
+   POST /reports { targetType, targetId, reason, details? } (contrato em
+   docs/contratos/moderacao.md). Formulário POST pra própria URL, sem
+   JavaScript; sucesso é 303 pra ?feito=1, pra recarregar não reenviar.
+   O reporte nunca mostra quem reportou ao reportado.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import { destinoSeguro, exigirSessao } from '../lib/sessao';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import {
+  MOTIVOS, enviarReporte, ehMotivo, ehTipoDeAlvo, idValido, moderacaoLigada,
+} from '../lib/moderacao';
+
+if (!moderacaoLigada()) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+
+const aquiComIdioma = new URL(rota(lang, Astro.url.pathname) + Astro.url.search, Astro.url);
+const paraLogin = exigirSessao(Astro.locals.usuario, aquiComIdioma);
+if (paraLogin) return Astro.redirect(rota(lang, paraLogin));
+
+const q = Astro.url.searchParams;
+const tipoBruto = q.get('tipo');
+const id = q.get('id') ?? '';
+const tipo = ehTipoDeAlvo(tipoBruto) ? tipoBruto : null;
+const alvoOk = tipo != null && idValido(id);
+const voltar = destinoSeguro(q.get('voltar'), Astro.url.origin);
+const feito = q.get('feito') === '1';
+
+let erro: string | null = null;
+let indisponivel = false;
+let motivo = '';
+let detalhes = '';
+
+if (Astro.request.method === 'POST' && alvoOk) {
+  const dados = await Astro.request.formData();
+  const m = String(dados.get('motivo') ?? '');
+  motivo = m;
+  detalhes = String(dados.get('detalhes') ?? '').trim().slice(0, 1000);
+
+  if (!ehMotivo(m)) {
+    erro = t(lang, 'moderacao.rep.erro.motivo');
+  } else {
+    const r = await enviarReporte(Astro.cookies, { tipo, id, motivo: m, detalhes });
+    if (r.tipo === 'ok') {
+      const para = new URLSearchParams({ feito: '1', voltar });
+      return Astro.redirect(`${rota(lang, '/reportar')}?${para}`, 303);
+    }
+    if (r.tipo === 'sem-sessao') return Astro.redirect(rota(lang, exigirSessao(null, aquiComIdioma)!));
+    if (r.tipo === 'indisponivel') indisponivel = true;
+    else erro = t(lang, {
+      'ja-reportou': 'moderacao.rep.erro.ja',
+      proprio: 'moderacao.rep.erro.proprio',
+      limite: 'moderacao.rep.erro.limite',
+      erro: 'moderacao.rep.erro.falha',
+    }[r.tipo] as 'moderacao.rep.erro.falha');
+  }
+}
+
+const titulo = `Idearium · ${t(lang, 'moderacao.rep.titulo')}`;
+---
+
+<Layout title={titulo}>
+  <div class="palco pagina-conta">
+    <Nav />
+
+    <div class="form-estreito">
+      {feito ? (
+        <>
+          <header class="cabeca-estreita">
+            <h1 class="titulo-duplo">{t(lang, 'moderacao.rep.feito.titulo')}</h1>
+            <p class="apoio" role="status">{t(lang, 'moderacao.rep.feito.texto')}</p>
+          </header>
+          <div class="acoes-form">
+            <a class="botao" href={voltar}>{t(lang, 'moderacao.rep.feito.voltar')}</a>
+            <span class="separador"></span>
+            <a class="botao-secundario" href={rota(lang, '/codigo-de-conduta')}>{t(lang, 'moderacao.rep.feito.conduta')}</a>
+          </div>
+        </>
+      ) : !alvoOk ? (
+        <Vazio
+          titulo={t(lang, 'moderacao.rep.titulo')}
+          texto={t(lang, 'moderacao.rep.erro.alvo')}
+          acaoHref={voltar}
+          acaoTexto={t(lang, 'moderacao.rep.feito.voltar')}
+        />
+      ) : indisponivel ? (
+        <Vazio
+          titulo={t(lang, 'moderacao.rep.indisponivel.titulo')}
+          texto={t(lang, 'moderacao.rep.indisponivel.texto')}
+          acaoHref={voltar}
+          acaoTexto={t(lang, 'moderacao.rep.feito.voltar')}
+        />
+      ) : (
+        <>
+          <header class="cabeca-estreita">
+            <h1 class="titulo-duplo">{t(lang, 'moderacao.rep.antes')}{' '}<span class="apagado">{t(lang, 'moderacao.rep.apagado')}</span></h1>
+            <p class="apoio">{t(lang, 'moderacao.rep.apoio')}</p>
+            <p class="apoio">{t(lang, 'moderacao.rep.alvo', { alvo: t(lang, `moderacao.alvo.${tipo}`) })}</p>
+          </header>
+
+          <form method="POST">
+            {erro && <p class="aviso-erro" role="alert" tabindex="-1" autofocus>{erro}</p>}
+
+            <fieldset class="motivos">
+              <legend class="rotulo">{t(lang, 'moderacao.rep.motivo')}</legend>
+              {MOTIVOS.map((m, i) => (
+                <label class="opcao">
+                  <input type="radio" name="motivo" value={m} checked={motivo === m} required={i === 0} />
+                  <span>{t(lang, `moderacao.motivo.${m}`)}</span>
+                </label>
+              ))}
+            </fieldset>
+
+            <div class="campo">
+              <label class="rotulo" for="detalhes">{t(lang, 'moderacao.rep.detalhes')}</label>
+              <textarea class="entrada" id="detalhes" name="detalhes" maxlength="1000" aria-describedby="ajuda-detalhes">{detalhes}</textarea>
+              <span class="ajuda" id="ajuda-detalhes">{t(lang, 'moderacao.rep.detalhes.ajuda')}</span>
+            </div>
+
+            <div class="acoes-form">
+              <button class="botao" type="submit">{t(lang, 'moderacao.rep.enviar')}</button>
+              <span class="separador"></span>
+              <a class="botao-secundario" href={voltar}>{t(lang, 'moderacao.rep.cancelar')}</a>
+            </div>
+          </form>
+        </>
+      )}
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .motivos { border: 0; margin: 0 0 18px; padding: 0; display: grid; gap: 2px; }
+  .motivos legend { padding: 0; margin-bottom: 8px; }
+  .opcao {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 44px; font-size: 14px; color: var(--t-75); cursor: pointer;
+  }
+  .opcao input { width: 18px; height: 18px; margin: 0; accent-color: var(--tinta); flex: none; }
+  .opcao input:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
+</style>

@@ -1,0 +1,45 @@
+---
+/* ================================================================
+   BotaoReportar.astro — o link discreto de reportar (C2)
+   ================================================================
+   Atrás de PUBLIC_MODERACAO: desligada, não renderiza nada. É um link
+   comum para /reportar, e a página exige sessão (quem não tem vai pro
+   login e volta). Funciona sem JavaScript.
+   ================================================================ */
+import { moderacaoLigada, type TipoDeAlvo } from '../../lib/moderacao';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+
+interface Props {
+  tipo: TipoDeAlvo;
+  id: string;
+  /** caminho da página de origem (com ?p=, se houver), pra voltar */
+  voltar: string;
+}
+const { tipo, id, voltar } = Astro.props;
+const lang = idiomaDe(Astro);
+const href = `${rota(lang, '/reportar')}?tipo=${tipo}&id=${encodeURIComponent(id)}&voltar=${encodeURIComponent(voltar)}`;
+const alvo = t(lang, `moderacao.alvo.${tipo}`);
+---
+
+{moderacaoLigada() && (
+  <a
+    class="botao-reportar"
+    href={href}
+    rel="nofollow"
+    aria-label={t(lang, 'moderacao.reportar.rotulo', { alvo })}
+  >{t(lang, 'moderacao.reportar')}</a>
+)}
+
+<style>
+  .botao-reportar {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 4px;
+    font-size: 12.5px;
+    color: var(--t-65);
+    text-decoration: none;
+  }
+  .botao-reportar:hover { color: var(--t-100); text-decoration: underline; text-underline-offset: 3px; }
+  .botao-reportar:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; border-radius: 4px; }
+</style>

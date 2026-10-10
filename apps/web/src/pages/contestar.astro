@@ -1,0 +1,54 @@
+---
+/* ================================================================
+   /contestar — apelação de uma decisão da moderação (C2)
+   ================================================================
+   Atrás de PUBLIC_MODERACAO. Sem backend próprio: orienta a escrever
+   para os mantenedores. Fica pública de propósito, sem sessão, porque
+   quem foi suspenso não consegue entrar. A evolução proposta
+   (POST /appeals) está em docs/contratos/moderacao.md.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import { moderacaoLigada } from '../lib/moderacao';
+import { cachePublico } from '../lib/cache';
+
+if (!moderacaoLigada()) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+cachePublico(Astro);
+---
+
+<Layout title={`Idearium · ${t(lang, 'moderacao.contestar.titulo')}`}>
+  <div class="palco pagina-conta">
+    <Nav />
+
+    <div class="form-estreito">
+      <header class="cabeca-estreita">
+        <h1 class="titulo-duplo">{t(lang, 'moderacao.contestar.antes')}{' '}<span class="apagado">{t(lang, 'moderacao.contestar.apagado')}</span></h1>
+        <p class="apoio">{t(lang, 'moderacao.contestar.apoio')}</p>
+      </header>
+
+      <h2 class="passos-titulo">{t(lang, 'moderacao.contestar.passos.titulo')}</h2>
+      <ol class="passos">
+        <li>{t(lang, 'moderacao.contestar.passo1')}</li>
+        <li>{t(lang, 'moderacao.contestar.passo2')}</li>
+        <li>{t(lang, 'moderacao.contestar.passo3')}</li>
+      </ol>
+
+      <div class="acoes-form">
+        <a class="botao" href="mailto:mantenedores@idearium.example">{t(lang, 'moderacao.contestar.email')}</a>
+        <span class="separador"></span>
+        <a class="botao-secundario" href={rota(lang, '/codigo-de-conduta')}>{t(lang, 'moderacao.contestar.conduta')}</a>
+      </div>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .passos-titulo { font-size: 15px; font-weight: 500; color: var(--t-100); margin: 0 0 12px; }
+  .passos { margin: 0; padding-left: 22px; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.55; color: var(--t-75); }
+</style>
