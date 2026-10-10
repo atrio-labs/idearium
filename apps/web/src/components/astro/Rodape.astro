@@ -1,5 +1,5 @@
 ---
-/* Rodapé — igual em toda página, mínimo: a marca, as quatro páginas
+/* Rodapé — igual em toda página, mínimo: a marca, as páginas
    institucionais e as licenças. Os links internos passam por `rota`
    pra quem está em /en continuar em /en ao clicar. */
 import { idiomaDe, rota, t } from '../../lib/i18n';
@@ -11,6 +11,8 @@ const links = [
   { href: '/governanca',        texto: t(lang, 'comum.rodape.governanca') },
   { href: '/codigo-de-conduta', texto: t(lang, 'comum.rodape.conduta') },
   { href: '/transparencia',     texto: t(lang, 'comum.rodape.transparencia') },
+  { href: '/termos',            texto: t(lang, 'comum.rodape.termos') },
+  { href: '/privacidade',       texto: t(lang, 'comum.rodape.privacidade') },
 ];
 ---
 

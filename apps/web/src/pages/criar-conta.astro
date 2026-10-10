@@ -172,6 +172,10 @@ const linkEntrar = rota(lang, pediramVolta
             </span>
           </div>
 
+          <p class="termos">
+            {t(lang, 'seguranca.termos.antes')}<a href={rota(lang, '/termos')}>{t(lang, 'seguranca.termos.termos')}</a>{t(lang, 'seguranca.termos.meio')}<a href={rota(lang, '/privacidade')}>{t(lang, 'seguranca.termos.privacidade')}</a>{t(lang, 'seguranca.termos.depois')}
+          </p>
+
           <div class="acoes-form">
             <button class="botao" type="submit">{t(lang, 'conta.criar.botao.criar')}</button>
             <a class="botao-secundario" href={linkEntrar}>{t(lang, 'conta.criar.botao.entrar')}</a>
@@ -205,6 +209,9 @@ const linkEntrar = rota(lang, pediramVolta
 
 <style>
   .nota { margin-top: 28px; }
+  .termos { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--t-65); max-width: 46ch; }
+  .termos a { color: var(--t-100); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
+  .termos a:hover { text-decoration-color: var(--t-100); }
 
   .sobre {
     position: relative;

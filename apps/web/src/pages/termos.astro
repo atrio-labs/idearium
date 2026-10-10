@@ -1,0 +1,27 @@
+---
+/* Página institucional: SSR, texto vem da coleção `institucional`.
+   O idioma vem de idiomaDe (lib/i18n). Cache curto na borda só pra
+   quem não tem sessão: o texto muda por commit. */
+import { idiomaDe } from '../lib/i18n';
+import { cachePublico } from '../lib/cache';
+import { getEntry, render } from 'astro:content';
+import Leitura from '../layouts/Leitura.astro';
+
+const lang = idiomaDe(Astro);
+const entrada = await getEntry('institucional', `${lang}/termos`);
+if (!entrada) return new Response(null, { status: 404 });
+const { Content } = await render(entrada);
+
+cachePublico(Astro);
+---
+
+<Leitura
+  titulo={entrada.data.titulo}
+  descricao={entrada.data.descricao}
+  rascunho={entrada.data.rascunho}
+  atualizado={entrada.data.atualizado}
+  pagina="termos"
+  lang={lang}
+>
+  <Content />
+</Leitura>

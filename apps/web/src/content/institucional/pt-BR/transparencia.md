@@ -40,24 +40,4 @@ A plataforma não toca dinheiro entre pessoas: sem taxa, sem divisão de receita
 
 ## Privacidade e dados
 
-*Esta seção descreve o que o código faz hoje e é revista a cada mudança. Dúvidas sobre os seus dados: [mantenedores@idearium.example](mailto:mantenedores@idearium.example).*
-
-**O que pedimos para criar uma conta.** Só três coisas: email, nome de usuário (`@username`) e senha. Não pedimos documento, telefone nem ligação obrigatória com redes externas. Nome completo e bio são opcionais, e só aparecem se você preencher.
-
-**Pseudônimo por padrão.** O `@username` é o que aparece em toda parte.
-
-**Senha.** Guardamos apenas um hash da senha, nunca a senha em si.
-
-**Cookies.** Usamos três, todos para manter você conectado, e nenhum para rastrear:
-
-- `id_acesso`: prova que a sessão é sua. Inacessível para JavaScript (`httpOnly`) e dura poucos minutos.
-- `id_renova`: renova o acesso sem pedir a senha de novo. Também `httpOnly`, e dura até 30 dias. Ao sair, ele é revogado no servidor.
-- `id_quem`: guarda só o seu `@username`, que já é público. Serve para o menu mostrar que você está conectada ou conectado. Esse é legível por JavaScript, de propósito.
-
-Não usamos cookies de publicidade nem ferramentas de análise de visitas.
-
-**Fontes tipográficas.** A fonte Inter é servida pelo nosso próprio servidor. Nenhuma página pede nada ao Google Fonts, então o seu IP não vai para lá só porque você abriu o Idearium.
-
-**Venda de dados.** Não vendemos dados. Esse é um dos princípios do projeto, e está nos anti-modelos acima.
-
-**O que fica público.** RFCs, comentários, inscrições (inclusive a saída) e o histórico de versões são públicos por desenho, em CC BY-SA 4.0. Não escreva ali nada que não queira ver público.
+O que fazemos com os seus dados, os cookies que usamos e como exercer os seus direitos estão na [política de privacidade](/privacidade). Em resumo: não vendemos dados e não usamos análise de visitas de terceiros.

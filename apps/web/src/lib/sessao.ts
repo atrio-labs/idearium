@@ -281,7 +281,7 @@ export interface RespostaAuth {
   dado: any;
 }
 
-async function chamarAuth(caminho: string, corpo: unknown = {}): Promise<RespostaAuth> {
+export async function chamarAuth(caminho: string, corpo: unknown = {}): Promise<RespostaAuth> {
   try {
     const r = await postJson(caminho, corpo);
     const codigo = typeof r.dado?.code === 'string' ? r.dado.code : null;

@@ -2,7 +2,7 @@
 /* ================================================================
    Leitura.astro — envelope das páginas institucionais
    ================================================================
-   Nav + texto longo + índice das quatro páginas + rodapé. O corpo vem
+   Nav + texto longo + índice das seis páginas + rodapé. O corpo vem
    do markdown (slot). Uma família só, Inter, como no resto do site
    desde a direção minimalista (10/10/2026).
    ================================================================ */
@@ -11,7 +11,7 @@ import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import { rota } from '../lib/i18n';
 
-type Pagina = 'sobre' | 'governanca' | 'codigo-de-conduta' | 'transparencia';
+type Pagina = 'sobre' | 'governanca' | 'codigo-de-conduta' | 'transparencia' | 'termos' | 'privacidade';
 
 interface Props {
   titulo: string;
@@ -31,12 +31,16 @@ const indice: { chave: Pagina; texto: string }[] = en
       { chave: 'governanca', texto: 'governance' },
       { chave: 'codigo-de-conduta', texto: 'code of conduct' },
       { chave: 'transparencia', texto: 'transparency' },
+      { chave: 'termos', texto: 'terms of use' },
+      { chave: 'privacidade', texto: 'privacy' },
     ]
   : [
       { chave: 'sobre', texto: 'sobre' },
       { chave: 'governanca', texto: 'governança' },
       { chave: 'codigo-de-conduta', texto: 'código de conduta' },
       { chave: 'transparencia', texto: 'transparência' },
+      { chave: 'termos', texto: 'termos de uso' },
+      { chave: 'privacidade', texto: 'privacidade' },
     ];
 
 const rotulo = en

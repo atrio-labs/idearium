@@ -40,24 +40,4 @@ The platform does not touch money between people: no fees, no revenue share, no 
 
 ## Privacy and data
 
-*This section describes what the code does today and is reviewed with every change. Questions about your data: [mantenedores@idearium.example](mailto:mantenedores@idearium.example).*
-
-**What we ask to create an account.** Only three things: email, username (`@username`) and password. We do not ask for ID, phone number or any required link to outside networks. Full name and bio are optional, and only appear if you fill them in.
-
-**Pseudonymous by default.** The `@username` is what appears everywhere.
-
-**Password.** We store only a hash of the password, never the password itself.
-
-**Cookies.** We use three, all to keep you signed in, none to track you:
-
-- `id_acesso`: proves the session is yours. Not readable by JavaScript (`httpOnly`) and lasts a few minutes.
-- `id_renova`: renews access without asking for the password again. Also `httpOnly`, and lasts up to 30 days. When you sign out, it is revoked on the server.
-- `id_quem`: holds only your `@username`, which is already public. The menu uses it to show that you are signed in. This one is readable by JavaScript, on purpose.
-
-We use no advertising cookies and no visit analytics tools.
-
-**Fonts.** The Inter typeface is served from our own server. No page requests anything from Google Fonts, so your IP address does not go there just because you opened Idearium.
-
-**Selling data.** We do not sell data. This is one of the project's principles, listed in the anti-models above.
-
-**What is public.** RFCs, comments, enrollments (including leaving) and version history are public by design, under CC BY-SA 4.0. Do not write anything there that you do not want to be public.
+What we do with your data, the cookies we use and how to exercise your rights are in the [privacy policy](/en/privacidade). In short: we do not sell data and we use no third-party visit analytics.

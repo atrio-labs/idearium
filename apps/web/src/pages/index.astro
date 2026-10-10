@@ -41,6 +41,14 @@ const [labs, pagina] = await Promise.all([
 ]);
 const recentes = pagina.data;
 
+/* aviso de uma ação de conta que termina aqui (excluir conta, sair de
+   todos os aparelhos); só valores conhecidos, nunca texto da URL */
+const pedidoAviso = Astro.url.searchParams.get('aviso');
+const avisoConta =
+  pedidoAviso === 'conta-removida' ? 'seguranca.aviso.conta-removida'
+  : pedidoAviso === 'saiu-todos' ? 'seguranca.aviso.saiu-todos'
+  : null;
+
 const semRede = apiIndisponivel();
 cachePublico(Astro, semRede);
 
@@ -54,6 +62,8 @@ const colunas = [
 <Layout title={t(lang, 'atrio.titulo')}>
   <div class="palco">
     <Nav />
+
+    {avisoConta && <p class="aviso-ok" role="status">{t(lang, avisoConta)}</p>}
 
     {/* ============ HERÓI ============ */}
     <header class="heroi">
