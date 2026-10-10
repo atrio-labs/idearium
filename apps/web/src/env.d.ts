@@ -31,6 +31,8 @@ interface ImportMetaEnv {
   readonly PUBLIC_NOTIFICACOES?: string;
   /** '1' liga OAuth, recuperação de senha e verificação de email (Etapa 6) */
   readonly PUBLIC_OAUTH?: string;
+  /** '1' liga o fechamento do ciclo da ideia: virou projeto, desarquivar, atualizações, nota de mudança */
+  readonly PUBLIC_CICLO?: string;
 }
 
 interface ImportMeta {

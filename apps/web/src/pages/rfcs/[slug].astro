@@ -48,6 +48,11 @@ import {
 } from '../../lib/api';
 import { idiomaDe, rota, separarIdioma, t } from '../../lib/i18n';
 import { renderizarMarkdown } from '../../lib/markdown';
+import AtualizacoesRfc from '../../components/astro/AtualizacoesRfc.astro';
+import {
+  cicloLigado, LIMITE_CICLO, listarAtualizacoes, projetoDaRfc, publicarAtualizacao,
+  type EstadoAtualizacoes,
+} from '../../lib/ciclo';
 
 /* Esta é a única página pública em SSR. Motivo: ela precisa saber
    coisas que dependem de QUEM está lendo — se você já se inscreveu, se
@@ -129,6 +134,12 @@ let acaoFalha: string | null = null;
 let corpoEnviado: string | null = null;
 let alvoEnviado = '';
 
+/* C1 (PUBLIC_CICLO): atualização de progresso tem o próprio erro e o
+   próprio texto, pra não se misturar com os da discussão. */
+const ciclo = cicloLigado();
+let erroAtualizacao: string | null = null;
+let textoAtualizacao: string | null = null;
+
 if (rfc && Astro.request.method === 'POST') {
   if (!usuario) return Astro.redirect(paraEntrar);
 
@@ -149,6 +160,23 @@ if (rfc && Astro.request.method === 'POST') {
     const r = await comSessao(Astro.cookies, 'DELETE', `/rfcs/${rfc.id}/enroll`);
     if (r.ok) return Astro.redirect(voltar);
     erroParticipacao = t(lang, r.status === 404 ? 'rfcs.det.erro.sair.naoestava' : 'rfcs.det.erro.sair');
+
+  } else if (acao === 'atualizacao' && ciclo) {
+    const { min, max } = LIMITE_CICLO.atualizacao;
+    if (corpo.length < min || corpo.length > max) {
+      erroAtualizacao = t(lang, 'ciclo.atualizacoes.erro.tamanho', { min, max });
+    } else {
+      const r = await publicarAtualizacao(Astro.cookies, rfc.id, corpo);
+      if (r.ok) return Astro.redirect(`${voltar}#atualizacoes`, 303);
+      erroAtualizacao = t(lang, r.indisponivel
+        ? 'ciclo.indisponivel'
+        : r.status === 403
+          ? 'ciclo.atualizacoes.erro.permissao'
+          : r.status === 409
+            ? 'ciclo.atualizacoes.erro.estado'
+            : 'ciclo.atualizacoes.erro.publicar');
+    }
+    if (erroAtualizacao) textoAtualizacao = corpo;
 
   } else if (acao === 'comentar') {
     if (!corpo) {
@@ -223,6 +251,13 @@ const leituraComentarios = paginaPedida == null && ultimaPagina > 1
   ? await ler<Pagina<Comentario>>(caminhoComentarios(ultimaPagina), semComentarios)
   : primeiraLeitura;
 
+/* Atualizações de progresso: só pedidas com a flag ligada e numa ideia
+   que já saiu do rascunho. 404 e 405 viram "a API ainda não oferece". */
+const mostraAtualizacoes = ciclo && rfc != null && rfc.status !== 'DRAFT';
+const atualizacoes: EstadoAtualizacoes = mostraAtualizacoes
+  ? await listarAtualizacoes(Astro.cookies, rfc!.id)
+  : { tipo: 'indisponivel' };
+
 const versoes = leituraVersoes.dado;
 const inscricoes = leituraInscricoes.dado;
 const tags = leituraTags.dado;
@@ -261,6 +296,13 @@ const construtores = ativos.filter((i) => i.role === 'BUILDER');
    pra cá. Quando o backend devolver as encerradas, o bloco aparece
    sozinho, sem mudar nada aqui. */
 const quemSaiu = inscricoes.filter((i) => i.leftAt != null);
+
+/* Publica atualização quem escreveu ou está inscrito, e só em
+   construção. A API é quem decide de verdade; isto só evita o botão
+   que nunca daria certo. */
+const podePublicarAtualizacao = mostraAtualizacoes && rfc?.status === 'IN_BUILDING'
+  && usuario != null && (inscrito || usuario.id === rfc.author.id);
+const projeto = ciclo && rfc ? projetoDaRfc(rfc) : null;
 
 const podeEntrar = aberta && usuario != null && !inscrito;
 const podeSair = aberta && inscrito;
@@ -319,7 +361,8 @@ const corpoHtml = rfc ? renderizarMarkdown(rfc.body) : '';
 
 cachePublico(
   Astro,
-  semRede || leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou,
+  semRede || leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou
+    || atualizacoes.tipo === 'erro',
 );
 ---
 
@@ -366,6 +409,16 @@ cachePublico(
       </p>
     )}
 
+    {projeto && (
+      <aside class="virou-projeto" aria-labelledby="virou-projeto">
+        <p class="chip" id="virou-projeto">{t(lang, 'ciclo.virou.rotulo')}</p>
+        {projeto.resumo && <p class="virou-resumo">{projeto.resumo}</p>}
+        <a class="botao" href={projeto.url} rel="nofollow ugc noopener" target="_blank">
+          {t(lang, 'ciclo.virou.abrir')}<span class="so-leitor"> ({t(lang, 'ciclo.virou.externo')})</span>
+        </a>
+      </aside>
+    )}
+
     <figure class="capa-larga">
       <Materia
         tipo={m!.tipo}
@@ -376,7 +429,18 @@ cachePublico(
     </figure>
 
     <div class="leitura">
-      <article class="corpo-rfc" set:html={corpoHtml}></article>
+      <div class="coluna-corpo">
+        <article class="corpo-rfc" set:html={corpoHtml}></article>
+        {mostraAtualizacoes && (
+          <AtualizacoesRfc
+            estado={atualizacoes.tipo}
+            itens={atualizacoes.tipo === 'ok' ? atualizacoes.itens : []}
+            podePublicar={podePublicarAtualizacao}
+            erro={erroAtualizacao}
+            texto={textoAtualizacao}
+          />
+        )}
+      </div>
 
       {/* ---------- discussão ---------- */}
       <section class="secao-discussao" aria-labelledby="titulo-discussao">
@@ -727,6 +791,13 @@ cachePublico(
     padding: 0 8px 96px;
     align-items: start;
   }
+  .leitura .coluna-corpo { grid-area: corpo; min-width: 0; display: grid; gap: 64px; }
+  .virou-projeto {
+    display: grid; gap: 12px; justify-items: start;
+    background: var(--rebaixo); border-radius: var(--r-dentro);
+    padding: 18px 20px; margin: 0 8px 32px;
+  }
+  .virou-projeto .virou-resumo { margin: 0; font-size: 15px; color: var(--t-75); }
   .leitura .corpo-rfc { grid-area: corpo; padding: 0; font-size: 16.5px; line-height: 1.7; min-width: 0; }
   .leitura .secao-discussao { grid-area: discussao; min-width: 0; }
   .leitura .lado-rfc { grid-area: lado; top: 24px; }

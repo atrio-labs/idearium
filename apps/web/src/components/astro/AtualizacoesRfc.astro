@@ -1,0 +1,102 @@
+---
+/* ================================================================
+   AtualizacoesRfc.astro — atualizações de progresso (C1, PUBLIC_CICLO)
+   ================================================================
+   VISAO §6: o que quem constrói foi fazendo, em ordem cronológica,
+   separado da discussão. Só lista e formulário: quem decide se a
+   seção existe e quem pode publicar é a página. O formulário é POST
+   pra própria página (acao=atualizacao) e funciona sem JavaScript.
+
+   Três saídas além da lista: vazio, "a API ainda não oferece" (404 ou
+   405) e erro do servidor. Cada uma diz qual é, sem quebrar a página.
+   ================================================================ */
+import { haQuantoTempo } from '../../lib/api';
+import { LIMITE_CICLO, type AtualizacaoRfc } from '../../lib/ciclo';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+import { renderizarMarkdown } from '../../lib/markdown';
+
+interface Props {
+  estado: 'ok' | 'indisponivel' | 'erro';
+  itens: AtualizacaoRfc[];
+  podePublicar: boolean;
+  /** erro do envio, mostrado junto do campo */
+  erro?: string | null;
+  /** texto que a pessoa digitou e não pôde ser salvo */
+  texto?: string | null;
+}
+const { estado, itens, podePublicar, erro = null, texto = null } = Astro.props;
+const lang = idiomaDe(Astro);
+const { min, max } = LIMITE_CICLO.atualizacao;
+---
+
+<section class="atualizacoes" id="atualizacoes" aria-labelledby="titulo-atualizacoes">
+  <h2 id="titulo-atualizacoes">{t(lang, 'ciclo.atualizacoes.titulo')}</h2>
+  <p class="apoio">{t(lang, 'ciclo.atualizacoes.apoio')}</p>
+
+  {estado === 'indisponivel' && (
+    <p class="aviso-api" role="status">{t(lang, 'ciclo.atualizacoes.indisponivel')}</p>
+  )}
+  {estado === 'erro' && (
+    <p class="aviso-api" role="status">{t(lang, 'ciclo.atualizacoes.erro')}</p>
+  )}
+
+  {estado === 'ok' && itens.length === 0 && (
+    <p class="apoio">{t(lang, podePublicar ? 'ciclo.atualizacoes.vazio.pode' : 'ciclo.atualizacoes.vazio')}</p>
+  )}
+
+  {itens.length > 0 && (
+    <ol class="lista-atualizacoes">
+      {itens.map((u) => (
+        <li class="atualizacao" id={`u-${u.id}`}>
+          <p class="cabeca-atualizacao">
+            <a href={rota(lang, `/users/${u.author.username}`)}>{t(lang, 'ciclo.atualizacoes.autor', { nome: u.author.username })}</a>
+            <time datetime={u.createdAt}>{haQuantoTempo(u.createdAt, lang)}</time>
+          </p>
+          <div class="corpo-rfc" set:html={renderizarMarkdown(u.body)}></div>
+        </li>
+      ))}
+    </ol>
+  )}
+
+  {podePublicar && estado !== 'indisponivel' && (
+    <form method="post" class="nova-atualizacao">
+      <input type="hidden" name="acao" value="atualizacao" />
+      <div class:list={['campo', erro && 'com-erro']}>
+        <label class="rotulo" for="nova-atualizacao">{t(lang, 'ciclo.atualizacoes.rotulo')}</label>
+        <textarea
+          class="entrada"
+          id="nova-atualizacao"
+          name="corpo"
+          rows="4"
+          required
+          maxlength={max}
+          aria-describedby={erro ? 'erro-atualizacao ajuda-atualizacao' : 'ajuda-atualizacao'}
+          aria-invalid={erro ? 'true' : undefined}
+        >{texto ?? ''}</textarea>
+        <span class="ajuda" id="ajuda-atualizacao">{t(lang, 'ciclo.atualizacoes.ajuda', { min, max })}</span>
+        {erro && <span class="erro-campo" id="erro-atualizacao" role="alert">{erro}</span>}
+      </div>
+      <button class="botao" type="submit">{t(lang, 'ciclo.atualizacoes.acao')}</button>
+    </form>
+  )}
+</section>
+
+<style>
+  .atualizacoes h2 {
+    margin: 0 0 4px; font-size: 28px; font-weight: 500; letter-spacing: -0.03em;
+    line-height: 1.1; color: var(--t-100);
+  }
+  .atualizacoes > .apoio { margin: 0 0 20px; }
+  .lista-atualizacoes { list-style: none; margin: 0 0 24px; padding: 0; display: grid; gap: 12px; }
+  .atualizacao {
+    background: var(--rebaixo); border-radius: var(--r-dentro); padding: 16px 18px;
+  }
+  .cabeca-atualizacao {
+    display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+    margin: 0 0 8px; font-size: 13.5px; color: var(--t-65);
+  }
+  .cabeca-atualizacao a { color: var(--t-100); }
+  .atualizacao .corpo-rfc { padding: 0; font-size: 15px; }
+  .atualizacao .corpo-rfc :global(p:last-child) { margin-bottom: 0; }
+  .nova-atualizacao { margin-top: 8px; }
+</style>

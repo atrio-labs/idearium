@@ -30,11 +30,15 @@ import { comSessao } from '../../../lib/sessao';
 import { compararVersoes } from '../../../lib/diff';
 import { haQuantoTempo, codigoRfc, type Rfc, type Versao } from '../../../lib/api';
 import { idiomaDe, rota, t, type Chave } from '../../../lib/i18n';
+import { cicloLigado } from '../../../lib/ciclo';
 
 const lang = idiomaDe(Astro);
 const loc = lang === 'en' ? 'en' : 'pt-BR';
 const { slug } = Astro.params;
 const usuario = Astro.locals.usuario;
+/* C1 (PUBLIC_CICLO): a nota de mudança aparece junto da versão */
+const ciclo = cicloLigado();
+const notaDe = (v?: Versao) => (ciclo && v?.changeNote?.trim()) || null;
 
 /* Com sessão a resposta pode trazer rascunho: nada de cache. Sem
    sessão é igual pra todo mundo e o CDN pode segurar. */
@@ -230,6 +234,7 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
                   <p class="titulo-bloco" id="titulo-texto">
                     {t(lang, 'rfcs.versoes.texto.titulo', { n: versaoTexto.version, quando: haQuantoTempo(versaoTexto.createdAt, lang) })}
                   </p>
+                  {notaDe(versaoTexto) && <p class="nota-mudanca">{t(lang, 'ciclo.nota.versao', { nota: notaDe(versaoTexto)! })}</p>}
                   <pre class="texto-versao">{versaoTexto.body}</pre>
                   <p class="nota-versao">
                     {t(lang, 'rfcs.versoes.texto.nota')}
@@ -247,6 +252,8 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
                   <p class="titulo-bloco" id="titulo-diff">
                     {t(lang, 'rfcs.versoes.diff.titulo', { de: de.version, para: para.version })}
                   </p>
+
+                  {notaDe(para) && <p class="nota-mudanca">{t(lang, 'ciclo.nota.versao', { nota: notaDe(para)! })}</p>}
 
                   {mesmaVersao ? (
                     <p class="nota-versao">{t(lang, 'rfcs.versoes.diff.mesma')}</p>
@@ -319,6 +326,7 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
                         <time class="v-data" datetime={v.createdAt} title={dataLonga(v.createdAt)}>
                           {haQuantoTempo(v.createdAt, lang)} · {dataLonga(v.createdAt)}
                         </time>
+                        {notaDe(v) && <span class="v-nota">{notaDe(v)}</span>}
                         {quem && <span class="v-data">{t(lang, 'rfcs.versoes.por', { nome: quem })}</span>}
                         <span class="v-acoes">
                           <a href={rota(lang, `/rfcs/${rfc.slug}/versoes?v=${v.version}`)}>{t(lang, 'rfcs.versoes.ler')}</a>
@@ -373,6 +381,8 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
   }
   .v-num:hover { text-decoration: underline; }
   .v-data { font-size: 12.5px; color: var(--t-65); }
+  .v-nota { font-size: 13.5px; color: var(--t-75); }
+  .nota-mudanca { margin: 0 0 12px; font-size: 14px; color: var(--t-75); }
   .v-acoes { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; }
   .v-acoes a {
     display: inline-flex; align-items: center; min-height: 40px;

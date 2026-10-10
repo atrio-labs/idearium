@@ -79,6 +79,8 @@ export interface Versao {
   body: string;
   authorId: string;
   createdAt: string;
+  /** PROPOSTA (docs/contratos/ciclo.md): o que mudou e por quê */
+  changeNote?: string | null;
 }
 
 export interface Inscricao {

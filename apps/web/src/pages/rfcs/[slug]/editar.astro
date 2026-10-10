@@ -32,10 +32,15 @@ import {
 } from '../../../lib/api';
 import { idiomaDe, rota, separarIdioma, t } from '../../../lib/i18n';
 import { comSessao } from '../../../lib/sessao';
+import {
+  cicloLigado, desarquivar, LIMITE_CICLO, marcarComoProjeto, projetoDaRfc, urlDoProjeto,
+} from '../../../lib/ciclo';
 
 const lang = idiomaDe(Astro);
 const loc = lang === 'en' ? 'en' : 'pt-BR';
 const usuario = Astro.locals.usuario;
+/* C1 (PUBLIC_CICLO): virou projeto, trazer de volta e nota de mudança. */
+const ciclo = cicloLigado();
 /* Sem sessão, entrar e voltar pra cá, no mesmo idioma. O ?voltar= leva o
    caminho já com o prefixo (exigirSessao não sabe do idioma). */
 if (!usuario) {
@@ -135,6 +140,9 @@ let valorTags: string | null = null;
 let erros: Record<string, string> = {};
 let avisoGeral = '';
 let avisoOk = '';
+/* C1: o que a pessoa digitou em cada formulário novo, pra o erro não apagar */
+let valorNota = '';
+let valorProjeto = { url: '', resumo: '' };
 
 if (Astro.request.method === 'POST' && rfc) {
   const f = await Astro.request.formData();
@@ -159,6 +167,36 @@ if (Astro.request.method === 'POST' && rfc) {
       if (r.ok) return Astro.redirect(rota(lang, `/rfcs/${rfc.slug}`));
       avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.arquivar');
     }
+
+  } else if (acao === 'virou-projeto' && ciclo) {
+    valorProjeto = {
+      url: String(f.get('projectUrl') ?? '').trim(),
+      resumo: String(f.get('projectSummary') ?? '').trim(),
+    };
+    const { min, max } = LIMITE_CICLO.resumoProjeto;
+    const url = urlDoProjeto(valorProjeto.url);
+    if (!url) erros.projectUrl = t(lang, 'ciclo.projeto.erro.url');
+    if (valorProjeto.resumo.length < min || valorProjeto.resumo.length > max) {
+      erros.projectSummary = t(lang, 'ciclo.projeto.erro.resumo', { min, max });
+    }
+    if (url && !erros.projectSummary) {
+      const r = await marcarComoProjeto(Astro.cookies, rfc.id, url, valorProjeto.resumo);
+      if (r.ok) return Astro.redirect(rota(lang, `/rfcs/${rfc.slug}`), 303);
+      avisoGeral = t(lang, r.indisponivel
+        ? 'ciclo.indisponivel'
+        : r.status === 403
+          ? 'ciclo.projeto.erro.permissao'
+          : r.status === 409
+            ? 'ciclo.projeto.erro.estado'
+            : 'ciclo.projeto.erro');
+    }
+
+  } else if (acao === 'desarquivar' && ciclo) {
+    const r = await desarquivar(Astro.cookies, rfc.id);
+    if (r.ok) return Astro.redirect(rota(lang, `/rfcs/${rfc.slug}`), 303);
+    avisoGeral = t(lang, r.indisponivel
+      ? 'ciclo.indisponivel'
+      : r.status === 409 ? 'ciclo.volta.erro.estado' : 'ciclo.volta.erro');
 
   } else if (acao === 'tags') {
     valorTags = String(f.get('tags') ?? '');
@@ -186,9 +224,25 @@ if (Astro.request.method === 'POST' && rfc) {
     };
     erros = validar(valores);
 
+    valorNota = ciclo ? String(f.get('changeNote') ?? '').trim() : '';
+    if (valorNota.length > LIMITE_CICLO.notaMudanca.max) {
+      erros.changeNote = t(lang, 'ciclo.nota.erro', { max: LIMITE_CICLO.notaMudanca.max });
+    }
+
     if (Object.keys(erros).length === 0) {
       const corpoMudou = valores.body !== rfc.body;
-      const r = await comSessao<Rfc>(Astro.cookies, 'PATCH', `/rfcs/${rfc.id}`, valores);
+      const comNota = corpoMudou && valorNota !== '';
+      let r = await comSessao<Rfc>(
+        Astro.cookies, 'PATCH', `/rfcs/${rfc.id}`,
+        comNota ? { ...valores, changeNote: valorNota } : valores,
+      );
+      /* API que ainda não conhece changeNote recusa o campo com 400:
+         salva sem a nota e avisa, em vez de perder a edição. */
+      let semNota = false;
+      if (!r.ok && comNota && r.status === 400) {
+        r = await comSessao<Rfc>(Astro.cookies, 'PATCH', `/rfcs/${rfc.id}`, valores);
+        semNota = r.ok;
+      }
 
       if (r.ok && r.dado) {
         rfc = r.dado;
@@ -196,6 +250,8 @@ if (Astro.request.method === 'POST' && rfc) {
         avisoOk = corpoMudou
           ? t(lang, 'rfcs.editar.ok.versao', { n: rfc._count.versions })
           : t(lang, 'rfcs.editar.ok.semversao');
+        if (semNota) avisoOk += ' ' + t(lang, 'ciclo.nota.naosalva');
+        else valorNota = '';
       } else {
         avisoGeral = r.erro ?? t(lang, 'rfcs.editar.erro.salvar');
       }
@@ -224,6 +280,8 @@ if (!rfc) Astro.response.status = semRede ? 503 : 404;
 const ideia = rfc;
 const rascunho = ideia?.status === 'DRAFT';
 const arquivada = ideia?.status === 'ARCHIVED';
+const podeVirarProjeto = ciclo && (ideia?.status === 'IN_DISCUSSION' || ideia?.status === 'IN_BUILDING');
+const projeto = ciclo && ideia ? projetoDaRfc(ideia) : null;
 /* O número nasce na publicação e nunca é devolvido. É ele, e não a
    ausência de DRAFT, que diz se a ideia chegou a existir em público:
    um rascunho arquivado não é DRAFT e mesmo assim nunca foi publicado. */
@@ -370,6 +428,24 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
                 {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
               </div>
 
+              {ciclo && (
+                <div class:list={['campo', erros.changeNote && 'com-erro']}>
+                  <label class="rotulo" for="changeNote">{t(lang, 'ciclo.nota.rotulo')}</label>
+                  <input
+                    class="entrada"
+                    id="changeNote"
+                    name="changeNote"
+                    type="text"
+                    maxlength={LIMITE_CICLO.notaMudanca.max}
+                    value={valorNota}
+                    aria-describedby={descreve('changeNote')}
+                    aria-invalid={erros.changeNote ? 'true' : undefined}
+                  />
+                  <span class="ajuda" id="ajuda-changeNote">{t(lang, 'ciclo.nota.ajuda', { max: LIMITE_CICLO.notaMudanca.max })}</span>
+                  {erros.changeNote && <span class="erro-campo" id="erro-changeNote">{erros.changeNote}</span>}
+                </div>
+              )}
+
               <div class="rodape-form">
                 {rascunho ? (
                   <>
@@ -500,6 +576,57 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
               </section>
             )}
 
+            {/* ---- C1: virou projeto ---- */}
+            {podeVirarProjeto && (
+              <section class="secao">
+                <h2 class="titulo-secao">{t(lang, 'ciclo.projeto.titulo')}</h2>
+                <p class="texto">{t(lang, 'ciclo.projeto.texto')}</p>
+                <form method="post" novalidate>
+                  <input type="hidden" name="acao" value="virou-projeto" />
+                  <div class:list={['campo', erros.projectUrl && 'com-erro']}>
+                    <label class="rotulo" for="projectUrl">{t(lang, 'ciclo.projeto.url.rotulo')}</label>
+                    <input
+                      class="entrada"
+                      id="projectUrl"
+                      name="projectUrl"
+                      type="url"
+                      inputmode="url"
+                      maxlength="500"
+                      value={valorProjeto.url}
+                      placeholder="https://"
+                      aria-describedby={descreve('projectUrl')}
+                      aria-invalid={erros.projectUrl ? 'true' : undefined}
+                    />
+                    <span class="ajuda" id="ajuda-projectUrl">{t(lang, 'ciclo.projeto.url.ajuda')}</span>
+                    {erros.projectUrl && <span class="erro-campo" id="erro-projectUrl">{erros.projectUrl}</span>}
+                  </div>
+                  <div class:list={['campo', erros.projectSummary && 'com-erro']}>
+                    <label class="rotulo" for="projectSummary">{t(lang, 'ciclo.projeto.resumo.rotulo')}</label>
+                    <input
+                      class="entrada"
+                      id="projectSummary"
+                      name="projectSummary"
+                      type="text"
+                      maxlength={LIMITE_CICLO.resumoProjeto.max}
+                      value={valorProjeto.resumo}
+                      aria-describedby={descreve('projectSummary')}
+                      aria-invalid={erros.projectSummary ? 'true' : undefined}
+                    />
+                    <span class="ajuda" id="ajuda-projectSummary">{t(lang, 'ciclo.projeto.resumo.ajuda', LIMITE_CICLO.resumoProjeto)}</span>
+                    {erros.projectSummary && <span class="erro-campo" id="erro-projectSummary">{erros.projectSummary}</span>}
+                  </div>
+                  <button class="botao-secundario" type="submit">{t(lang, 'ciclo.projeto.acao')}</button>
+                </form>
+              </section>
+            )}
+            {projeto && (
+              <section class="secao">
+                <h2 class="titulo-secao">{t(lang, 'ciclo.projeto.feito.titulo')}</h2>
+                {projeto.resumo && <p class="texto">{projeto.resumo}</p>}
+                <p class="texto"><a href={projeto.url} rel="nofollow ugc noopener" target="_blank">{projeto.url}</a></p>
+              </section>
+            )}
+
             {/* Arquivar é a ação mais fria da tela e a única sem volta
                 hoje: fica por último. */}
             {arquivada ? (
@@ -508,6 +635,15 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
                 <p class="texto">
                   {t(lang, 'rfcs.editar.arquivada.texto', { quando: haQuantoTempo(ideia.archivedAt, lang) })}
                 </p>
+                {ciclo && (
+                  <>
+                    <p class="texto">{t(lang, 'ciclo.volta.texto')}</p>
+                    <form method="post">
+                      <input type="hidden" name="acao" value="desarquivar" />
+                      <button class="botao-secundario" type="submit">{t(lang, 'ciclo.volta.acao')}</button>
+                    </form>
+                  </>
+                )}
               </section>
             ) : rascunho ? null : (
               <section class="secao">
