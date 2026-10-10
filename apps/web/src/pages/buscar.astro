@@ -31,23 +31,22 @@ import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
 import CartaoIdeia from '../components/astro/CartaoIdeia.astro';
 import Vazio from '../components/astro/Vazio.astro';
+import { t, rota, idiomaDe } from '../lib/i18n';
 import {
-  listarLabs, listarRfcs, nomeCurtoDoLab, apiIndisponivel,
+  listarLabs, listarRfcs, nomeDoLab, apiIndisponivel, chamarApi,
   type Autor, type LabResumo, type Pagina, type RfcStatus,
 } from '../lib/api';
 import {
   fraseDaExigencia, lerConsulta, notaDeAcento, notaDoRadical,
-  palavrasDaConsulta, semAcento, type Idioma,
+  palavrasDaConsulta, semAcento, tradutorDe, CHAVES_LEITURA, type Idioma,
 } from '../lib/leitura-busca';
 import { nivelDeUso } from '../lib/peso-tag';
 import { cachePublico } from '../lib/cache';
 
-/* A api.ts ainda não expõe /search — ela é de outro agente e está sendo
-   editada em paralelo. Até lá a chamada mora aqui, com o mesmo contrato
-   do resto do cliente: nunca lança, e separa "não achei" de "não falei
+/* A api.ts ainda não expõe /search, então a chamada mora aqui, mas passa
+   por `chamarApi` pra mandar o x-lang da requisição. Mesmo contrato do
+   resto do cliente: nunca lança, e separa "não achei" de "não falei
    com o servidor". */
-const BASE = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000';
-
 interface Achado {
   id: string;
   number: number | null;
@@ -72,33 +71,34 @@ interface TagResumo {
 async function pedir<T>(
   caminho: string,
 ): Promise<{ dado: T | null; caiu: boolean; recusada: boolean }> {
-  try {
-    const r = await fetch(BASE + caminho, { headers: { Accept: 'application/json' } });
-    if (!r.ok) {
-      /* 400 e 422 são a API recusando a consulta, e a pessoa precisa ler
-         isso no campo. Todo o resto (404 de rota, 429, 502 de gateway) é
-         indisponibilidade: chamar de "nada encontrado" esconderia a queda. */
-      const recusada = r.status === 400 || r.status === 422;
-      return { dado: null, caiu: !recusada, recusada };
-    }
-    return { dado: (await r.json()) as T, caiu: false, recusada: false };
-  } catch {
-    return { dado: null, caiu: true, recusada: false };
-  }
+  const r = await chamarApi<T>(caminho);
+  /* 400 e 422 são a API recusando a consulta, e a pessoa precisa ler
+     isso no campo. Todo o resto (404 de rota, 429, 502 de gateway, rede
+     fora) é indisponibilidade: chamar de "nada encontrado" esconderia
+     a queda. */
+  const recusada = r.status === 400 || r.status === 422;
+  const ok = r.status >= 200 && r.status < 300;
+  return { dado: r.dado, caiu: !ok && !recusada, recusada };
 }
 
 /* Teto do SearchQueryDto. Pedir mais devolve 400, não uma lista maior. */
 const LIMITE_BUSCA = 50;
 
+const lang = idiomaDe(Astro);
 const IDIOMAS: { valor: Idioma; texto: string }[] = [
-  { valor: 'pt-BR', texto: 'português' },
-  { valor: 'en', texto: 'inglês' },
+  { valor: 'pt-BR', texto: t(lang, 'busca.idioma.pt-BR') },
+  { valor: 'en', texto: t(lang, 'busca.idioma.en') },
 ];
 
 const params = Astro.url.searchParams;
 const termo = (params.get('q') ?? '').trim();
 const labPedido = params.get('lab') ?? '';
-const idioma: Idioma = params.get('locale') === 'en' ? 'en' : 'pt-BR';
+/* Sem ?locale=, a busca segue o idioma da interface. A busca não cruza
+   idiomas (ROADMAP_BACKEND §2.5), então o padrão certo é o idioma em
+   que a pessoa está lendo. */
+const localePedido = params.get('locale');
+const idioma: Idioma =
+  localePedido === 'en' || localePedido === 'pt-BR' ? localePedido : lang;
 
 /* A API exige 2 caracteres. Vale avisar no campo em vez de mandar a
    consulta e traduzir um 400 depois. */
@@ -123,7 +123,7 @@ let populares: TagResumo[] = [];
 const enderecoDaBusca = (q: string) => {
   const p = new URLSearchParams({ q, locale: idioma });
   if (labEscolhido) p.set('lab', labEscolhido);
-  return `/buscar?${p}`;
+  return rota(lang, `/buscar?${p}`);
 };
 
 if (buscou) {
@@ -204,40 +204,44 @@ const paraCartao = (a: Achado) => ({
   updatedAt: a.publishedAt ?? '',
 });
 
-const nomeDoLab = labs.find((l) => l.slug === labEscolhido);
-const filtrando = Boolean(labEscolhido) || idioma !== 'pt-BR';
+const labAtual = labs.find((l) => l.slug === labEscolhido);
+const nomeCurto = (l: { slug: string; name: string }) => nomeDoLab(l, lang);
+const filtrando = Boolean(labEscolhido) || idioma !== lang;
 
 /* A leitura da consulta, montada aqui pra quem chega pelo link ou está
    sem JavaScript. O mesmo cálculo roda no navegador a cada tecla. */
+const textosLeitura = Object.fromEntries(CHAVES_LEITURA.map((c) => [c, t(lang, c)]));
+const tx = tradutorDe(textosLeitura);
 const consulta = lerConsulta(termo, idioma);
-const nota = notaDeAcento(termo, idioma);
-const radical = notaDoRadical(idioma);
+const nota = notaDeAcento(termo, idioma, tx);
+const radical = notaDoRadical(idioma, tx);
 const nomeDoIdioma = IDIOMAS.find((i) => i.valor === idioma)!.texto;
-const recorte = nomeDoLab ? nomeCurtoDoLab(nomeDoLab.name) : 'todos os laboratórios';
+const todosOsLabs = t(lang, 'busca.leitura.recorte.todos');
+const recorte = labAtual ? nomeCurto(labAtual) : todosOsLabs;
 
 /* O campo fala da consulta, o vazio fala do resultado. Sem essa separação
    uma consulta recusada aparecia como "nada encontrado", e a pessoa
    procurava o erro na palavra que escreveu. */
 const erroNoCampo = curtoDemais
-  ? 'Escreva pelo menos duas letras.'
+  ? t(lang, 'busca.erro.curto')
   : recusada
-    ? 'A busca recusou esta consulta. Ela aceita até 200 caracteres no termo.'
+    ? t(lang, 'busca.erro.recusada')
     : null;
 
 /* Com sugestão verificada, o texto do vazio sai de cena: a oferta
    concreta logo abaixo diz mais do que qualquer conselho. */
 const textoVazio = sugestao
-  ? 'A consulta rodou inteira e nenhuma ideia casou com ela.'
+  ? t(lang, 'busca.semachado.sugestao')
   : filtrando
-    ? 'Talvez o recorte esteja apertado. Tente sem escolher laboratório, ou no outro idioma.'
-    : 'Tente uma palavra mais geral, ou o termo que a pessoa usaria para descrever o problema.';
+    ? t(lang, 'busca.semachado.recorte')
+    : t(lang, 'busca.semachado.geral');
 
 cachePublico(Astro, caiu || apiIndisponivel());
 ---
 
 <Layout
-  title={buscou ? `Idearium · busca por ${termo}` : 'Idearium · Buscar'}
-  description="Procure ideias abertas por palavra, laboratório e idioma."
+  title={buscou ? t(lang, 'busca.titulo.termo', { termo }) : t(lang, 'busca.titulo')}
+  description={t(lang, 'busca.descricao')}
 >
   <div class="palco">
     <Nav atual="buscar" />
@@ -248,20 +252,21 @@ cachePublico(Astro, caiu || apiIndisponivel());
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
     <header class="cabecalho-pagina">
-      <span class="mono rotulo-pagina">busca</span>
-      <h1>Procure pelo <span class="serif">problema</span>.</h1>
+      <span class="mono rotulo-pagina">{t(lang, 'busca.rotulo')}</span>
+      <h1>{t(lang, 'busca.h1.antes')}<span class="serif">{t(lang, 'busca.h1.serif')}</span>{t(lang, 'busca.h1.depois')}</h1>
       <p class="sub">
-        A busca lê o título, o resumo e o corpo das ideias já publicadas.
-        Rascunho não aparece aqui.
+        {t(lang, 'busca.sub')}
+        {' '}{t(lang, 'busca.sub.idioma')}
       </p>
     </header>
 
     {/* O formulário é o que se opera; a leitura acompanha, em coluna
         estreita. Abaixo de 920px ela desce, mas não some. */}
     <div class="oficina">
-      <form class="forma-busca" method="get" action="/buscar" role="search">
+      <form class="forma-busca" method="get" action={rota(lang, '/buscar')} role="search"
+        data-textos={JSON.stringify(textosLeitura)}>
         <div class:list={['campo', erroNoCampo && 'com-erro']}>
-          <label class="rotulo" for="q">o que você procura</label>
+          <label class="rotulo" for="q">{t(lang, 'busca.campo.rotulo')}</label>
           <div class="caixa-busca">
             <input
               class="entrada"
@@ -269,12 +274,12 @@ cachePublico(Astro, caiu || apiIndisponivel());
               name="q"
               type="search"
               value={termo}
-              placeholder="alagamento, merenda, transporte"
+              placeholder={t(lang, 'busca.campo.exemplo')}
               maxlength="200"
               autocomplete="off"
               aria-describedby={erroNoCampo ? 'erro-q nota-acento' : 'nota-acento'}
             />
-            <button class="botao" type="submit">buscar</button>
+            <button class="botao" type="submit">{t(lang, 'busca.botao')}</button>
           </div>
           {erroNoCampo && (
             <span class="erro-campo" id="erro-q">{erroNoCampo}</span>
@@ -283,19 +288,19 @@ cachePublico(Astro, caiu || apiIndisponivel());
 
         <div class="filtros">
           <div class="grupo" role="group" aria-labelledby="rotulo-lab">
-            <span class="rotulo" id="rotulo-lab">laboratório</span>
+            <span class="rotulo" id="rotulo-lab">{t(lang, 'busca.filtro.lab')}</span>
             <label class="opcao">
               <input type="radio" name="lab" value="" checked={labEscolhido === ''}
-                data-leitura="todos os laboratórios" />
-              <span class="filtro">todos</span>
+                data-leitura={todosOsLabs} />
+              <span class="filtro">{t(lang, 'busca.filtro.todos')}</span>
             </label>
             {labs.map((l) => (
               <label class="opcao">
                 <input type="radio" name="lab" value={l.slug} checked={labEscolhido === l.slug}
-                  data-leitura={nomeCurtoDoLab(l.name)} />
+                  data-leitura={nomeCurto(l)} />
                 <span class="filtro">
                   <span class="swatch" style={`background: var(--color-${l.slug})`}></span>
-                  {nomeCurtoDoLab(l.name)}
+                  {nomeCurto(l)}
                 </span>
               </label>
             ))}
@@ -304,7 +309,7 @@ cachePublico(Astro, caiu || apiIndisponivel());
 
         <div class="filtros" style="padding-top:0">
           <div class="grupo" role="group" aria-labelledby="rotulo-idioma">
-            <span class="rotulo" id="rotulo-idioma">idioma</span>
+            <span class="rotulo" id="rotulo-idioma">{t(lang, 'busca.filtro.idioma')}</span>
             {IDIOMAS.map((i) => (
               <label class="opcao">
                 <input type="radio" name="locale" value={i.valor} checked={idioma === i.valor}
@@ -321,7 +326,7 @@ cachePublico(Astro, caiu || apiIndisponivel());
           ouve. Quem depende do leitor de tela recebe a nota de acento
           pelo aria-describedby do campo, uma vez, no foco. */}
       <aside class="bloco leitura">
-        <p class="titulo-bloco">como a busca lê</p>
+        <p class="titulo-bloco">{t(lang, 'busca.leitura.titulo')}</p>
 
         {/* Só o que vira exigência entra na fila. A palavra comum não
             some da tela: ela desce pra linha de descarte logo abaixo,
@@ -332,23 +337,23 @@ cachePublico(Astro, caiu || apiIndisponivel());
             {consulta.exigidas.length > 0
               ? consulta.exigidas.map((p, i) => (
                   <>
-                    {i > 0 && <span class="junta">e</span>}
+                    {i > 0 && <span class="junta">{tx('busca.leitura.junta')}</span>}
                     <span class="lexema novo" style={`--i:${i}`}>{p}</span>
                   </>
                 ))
               : (
                   <span class="lexema fantasma">
                     {consulta.descartadas.length > 0
-                      ? 'nada sobrou'
-                      : 'sua palavra aparece aqui'}
+                      ? tx('busca.leitura.nada')
+                      : tx('busca.leitura.fantasma')}
                   </span>
                 )}
           </div>
 
-          <p class="exige" id="exige">{fraseDaExigencia(consulta)}</p>
+          <p class="exige" id="exige">{fraseDaExigencia(consulta, tx)}</p>
 
           <p class="descartadas" id="descartadas" hidden={consulta.descartadas.length === 0}>
-            <span class="rotulo-linha">descartadas</span>
+            <span class="rotulo-linha">{t(lang, 'busca.leitura.descartadas')}</span>
             <span class="fora" id="fora">
               {consulta.descartadas.map((p) => (
                 <span class="lexema comum">{p}</span>
@@ -358,42 +363,38 @@ cachePublico(Astro, caiu || apiIndisponivel());
         </div>
 
         <div class="linha">
-          <span class="rotulo-linha">dicionário</span>
+          <span class="rotulo-linha">{t(lang, 'busca.leitura.dicionario')}</span>
           <b id="leitura-idioma">{nomeDoIdioma}</b>
         </div>
         <div class="linha">
-          <span class="rotulo-linha">recorte</span>
+          <span class="rotulo-linha">{t(lang, 'busca.leitura.recorte')}</span>
           <b id="leitura-lab">{recorte}</b>
         </div>
         <div class="linha">
-          <span class="rotulo-linha">peso</span>
-          <b>título › resumo › corpo</b>
+          <span class="rotulo-linha">{t(lang, 'busca.leitura.peso')}</span>
+          <b>{t(lang, 'busca.leitura.peso.valor')}</b>
         </div>
 
         <p class="nota-acento" id="nota-acento">
-          {nota.map((t) => (t.forte ? <b>{t.t}</b> : t.t))}
+          {nota.map((tr) => (tr.forte ? <b>{tr.t}</b> : tr.t))}
         </p>
 
         <p class="nota-radical" id="nota-radical">
-          {radical.map((t) => (t.forte ? <b>{t.t}</b> : t.t))}
+          {radical.map((tr) => (tr.forte ? <b>{tr.t}</b> : tr.t))}
         </p>
       </aside>
     </div>
 
     {caiu && (
       <p class="aviso-api">
-        <b>Não consegui falar com o servidor.</b> O resultado abaixo pode estar
-        vazio por isso, não por falta de ideias.
+        <b>{t(lang, 'comum.api.aviso')}</b> {t(lang, 'busca.aviso.resto')}
       </p>
     )}
 
     {!buscou ? (
       <div class="cartao convite vem">
-        <p class="titulo-bloco">por onde começar</p>
-        <p class="texto-convite">
-          Escreva uma palavra do problema, não o nome de um projeto. Quem
-          escreveu a ideia descreveu o que dói, e é isso que está indexado.
-        </p>
+        <p class="titulo-bloco">{t(lang, 'busca.convite.rotulo')}</p>
+        <p class="texto-convite">{t(lang, 'busca.convite.texto')}</p>
         {populares.length > 0 ? (
           <>
             {/* sem número: o usageCount que /tags devolve inclui rascunho e
@@ -402,32 +403,32 @@ cachePublico(Astro, caiu || apiIndisponivel());
                 mesmo cálculo de /tags, pra tag não mudar de peso entre as
                 duas telas. */}
             <div class="nuvem-tags">
-              {populares.map((t) => (
-                <a class="tag" href={`/tags/${t.slug}`}
-                  data-peso={nivelDeUso(t.usageCount, maiorUso)}>{t.name}</a>
+              {populares.map((tg) => (
+                <a class="tag" href={rota(lang, `/tags/${tg.slug}`)}
+                  data-peso={nivelDeUso(tg.usageCount, maiorUso)}>{tg.name}</a>
               ))}
             </div>
             <p class="saida">
-              as mais usadas primeiro · <a href="/tags">ver todas as tags</a>
+              {t(lang, 'busca.convite.ordem')}<a href={rota(lang, '/tags')}>{t(lang, 'busca.convite.todas')}</a>
             </p>
           </>
         ) : (
           <p class="saida">
             {caiu
-              ? 'As tags aparecem aqui assim que o servidor responder. '
-              : 'Nenhuma ideia foi marcada com tag ainda. '}
-            <a href="/rfcs">ver todas as ideias</a>
+              ? t(lang, 'busca.convite.semtags.queda')
+              : t(lang, 'busca.convite.semtags')}
+            <a href={rota(lang, '/rfcs')}>{t(lang, 'busca.acao.ideias')}</a>
           </p>
         )}
       </div>
     ) : achados.length > 0 ? (
       <>
         <p class="contagem">
-          {total} {total === 1 ? 'ideia encontrada' : 'ideias encontradas'}
-          {nomeDoLab && ` em ${nomeCurtoDoLab(nomeDoLab.name)}`}
-          {idioma === 'en' && ' em inglês'}
-          {total > achados.length && ` · mostrando ${achados.length}`}
-          {' · mais próximas da consulta primeiro, não mais recentes'}
+          {t(lang, total === 1 ? 'busca.contagem.um' : 'busca.contagem.varios', { n: total })}
+          {labAtual && t(lang, 'busca.contagem.lab', { lab: nomeCurto(labAtual) })}
+          {t(lang, 'busca.contagem.idioma', { idioma: nomeDoIdioma })}
+          {total > achados.length && t(lang, 'busca.contagem.mostrando', { n: achados.length })}
+          {t(lang, 'busca.contagem.ordem')}
         </p>
         <div class="grade">
           {achados.map((a) => <CartaoIdeia rfc={paraCartao(a)} />)}
@@ -436,35 +437,33 @@ cachePublico(Astro, caiu || apiIndisponivel());
     ) : caiu || recusada ? (
       <Vazio
         falha={caiu}
-        titulo={caiu ? 'O servidor não respondeu' : 'A consulta não foi aceita'}
-        texto={caiu
-          ? 'Assim que a API voltar, o resultado aparece aqui.'
-          : 'A busca não chegou a rodar. Encurte o termo e tente de novo.'}
+        titulo={t(lang, caiu ? 'comum.vazio.falha.titulo' : 'busca.recusada.titulo')}
+        texto={t(lang, caiu ? 'busca.queda.texto' : 'busca.recusada.texto')}
       />
     ) : (
       /* Vazio.astro não recebe filho, e este caso precisa carregar a
          oferta com a palavra do acervo. Mesmas classes, então continua
          sendo o mesmo objeto na tela. */
       <div class="vazio sem-achado vem">
-        <p class="mono rotulo">a busca rodou e voltou vazia</p>
-        <h3>Nada encontrado para <span class="mono termo">{termo}</span></h3>
+        <p class="mono rotulo">{t(lang, 'busca.semachado.rotulo')}</p>
+        <h3>{t(lang, 'busca.semachado.titulo')}<span class="mono termo">{termo}</span></h3>
         <p class="texto">{textoVazio}</p>
 
         {sugestao && (
           <a class="oferta" href={enderecoDaBusca(sugestao.termo)}>
-            <span class="mono r">esta palavra existe no acervo, com acento</span>
+            <span class="mono r">{t(lang, 'busca.oferta.rotulo')}</span>
             <span class="troca">
               <span class="de">{termo.toLowerCase()}</span>
               <span class="seta" aria-hidden="true">→</span>
               <span class="para">{sugestao.termo}</span>
             </span>
             <span class="mono conta">
-              {sugestao.total} {sugestao.total === 1 ? 'ideia' : 'ideias'} — buscar assim
+              {t(lang, sugestao.total === 1 ? 'busca.oferta.um' : 'busca.oferta.varios', { n: sugestao.total })}
             </span>
           </a>
         )}
 
-        <a class="botao leve" href="/rfcs">ver todas as ideias</a>
+        <a class="botao leve" href={rota(lang, '/rfcs')}>{t(lang, 'busca.acao.ideias')}</a>
       </div>
     )}
 
@@ -701,7 +700,7 @@ cachePublico(Astro, caiu || apiIndisponivel());
 
 <script>
   import {
-    fraseDaExigencia, lerConsulta, notaDeAcento, notaDoRadical,
+    fraseDaExigencia, lerConsulta, notaDeAcento, notaDoRadical, tradutorDe,
     type Idioma, type Trecho,
   } from '../lib/leitura-busca';
 
@@ -721,6 +720,11 @@ cachePublico(Astro, caiu || apiIndisponivel());
       const nota = document.querySelector<HTMLElement>('#nota-acento');
       const radical = document.querySelector<HTMLElement>('#nota-radical');
       if (!campo || !caixa || !exige || !descartadas || !fora || !nota || !radical) return;
+      /* As frases da leitura chegam resolvidas no idioma da interface,
+         num data-attribute: o navegador não carrega os dicionários. */
+      let textos: Record<string, string> = {};
+      try { textos = JSON.parse(forma?.dataset.textos ?? '{}'); } catch { /* sem textos: mostra a chave */ }
+      const tx = tradutorDe(textos);
 
       /* O dicionário escolhido decide quais palavras são descartadas e
          quais exemplos as notas usam, então a leitura precisa do rádio
@@ -760,22 +764,22 @@ cachePublico(Astro, caiu || apiIndisponivel());
                 const lexema = pilula(i >= quantasAntes ? 'lexema novo' : 'lexema', p);
                 lexema.style.setProperty('--i', '0');
                 if (i === 0) return [lexema];
-                return [pilula('junta', 'e'), lexema];
+                return [pilula('junta', tx('busca.leitura.junta')), lexema];
               })
             : [pilula(
                 'lexema fantasma',
-                consulta.descartadas.length ? 'nada sobrou' : 'sua palavra aparece aqui',
+                consulta.descartadas.length ? tx('busca.leitura.nada') : tx('busca.leitura.fantasma'),
               )]),
         );
         quantasAntes = consulta.exigidas.length;
 
-        exige.textContent = fraseDaExigencia(consulta);
+        exige.textContent = fraseDaExigencia(consulta, tx);
 
         descartadas.hidden = consulta.descartadas.length === 0;
         fora.replaceChildren(...consulta.descartadas.map((p) => pilula('lexema comum', p)));
 
-        nota.replaceChildren(...emTrechos(notaDeAcento(campo.value, idioma)));
-        radical.replaceChildren(...emTrechos(notaDoRadical(idioma)));
+        nota.replaceChildren(...emTrechos(notaDeAcento(campo.value, idioma, tx)));
+        radical.replaceChildren(...emTrechos(notaDoRadical(idioma, tx)));
       };
 
       campo.addEventListener('input', remontar);

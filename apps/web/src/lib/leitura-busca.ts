@@ -18,6 +18,41 @@
    índice joga fora antes de montar o tsquery.
    ================================================================ */
 
+import type { Chave } from './i18n';
+
+/* O texto da leitura vem do dicionário `busca` (src/i18n/busca.ts), no
+   idioma da INTERFACE. Isso é independente do `Idioma` abaixo, que é o
+   dicionário da BUSCA: quem lê em inglês pode consultar o índice em
+   português. O módulo roda no servidor e no navegador, e o navegador
+   não carrega os dicionários inteiros: a página resolve só as chaves
+   abaixo e as entrega num data-attribute, e `tradutorDe` as lê. */
+export const CHAVES_LEITURA = [
+  'busca.leitura.junta', 'busca.leitura.nada', 'busca.leitura.fantasma',
+  'busca.leitura.exige.nenhuma', 'busca.leitura.exige.descartou',
+  'busca.leitura.exige.uma', 'busca.leitura.exige.duas', 'busca.leitura.exige.varias',
+  'busca.leitura.acento.acentuada', 'busca.leitura.acento.acentuavel',
+  'busca.leitura.acento.exemplo', 'busca.leitura.radical',
+] as const satisfies readonly Chave[];
+
+export type ChaveLeitura = (typeof CHAVES_LEITURA)[number];
+export type Tradutor = (chave: ChaveLeitura) => string;
+
+export const tradutorDe = (textos: Record<string, string>): Tradutor =>
+  (chave) => textos[chave] ?? chave;
+
+/** Parte "texto {palavra} texto" em trechos; o que está entre chaves
+ *  vira a palavra destacada, vinda de `palavras`. Marcador sem palavra
+ *  fica como está, pra aparecer na revisão. */
+function emTrechos(texto: string, palavras: Record<string, string>): Trecho[] {
+  return texto
+    .split(/(\{\w+\})/)
+    .filter(Boolean)
+    .map((parte) => {
+      const nome = /^\{(\w+)\}$/.exec(parte)?.[1];
+      return nome && nome in palavras ? { t: palavras[nome], forte: true } : { t: parte };
+    });
+}
+
 /** Os dois dicionários que a API escolhe pelo `locale` da consulta
  *  (`portuguese` ou `english`, search.service.ts). Tudo que muda entre
  *  eles passa por aqui, para a coluna nunca descrever um índice
@@ -96,15 +131,15 @@ export function lerConsulta(termo: string, idioma: Idioma): Consulta {
 /** A frase que conta o que a consulta exige. Só as palavras que
  *  sobraram contam: dizer "todas juntas" sobre uma lista que inclui
  *  palavra descartada seria descrever outra busca. */
-export function fraseDaExigencia({ exigidas, descartadas }: Consulta): string {
+export function fraseDaExigencia({ exigidas, descartadas }: Consulta, tx: Tradutor): string {
   if (exigidas.length === 0) {
-    return descartadas.length === 0
-      ? 'toda palavra que você escrever vira uma exigência.'
-      : 'o dicionário descarta todas. Não sobra nada para procurar.';
+    return tx(descartadas.length === 0
+      ? 'busca.leitura.exige.nenhuma'
+      : 'busca.leitura.exige.descartou');
   }
-  if (exigidas.length === 1) return 'a ideia precisa ter esta palavra.';
-  if (exigidas.length === 2) return 'a ideia precisa ter as duas, na mesma ideia.';
-  return 'todas juntas, na mesma ideia.';
+  if (exigidas.length === 1) return tx('busca.leitura.exige.uma');
+  if (exigidas.length === 2) return tx('busca.leitura.exige.duas');
+  return tx('busca.leitura.exige.varias');
 }
 
 /* Um par por dicionário: o radical e o acento. A coluna afirma estar
@@ -127,18 +162,15 @@ const EXEMPLOS: Record<Idioma, { radical: [string, string]; comuns: [string, str
  *  genérico obriga a pessoa a adivinhar de qual palavra ele fala.
  *  Só olha as exigidas: falar de uma palavra que o dicionário
  *  descartou seria dar conselho sobre algo que não muda o resultado. */
-export function notaDeAcento(termo: string, idioma: Idioma): Trecho[] {
+export function notaDeAcento(termo: string, idioma: Idioma, tx: Tradutor): Trecho[] {
   const { exigidas } = lerConsulta(termo, idioma);
 
   const acentuada = exigidas.find((p) => semAcento(p) !== p);
   if (acentuada) {
-    return [
-      { t: 'você escreveu ' },
-      { t: acentuada, forte: true },
-      { t: ' com acento. Para a busca, ' },
-      { t: semAcento(acentuada), forte: true },
-      { t: ' seria outra palavra.' },
-    ];
+    return emTrechos(tx('busca.leitura.acento.acentuada'), {
+      palavra: acentuada,
+      sem: semAcento(acentuada),
+    });
   }
 
   /* Aponta a primeira palavra que costuma levar acento, em vez de
@@ -150,36 +182,18 @@ export function notaDeAcento(termo: string, idioma: Idioma): Trecho[] {
       ? exigidas.find((p) => p.length >= 3 && /[aeiouc]/.test(p))
       : undefined;
   if (acentuavel) {
-    return [
-      { t: 'se ' },
-      { t: acentuavel, forte: true },
-      { t: ' leva acento, escreva com ele. A busca guarda o acento, então a versão acentuada é outra palavra.' },
-    ];
+    return emTrechos(tx('busca.leitura.acento.acentuavel'), { palavra: acentuavel });
   }
 
   const [sem, com] = EXEMPLOS[idioma].acento;
-  return [
-    { t: 'a busca guarda o acento: ' },
-    { t: sem, forte: true },
-    { t: ' e ' },
-    { t: com, forte: true },
-    { t: ' são palavras diferentes.' },
-  ];
+  return emTrechos(tx('busca.leitura.acento.exemplo'), { sem, com });
 }
 
 /** O que o dicionário faz com o que sobrou: compara radicais e ignora
  *  palavra comum. Os dois exemplos vêm do dicionário em uso. */
-export function notaDoRadical(idioma: Idioma): Trecho[] {
+export function notaDoRadical(idioma: Idioma, tx: Tradutor): Trecho[] {
   const { radical, comuns } = EXEMPLOS[idioma];
-  return [
-    { t: 'O dicionário compara radicais — ' },
-    { t: radical[0], forte: true },
-    { t: ' encontra ' },
-    { t: radical[1], forte: true },
-    { t: ' — e descarta palavra comum demais, como ' },
-    { t: comuns[0], forte: true },
-    { t: ' ou ' },
-    { t: comuns[1], forte: true },
-    { t: '.' },
-  ];
+  return emTrechos(tx('busca.leitura.radical'), {
+    a: radical[0], b: radical[1], c: comuns[0], d: comuns[1],
+  });
 }
