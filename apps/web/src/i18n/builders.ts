@@ -4,10 +4,8 @@ const ptBR = {
   'builders.titulo': 'Idearium · Mãos',
   'builders.descricao':
     'Quem preencheu perfil dizendo o que sabe fazer e topa construir ideia dos outros.',
-  'builders.rotulo': 'mãos disponíveis',
-  'builders.h1.antes': 'Quem topa ',
-  'builders.h1.serif': 'construir',
-  'builders.h1.depois': '.',
+  'builders.h1.antes': 'Quem topa construir ',
+  'builders.h1.apagado': 'ideias dos outros.',
   'builders.sub':
     'Ninguém aqui cobra e ninguém contrata: não é marketplace nem diretório ' +
     'de freelancer. São pessoas que escreveram o que sabem fazer e topam ' +
@@ -42,10 +40,8 @@ const en: Record<keyof typeof ptBR, string> = {
   'builders.titulo': 'Idearium · Hands',
   'builders.descricao':
     'People who filled in a profile saying what they can do and are up for building other people’s ideas.',
-  'builders.rotulo': 'hands available',
-  'builders.h1.antes': 'Who is up for ',
-  'builders.h1.serif': 'building',
-  'builders.h1.depois': '.',
+  'builders.h1.antes': 'Who is up for building ',
+  'builders.h1.apagado': 'other people’s ideas.',
   'builders.sub':
     'Nobody here charges and nobody hires: this is not a marketplace or a ' +
     'freelancer directory. These are people who wrote down what they can ' +

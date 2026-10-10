@@ -99,10 +99,9 @@ cachePublico(Astro, semRede);
   <div class="palco">
     <Nav atual="builders" />
 
-    <header class="cabecalho-pagina">
-      <span class="mono rotulo-lista">{t(lang, 'builders.rotulo')}</span>
-      <h1>{t(lang, 'builders.h1.antes')}<span class="serif">{t(lang, 'builders.h1.serif')}</span>{t(lang, 'builders.h1.depois')}</h1>
-      <p class="sub">{t(lang, 'builders.sub')}</p>
+    <header class="abertura-maos">
+      <h1 class="titulo-duplo">{t(lang, 'builders.h1.antes')}<span class="apagado">{t(lang, 'builders.h1.apagado')}</span></h1>
+      <p class="apoio">{t(lang, 'builders.sub')}</p>
     </header>
 
     {semRede && (
@@ -113,13 +112,13 @@ cachePublico(Astro, semRede);
 
     {maos.length > 0 && (
       <div class="linha-lista">
-        <p class="contagem">
+        <p class="apoio contagem">
           {/* uma string só: entre duas interpolações o espaço se perde */}
           {contagemConfiavel && t(lang, maos.length === 1 ? 'builders.contagem.um' : 'builders.contagem.varios', { n: maos.length })}
           {t(lang, 'builders.contagem.ordem')}
         </p>
         {/* A regra dita em voz alta pra ninguém ler posição como mérito */}
-        <p class="contagem regra">
+        <p class="apoio contagem regra">
           {t(lang, 'builders.regra')}
         </p>
       </div>
@@ -147,13 +146,13 @@ cachePublico(Astro, semRede);
             inteiro, se o que faltou foi só marcar a disponibilidade. */}
         {!jaEstaNaLista && (
           <a class="builder-card slot" href={rota(lang, '/perfil')}>
-            <span class="mono marca-slot">
+            <span class="apoio marca-slot">
               {t(lang, soPausado ? 'builders.slot.pausado.marca' : 'builders.slot.novo.marca')}
             </span>
             <p class="frase">
               {t(lang, soPausado ? 'builders.slot.pausado.frase' : 'builders.slot.novo.frase')}
             </p>
-            <span class="chip pequeno oco">
+            <span class="botao-secundario">
               {t(lang, soPausado ? 'builders.slot.pausado.acao' : 'builders.slot.novo.acao')} &rarr;
             </span>
           </a>
@@ -177,12 +176,9 @@ cachePublico(Astro, semRede);
   /* A defesa do `.vem` sem JS mora no próprio CartaoMao.astro: a regra
      precisa alcançar o cartão, que agora é componente. */
 
-  .rotulo-lista {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--t-35);
-  }
+  .abertura-maos { padding: clamp(48px, 9vh, 88px) 4px 40px; display: grid; gap: 20px; }
+  .abertura-maos h1 { max-width: 22ch; }
+  .abertura-maos .apoio { max-width: 56ch; }
 
   /* o rodapé encostava na última fileira de cartões */
   .grade-builders { margin-bottom: 18px; }
@@ -190,43 +186,38 @@ cachePublico(Astro, semRede);
   .linha-lista {
     display: flex;
     justify-content: space-between;
-    gap: 14px;
+    gap: 6px 14px;
     flex-wrap: wrap;
     align-items: baseline;
+    padding: 0 4px 24px;
   }
-  .linha-lista .contagem { padding-bottom: 14px; margin: 0; }
+  .linha-lista .contagem { max-width: none; }
   .linha-lista .regra { color: var(--t-50); }
 
-  /* o vão: mesma geometria do cartão, sem a matéria do cartão */
+  /* o vão: mesma geometria do cartão, em cinza e sem fio */
   .slot {
-    background: transparent;
+    background: var(--rebaixo);
     box-shadow: none;
-    outline: 1px dashed var(--t-12);
-    outline-offset: -1px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 11px;
+    gap: 14px;
     justify-content: center;
     min-height: 148px;
   }
-  .slot:hover {
+  .slot:hover { background: var(--t-07); box-shadow: none; }
+  .slot:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
+  .slot .frase { margin: 0; font-size: var(--text-apoio); line-height: 1.45; color: var(--t-65); max-width: 40ch; }
+  .slot .botao-secundario {
     background: var(--cartao);
-    outline-color: transparent;
-    box-shadow: var(--sombra);
+    height: auto;
+    min-height: 40px;
+    padding: 10px 18px;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.25;
   }
-  .marca-slot {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--t-50);
-  }
-  .slot .frase { margin: 0; font-size: 13.5px; color: var(--t-65); }
-  .slot .oco {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--t-12);
-    color: var(--t-65);
-  }
-  .slot:hover .oco { background: var(--t-07); box-shadow: none; color: var(--t-90); }
+  .slot:hover .botao-secundario { background: var(--cartao); }
 </style>
 
 <script>
