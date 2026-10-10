@@ -8,16 +8,16 @@
    A decisão central desta tela é de produto, não de código: salvar
    NÃO publica. O VISAO §6 separa rascunho de publicação porque o
    número da RFC é permanente — e um número permanente não pode
-   nascer de um clique acidental. Por isso a tela repete isso três
-   vezes: no subtítulo, no bloco lateral e no rótulo do botão.
+   nascer de um clique acidental. Por isso a tela repete isso duas
+   vezes: na nota da prévia e na nota abaixo do botão.
 
-   Desenho: a coluna estreita mostra a CONSEQUÊNCIA DO ATO enquanto
-   ele acontece. O ato é fabricar uma RFC; a consequência é o cartão
-   que ela vira. Ele se monta ao lado com o material real do sistema
-   — a mesma Materia do átrio, o mesmo markup do CartaoIdeia — e o
-   chip fica travado em `rascunho`, porque criar não publica. Ver o
-   objeto nascendo ensina o formato sem uma linha de texto a mais,
-   que é o problema pedagógico do produto (VISAO §7).
+   Desenho: coluna de escrita calma (título, resumo, laboratório, tags,
+   corpo) e, ao lado, só duas coisas: o cartão que a ideia vai virar e
+   a ajuda curta de markdown. O cartão é o CartaoIdeia de verdade, com a
+   Materia de verdade, e o chip fica travado em `rascunho`, porque
+   criar não publica. Ver o objeto nascendo ensina o formato sem uma
+   linha de texto a mais, que é o problema pedagógico do produto
+   (VISAO §7).
    ================================================================ */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
@@ -27,7 +27,7 @@ import Vazio from '../../components/astro/Vazio.astro';
    adaptação: a prévia precisa ser o objeto que vai existir. */
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
 import EditorCorpo from '../../components/astro/EditorCorpo.astro';
-import { listarLabs, apiIndisponivel, nomeDoLab, rotuloDoStatus, type Rfc } from '../../lib/api';
+import { listarLabs, apiIndisponivel, nomeDoLab, type Rfc } from '../../lib/api';
 import { idiomaDe, rota, t } from '../../lib/i18n';
 import { comSessao } from '../../lib/sessao';
 
@@ -230,13 +230,14 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
   title={t(lang, 'rfcs.nova.titulo')}
   description={t(lang, 'rfcs.nova.descricao')}
 >
+  <div class="moldura">
   <div class="palco">
     <Nav atual="rfcs" />
 
-    <header class="cabecalho-pagina">
+    <header class="cabecalho-escrita">
       <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
-      <h1>{t(lang, 'rfcs.nova.h1.antes')}<span class="serif">{t(lang, 'rfcs.nova.h1.serif')}</span>{t(lang, 'rfcs.nova.h1.depois')}</h1>
-      <p class="sub">{t(lang, 'rfcs.nova.sub')}</p>
+      <h1 class="titulo-duplo">{t(lang, 'rfcs.nova.h1.antes')}<span class="apagado">{t(lang, 'rfcs.nova.h1.serif')}{t(lang, 'rfcs.nova.h1.depois')}</span></h1>
+      <p class="apoio">{t(lang, 'rfcs.nova.sub')}</p>
     </header>
 
     {semLabs ? (
@@ -248,150 +249,144 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
         acaoTexto={t(lang, 'rfcs.nova.semlabs.acao')}
       />
     ) : (
-      <form method="post" novalidate>
+      <form class="escrita" method="post" novalidate>
         {avisoGeral && (
-          <p class="aviso-erro" role="alert">
+          <p class="aviso-erro aviso-topo" role="alert">
             <b>{t(lang, 'rfcs.nova.erro.salvar.negrito')}</b> {avisoGeral}
           </p>
         )}
         {Object.keys(erros).length > 0 && (
-          <p class="aviso-erro" role="alert">
+          <p class="aviso-erro aviso-topo" role="alert">
             <b>{t(lang, 'rfcs.form.falta.negrito')}</b>{t(lang, 'rfcs.form.falta.texto')}
           </p>
         )}
 
-        <div class="rfc-topo">
-          <div>
-            <article class="cartao">
-              <div class="conteudo">
+        <div class="escrita-grade">
+          <div class="coluna-escrita">
 
-                <div class:list={['campo', erros.title && 'com-erro']}>
-                  <div class="linha-rotulo">
-                    <label class="rotulo" for="title">{t(lang, 'rfcs.form.titulo')}</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="title" data-texto-min={textoMin} data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
-                  </div>
-                  <input
-                    class="entrada"
-                    id="title"
-                    name="title"
-                    type="text"
-                    value={valores.title}
-                    aria-describedby={descreve('title')}
-                    aria-invalid={erros.title ? 'true' : undefined}
-                    placeholder={t(lang, 'rfcs.nova.titulo.placeholder')}
-                  />
-                  <span class="ajuda" id="ajuda-title">
-                    {t(lang, 'rfcs.form.faixa', { min: LIMITE.titulo.min, max: LIMITE.titulo.max })}{t(lang, 'rfcs.nova.titulo.ajuda')}
-                  </span>
-                  {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
-                </div>
-
-                <div class:list={['campo', erros.summary && 'com-erro']}>
-                  <div class="linha-rotulo">
-                    <label class="rotulo" for="summary">{t(lang, 'rfcs.form.resumo')}</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="summary" data-texto-min={textoMin} data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
-                  </div>
-                  <textarea
-                    class="entrada"
-                    id="summary"
-                    name="summary"
-                    rows="3"
-                    aria-describedby={descreve('summary')}
-                    aria-invalid={erros.summary ? 'true' : undefined}
-                    placeholder={t(lang, 'rfcs.nova.resumo.placeholder')}
-                  >{valores.summary}</textarea>
-                  <span class="ajuda" id="ajuda-summary">
-                    {t(lang, 'rfcs.form.faixa', { min: LIMITE.resumo.min, max: LIMITE.resumo.max })}{t(lang, 'rfcs.nova.resumo.ajuda')}
-                  </span>
-                  {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
-                </div>
-
-                <div class:list={['campo', erros.labId && 'com-erro']}>
-                  <label class="rotulo" for="labId">{t(lang, 'rfcs.nova.lab.rotulo')}</label>
-                  <select
-                    class="entrada"
-                    id="labId"
-                    name="labId"
-                    aria-describedby={descreve('labId')}
-                    aria-invalid={erros.labId ? 'true' : undefined}
-                  >
-                    <option value="">{t(lang, 'rfcs.nova.lab.escolha')}</option>
-                    {/* slug e nome curto viajam no <option> porque é o
-                        cartão ao lado que precisa deles: o value é o id,
-                        e id não pinta capa nem escreve chip */}
-                    {labs.map((l) => (
-                      <option
-                        value={l.id}
-                        selected={valores.labId === l.id}
-                        data-slug={l.slug}
-                        data-nome={nomeDoLab(l, lang)}
-                      >
-                        {l.glyph} {nomeDoLab(l, lang)}
-                      </option>
-                    ))}
-                  </select>
-                  <span class="ajuda" id="ajuda-labId">
-                    {t(lang, 'rfcs.nova.lab.ajuda')}
-                  </span>
-                  {erros.labId && <span class="erro-campo" id="erro-labId">{erros.labId}</span>}
-                </div>
-
-                <div class:list={['campo', erros.body && 'com-erro']}>
-                  <div class="linha-rotulo">
-                    <label class="rotulo" for="body">{t(lang, 'rfcs.form.corpo')}</label>
-                    <span class="mono contador" aria-hidden="true" data-contador="body" data-texto-min={textoMin} data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
-                  </div>
-                  <EditorCorpo campo="body">
-                    <textarea
-                      class="entrada corpo-longo"
-                      id="body"
-                      name="body"
-                      aria-describedby={descreve('body')}
-                      aria-invalid={erros.body ? 'true' : undefined}
-                      placeholder={t(lang, 'rfcs.nova.corpo.placeholder')}
-                    >{valores.body}</textarea>
-                  </EditorCorpo>
-                  <span class="ajuda" id="ajuda-body">
-                    {t(lang, 'rfcs.nova.corpo.ajuda', { min: LIMITE.corpo.min, max: LIMITE.corpo.max.toLocaleString(loc) })}
-                  </span>
-                  {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
-                </div>
-
-                <div class:list={['campo', erros.tags && 'com-erro']}>
-                  <label class="rotulo" for="tags">{t(lang, 'rfcs.form.tags')}</label>
-                  <input
-                    class="entrada mono"
-                    id="tags"
-                    name="tags"
-                    type="text"
-                    value={valores.tags}
-                    aria-describedby={descreve('tags')}
-                    aria-invalid={erros.tags ? 'true' : undefined}
-                    placeholder={t(lang, 'rfcs.nova.tags.placeholder')}
-                  />
-                  <span class="ajuda" id="ajuda-tags">
-                    {t(lang, 'rfcs.nova.tags.ajuda', { max: LIMITE.tags.max, min: LIMITE.tag.min, tam: LIMITE.tag.max })}
-                  </span>
-                  {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
-                </div>
-
-                <div class="acoes-form">
-                  <button class="botao" type="submit">{t(lang, 'rfcs.nova.salvar')}</button>
-                  <span class="separador"></span>
-                  <a class="botao leve" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.nova.descartar')}</a>
-                </div>
-
+            <div class:list={['campo', erros.title && 'com-erro']}>
+              <div class="linha-rotulo">
+                <label class="rotulo" for="title">{t(lang, 'rfcs.form.titulo')}</label>
+                <span class="mono contador" aria-hidden="true" data-contador="title" data-texto-min={textoMin} data-min={LIMITE.titulo.min} data-max={LIMITE.titulo.max}></span>
               </div>
-            </article>
+              <input
+                class="entrada"
+                id="title"
+                name="title"
+                type="text"
+                value={valores.title}
+                aria-describedby={descreve('title')}
+                aria-invalid={erros.title ? 'true' : undefined}
+                placeholder={t(lang, 'rfcs.nova.titulo.placeholder')}
+              />
+              <span class="ajuda" id="ajuda-title">
+                {t(lang, 'rfcs.form.faixa', { min: LIMITE.titulo.min, max: LIMITE.titulo.max })}{t(lang, 'rfcs.nova.titulo.ajuda')}
+              </span>
+              {erros.title && <span class="erro-campo" id="erro-title">{erros.title}</span>}
+            </div>
+
+            <div class:list={['campo', erros.summary && 'com-erro']}>
+              <div class="linha-rotulo">
+                <label class="rotulo" for="summary">{t(lang, 'rfcs.form.resumo')}</label>
+                <span class="mono contador" aria-hidden="true" data-contador="summary" data-texto-min={textoMin} data-min={LIMITE.resumo.min} data-max={LIMITE.resumo.max}></span>
+              </div>
+              <textarea
+                class="entrada"
+                id="summary"
+                name="summary"
+                rows="3"
+                aria-describedby={descreve('summary')}
+                aria-invalid={erros.summary ? 'true' : undefined}
+                placeholder={t(lang, 'rfcs.nova.resumo.placeholder')}
+              >{valores.summary}</textarea>
+              <span class="ajuda" id="ajuda-summary">
+                {t(lang, 'rfcs.form.faixa', { min: LIMITE.resumo.min, max: LIMITE.resumo.max })}{t(lang, 'rfcs.nova.resumo.ajuda')}
+              </span>
+              {erros.summary && <span class="erro-campo" id="erro-summary">{erros.summary}</span>}
+            </div>
+
+            <div class:list={['campo', erros.labId && 'com-erro']}>
+              <label class="rotulo" for="labId">{t(lang, 'rfcs.nova.lab.rotulo')}</label>
+              <select
+                class="entrada"
+                id="labId"
+                name="labId"
+                aria-describedby={descreve('labId')}
+                aria-invalid={erros.labId ? 'true' : undefined}
+              >
+                <option value="">{t(lang, 'rfcs.nova.lab.escolha')}</option>
+                {/* slug e nome curto viajam no <option> porque é o
+                    cartão ao lado que precisa deles: o value é o id,
+                    e id não pinta capa nem escreve chip */}
+                {labs.map((l) => (
+                  <option
+                    value={l.id}
+                    selected={valores.labId === l.id}
+                    data-slug={l.slug}
+                    data-nome={nomeDoLab(l, lang)}
+                  >
+                    {l.glyph} {nomeDoLab(l, lang)}
+                  </option>
+                ))}
+              </select>
+              <span class="ajuda" id="ajuda-labId">
+                {t(lang, 'rfcs.nova.lab.ajuda')}
+              </span>
+              {erros.labId && <span class="erro-campo" id="erro-labId">{erros.labId}</span>}
+            </div>
+
+            <div class:list={['campo', erros.tags && 'com-erro']}>
+              <label class="rotulo" for="tags">{t(lang, 'rfcs.form.tags')}</label>
+              <input
+                class="entrada"
+                id="tags"
+                name="tags"
+                type="text"
+                value={valores.tags}
+                aria-describedby={descreve('tags')}
+                aria-invalid={erros.tags ? 'true' : undefined}
+                placeholder={t(lang, 'rfcs.nova.tags.placeholder')}
+              />
+              <span class="ajuda" id="ajuda-tags">
+                {t(lang, 'rfcs.nova.tags.ajuda', { max: LIMITE.tags.max, min: LIMITE.tag.min, tam: LIMITE.tag.max })}
+              </span>
+              {erros.tags && <span class="erro-campo" id="erro-tags">{erros.tags}</span>}
+            </div>
+
+            <div class:list={['campo', erros.body && 'com-erro']}>
+              <div class="linha-rotulo">
+                <label class="rotulo" for="body">{t(lang, 'rfcs.form.corpo')}</label>
+                <span class="mono contador" aria-hidden="true" data-contador="body" data-texto-min={textoMin} data-min={LIMITE.corpo.min} data-max={LIMITE.corpo.max}></span>
+              </div>
+              <EditorCorpo campo="body">
+                <textarea
+                  class="entrada corpo-longo"
+                  id="body"
+                  name="body"
+                  aria-describedby={descreve('body')}
+                  aria-invalid={erros.body ? 'true' : undefined}
+                  placeholder={t(lang, 'rfcs.nova.corpo.placeholder')}
+                >{valores.body}</textarea>
+              </EditorCorpo>
+              <span class="ajuda" id="ajuda-body">
+                {t(lang, 'rfcs.nova.corpo.ajuda', { min: LIMITE.corpo.min, max: LIMITE.corpo.max.toLocaleString(loc) })}
+              </span>
+              {erros.body && <span class="erro-campo" id="erro-body">{erros.body}</span>}
+            </div>
+
+            <div class="rodape-form">
+              <button class="botao" type="submit">{t(lang, 'rfcs.nova.salvar')}</button>
+              <a class="botao-secundario" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.nova.descartar')}</a>
+            </div>
+            <p class="apoio">{t(lang, 'rfcs.nova.bloco.nota')}</p>
           </div>
 
-          <aside class="lado-rfc">
+          <aside class="lado-escrita">
             {/* O estado da prévia mora no invólucro, e não dentro do
                 cartão: os nós de lá são do CartaoIdeia e esta tela não
-                os cria — só os reescreve. */}
+                os cria, só os reescreve. */}
             <section
               class="previa-nova"
-              data-lab={labEscolhido ? 'sim' : 'nao'}
               data-titulo={valores.title.trim() ? 'cheio' : 'vazio'}
               data-resumo={resumoPrevia ? 'cheio' : 'vazio'}
               data-cabe={resumoSobra ? 'nao' : 'sim'}
@@ -402,7 +397,7 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
               data-medida-ok={medidaOk}
               data-medida-fora={medidaFora}
             >
-              <p class="rotulo-previa">{t(lang, 'rfcs.nova.previa.rotulo')}</p>
+              <h2 class="rotulo-previa">{t(lang, 'rfcs.nova.previa.rotulo')}</h2>
 
               <CartaoIdeia rfc={rascunhoProvisorio} comoLink={false} />
 
@@ -419,43 +414,18 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
               </p>
             </section>
 
-            <div class="bloco">
-              <p class="titulo-bloco">{t(lang, 'rfcs.nova.bloco.titulo')}</p>
-              <p style="margin:0 0 14px; font-size:13.5px; color:var(--t-75)">
-                {t(lang, 'rfcs.nova.bloco.texto.antes')}<b>{t(lang, 'rfcs.nova.bloco.texto.negrito')}</b>{t(lang, 'rfcs.nova.bloco.texto.depois')}
-              </p>
-              <div class="linha"><span>{t(lang, 'rfcs.nova.bloco.aosalvar')}</span><b>{rotuloDoStatus('DRAFT', lang)}</b></div>
-              <div class="linha"><span>{t(lang, 'rfcs.nova.bloco.aopublicar')}</span><b>{rotuloDoStatus('IN_DISCUSSION', lang)}</b></div>
-              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                {t(lang, 'rfcs.nova.bloco.nota')}
-              </p>
-            </div>
-
-            <div class="bloco">
-              <p class="titulo-bloco">{t(lang, 'rfcs.nova.md.titulo')}</p>
-              <div class="linha"><span class="codigo">## título</span><b>{t(lang, 'rfcs.nova.md.secao')}</b></div>
-              <div class="linha"><span class="codigo">### título</span><b>{t(lang, 'rfcs.nova.md.subsecao')}</b></div>
-              <div class="linha"><span class="codigo">**texto**</span><b>{t(lang, 'rfcs.nova.md.negrito')}</b></div>
-              <div class="linha"><span class="codigo">*texto*</span><b>{t(lang, 'rfcs.nova.md.italico')}</b></div>
-              <div class="linha"><span class="codigo">[texto](https://…)</span><b>{t(lang, 'rfcs.nova.md.link')}</b></div>
-              <div class="linha"><span class="codigo">- item</span><b>{t(lang, 'rfcs.nova.md.lista')}</b></div>
-              <div class="linha"><span class="codigo">1. item</span><b>{t(lang, 'rfcs.nova.md.numerada')}</b></div>
-              <div class="linha"><span class="codigo">&gt; texto</span><b>{t(lang, 'rfcs.nova.md.citacao')}</b></div>
-              <div class="linha"><span class="codigo">`código`</span><b>{t(lang, 'rfcs.nova.md.codigo')}</b></div>
-              <div class="linha"><span class="codigo">```</span><b>{t(lang, 'rfcs.nova.md.bloco')}</b></div>
-              <div class="linha"><span class="codigo">---</span><b>{t(lang, 'rfcs.nova.md.divisoria')}</b></div>
-              <div class="linha"><span class="codigo">| a | b |</span><b>{t(lang, 'rfcs.nova.md.tabela')}</b></div>
-              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
-                {t(lang, 'rfcs.nova.md.nota')}
-              </p>
-            </div>
-
-            <div class="bloco">
-              <p class="titulo-bloco">{t(lang, 'rfcs.nova.como.titulo')}</p>
-              <p style="margin:0; font-size:13px; color:var(--t-65)">
-                {t(lang, 'rfcs.nova.como.texto')}
-              </p>
-            </div>
+            <section class="ajuda-md">
+              <h2 class="rotulo-previa">{t(lang, 'rfcs.nova.md.titulo')}</h2>
+              <dl>
+                <div><dt class="codigo">## título</dt><dd>{t(lang, 'rfcs.nova.md.secao')}</dd></div>
+                <div><dt class="codigo">**texto**</dt><dd>{t(lang, 'rfcs.nova.md.negrito')}</dd></div>
+                <div><dt class="codigo">*texto*</dt><dd>{t(lang, 'rfcs.nova.md.italico')}</dd></div>
+                <div><dt class="codigo">[texto](https://…)</dt><dd>{t(lang, 'rfcs.nova.md.link')}</dd></div>
+                <div><dt class="codigo">- item</dt><dd>{t(lang, 'rfcs.nova.md.lista')}</dd></div>
+                <div><dt class="codigo">&gt; texto</dt><dd>{t(lang, 'rfcs.nova.md.citacao')}</dd></div>
+              </dl>
+              <p class="apoio">{t(lang, 'rfcs.nova.md.nota')}</p>
+            </section>
           </aside>
         </div>
       </form>
@@ -463,9 +433,44 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
 
     <Rodape />
   </div>
+  </div>
 </Layout>
 
 <style>
+  .cabecalho-escrita { padding: 56px 4px 40px; }
+  .cabecalho-escrita .volta {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--t-65);
+    text-decoration: none;
+    margin-bottom: 28px;
+  }
+  .cabecalho-escrita .volta:hover { color: var(--t-100); }
+  .cabecalho-escrita .titulo-duplo { max-width: 14ch; margin-bottom: 16px; }
+
+  .aviso-topo { margin: 0 4px 24px; max-width: 640px; }
+
+  .escrita-grade {
+    display: grid;
+    grid-template-columns: minmax(0, 640px) minmax(0, 320px);
+    justify-content: space-between;
+    gap: 56px;
+    align-items: start;
+    padding: 0 4px;
+  }
+  @media (max-width: 900px) {
+    .escrita-grade { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+  }
+
+  .coluna-escrita .campo { margin-bottom: 28px; }
+  .coluna-escrita .entrada { min-height: 44px; }
+  .coluna-escrita textarea.entrada { min-height: 96px; }
+  .coluna-escrita textarea.entrada.corpo-longo {
+    min-height: 360px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+  }
+
   /* o contador mora na linha do rótulo, colado no limite que ele mede,
      mas FORA do <label>: dentro dele o número entraria no nome acessível
      do campo e seria reanunciado a cada tecla digitada */
@@ -476,136 +481,91 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
     gap: 12px;
     margin-bottom: 6px;
   }
-  .linha-rotulo > .rotulo {
+  .linha-rotulo > .rotulo { margin-bottom: 0; }
+  .contador { font-size: 12px; color: var(--t-65); }
+  /* fora do intervalo pesa mais, sem cor gritante */
+  .contador.fora { color: var(--t-100); font-weight: 600; }
+
+  .rodape-form { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .rodape-form .botao,
+  .rodape-form .botao-secundario { height: 44px; padding: 0 22px; }
+  .coluna-escrita > .apoio { margin-top: 16px; }
+
+  .lado-escrita { display: grid; gap: 40px; position: sticky; top: 24px; }
+  @media (max-width: 900px) { .lado-escrita { position: static; } }
+
+  .ajuda-md dl { margin: 0 0 14px; display: grid; gap: 2px; }
+  .ajuda-md dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--t-07);
     font-size: 13px;
-    font-weight: 460;
-    color: var(--t-90);
   }
-  .contador { font-size: 10.5px; color: var(--t-35); font-weight: 400; }
-  /* fora do intervalo pesa mais, sem cor gritante — como o resto da folha */
-  .contador.fora { color: var(--t-90); font-weight: 460; }
-
-  /* ênfase por incremento fracionário: <b> nativo pularia pra 700 */
-  .bloco p b { font-weight: 460; color: var(--t-90); }
-
-  /* a coluna deixou de grudar: com o cartão ela passa da altura da
-     janela, e aí sticky esconderia o fim dela pra sempre */
-  .lado-rfc { position: static; }
+  .ajuda-md dt { color: var(--t-75); min-width: 0; overflow-wrap: anywhere; }
+  .ajuda-md dd { margin: 0; color: var(--t-65); text-align: right; }
 </style>
 
 {/* Global de propósito, e todo prefixado por uma classe que só existe
     nesta tela: os nós da prévia vêm do CartaoIdeia.astro, e regra
     escopada não entra em componente importado. */}
 <style is:global>
-  /* ================================================================
-     A PRÉVIA — o cartão sendo fabricado
-     ================================================================
-     Ocupa a coluna de 300px porque é a largura que o cartão tem de
-     verdade na grade do átrio: o que aparece aqui já está no tamanho
-     do que vai existir. E fica na coluna estreita porque o formulário
-     é o que se opera — o objeto acompanha, não disputa.
-     ================================================================ */
+  .previa-nova { display: grid; gap: 12px; }
 
-  .previa-nova { display: grid; gap: 10px; }
-
-  .previa-nova .rotulo-previa {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--t-35);
-    margin: 0;
-    padding-left: 4px;
+  .previa-nova .rotulo-previa,
+  .ajuda-md .rotulo-previa {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--t-100);
+    margin: 0 0 2px;
   }
 
   /* o cartão nasce em opacity 0 esperando o observador do átrio, que
      aqui não existe: a prévia é o que precisa estar visível primeiro */
   .previa-nova .ideia { opacity: 1; margin-bottom: 0; }
-  @media (prefers-reduced-motion: no-preference) {
-    .previa-nova .ideia { animation: cartao-sobe 620ms var(--ease) both; }
-  }
-  /* este cartão não é link; o lift de hover prometeria um clique */
-  .previa-nova .ideia:hover { transform: none; box-shadow: var(--sombra); }
 
-  /* enquanto não há laboratório não há pastel, e sem pastel o dither
-     seria desenhado em preto sobre preto — a capa espera, dizendo o
-     que a acende, em vez de virar retângulo cinza sem explicação */
-  .previa-nova[data-lab="nao"] .capa { background: var(--rebaixo); }
-  .previa-nova[data-lab="nao"] .capa canvas { opacity: 0; }
-  .previa-nova[data-lab="nao"] .capa::after {
-    content: "a capa acende quando você escolher o laboratório";
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    text-align: center;
-    padding: 0 22px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1.6;
-    letter-spacing: 0.04em;
-    color: var(--t-35);
-  }
-  .previa-nova[data-lab="sim"] .capa canvas {
-    animation: previa-capa-acende 560ms var(--ease) both;
-  }
-  /* Sem slug o CartaoIdeia escreve `background: var(--color-)`, que é
-     inválido e apaga o fundo do chip. O !important é o preço de não
-     reimplementar o componente: só uma declaração importante vence
-     uma inline, e o chip vazio precisa do fundo neutro da folha. */
-  .previa-nova[data-lab="nao"] .chip.pastel { background: var(--t-07) !important; }
+  /* Sem slug o CartaoIdeia escreve `background: var(--color-)`, que
+     apaga o fundo do chip. O !important é o preço de não reimplementar
+     o componente: só uma declaração importante vence uma inline. */
+  .previa-nova .chip.pastel { background: var(--color-chip) !important; }
 
-  /* Placeholder no idioma do produto, nunca esqueleto cinza: é a
+  /* placeholder no idioma do produto, nunca esqueleto cinza: é a
      primeira coisa que a pessoa vê e já ensina o formato. O estado
-     mora no invólucro pra valer já no HTML servido — classe posta por
-     JS acenderia o texto forte antes de apagar. */
-  .previa-nova[data-titulo="vazio"] .ideia h3,
-  .previa-nova[data-resumo="vazio"] .ideia .miolo > p { color: var(--t-35); }
+     mora no invólucro pra valer já no HTML servido. */
+  .previa-nova[data-titulo="vazio"] .ideia h3 { color: var(--t-50); }
+  .previa-nova[data-resumo="vazio"] .ideia .miolo > p { color: var(--t-50); }
 
-  /* mesmo idioma da errata do átrio: o que sai não some, fica riscado.
-     Aqui o riscado quer dizer "isto impede o salvamento" — nenhum
-     cartão com resumo truncado chega a existir. */
+  /* o que sai não some, fica riscado: aqui o riscado quer dizer "isto
+     impede o salvamento", nenhum cartão truncado chega a existir */
   .previa-nova .excedente {
     text-decoration: line-through;
     text-decoration-thickness: 1px;
-    color: var(--t-35);
+    color: var(--t-50);
   }
-  /* o objeto inteiro fica marcado, não só o número: é ele que está
-     recusado enquanto o resumo não couber */
-  .previa-nova[data-cabe="nao"] .ideia {
-    box-shadow: var(--sombra), 0 0 0 1px var(--t-35);
-  }
+  /* o objeto inteiro fica marcado, não só o número */
+  .previa-nova[data-cabe="nao"] .ideia { box-shadow: var(--sombra-alta); }
 
-  /* a medida fica FORA da moldura: contador dentro do cartão seria uma
-     peça que o objeto real nunca tem */
+  /* a medida fica FORA do cartão: contador dentro dele seria uma peça
+     que o objeto real nunca tem */
   .previa-nova .medida {
     margin: 0;
-    padding: 0 4px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1.6;
-    letter-spacing: 0.04em;
-    color: var(--t-35);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--t-65);
+    font-variant-numeric: tabular-nums;
   }
-  .previa-nova .medida.fora { color: var(--t-90); font-weight: 460; }
+  .previa-nova .medida.fora { color: var(--t-100); font-weight: 600; }
 
   .previa-nova .nota-previa {
     margin: 0;
-    padding: 0 4px;
     font-size: 12.5px;
     line-height: 1.5;
-    color: var(--t-50);
+    color: var(--t-65);
+    max-width: 42ch;
   }
-  .previa-nova .nota-previa b { font-weight: 460; color: var(--t-90); }
-
-  @keyframes previa-capa-acende {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .previa-nova[data-lab="sim"] .capa canvas { animation: none; opacity: 1; }
-  }
+  .previa-nova .nota-previa b { font-weight: 600; color: var(--t-100); }
 </style>
 
 <script>
@@ -661,8 +621,8 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
 
     /* A Materia repinta no `resize` e não expõe outro gancho. Pedir a
        repintura por um evento sintético custa esse desvio, mas o
-       desenho continua saindo do componente de verdade — reescrever o
-       dither aqui é que faria a prévia divergir do átrio com o tempo. */
+       desenho continua saindo do componente de verdade: reescrevê-lo
+       aqui faria a prévia divergir do átrio com o tempo. */
     const pedirRepintura = () => window.dispatchEvent(new Event('resize'));
 
     const aplicarTitulo = () => {
@@ -704,12 +664,8 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
       const slug = opcao?.dataset.slug ?? '';
 
       chipLab.textContent = slug ? (opcao!.dataset.nome ?? '') : previa.dataset.vazioLab!;
-      /* string vazia REMOVE a declaração inline; deixar `var(--color-)`
-         apagaria o fundo do chip por cima da folha */
-      chipLab.style.background = slug ? `var(--color-${slug})` : '';
-
-      previa.dataset.lab = slug ? 'sim' : 'nao';
-      if (!slug) return;                  // sem pastel o dither não teria fundo
+      /* a Materia existe com qualquer lab (sem slug usa a composição
+         padrão): repinta sempre */
       tela.dataset.lab = slug;
       pedirRepintura();
     };

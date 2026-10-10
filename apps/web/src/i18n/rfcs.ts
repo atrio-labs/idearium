@@ -258,39 +258,20 @@ const ptBR = {
     'do número da ideia, então este desenho é provisório — o ' +
     'laboratório é a única parte dela que você escolhe aqui.',
 
-  'rfcs.nova.bloco.titulo': 'salvar não publica',
-  'rfcs.nova.bloco.texto.antes': 'Por isso o chip do cartão está travado em ',
-  'rfcs.nova.bloco.texto.negrito': 'rascunho',
-  'rfcs.nova.bloco.texto.depois':
-    ': o que você salvar aqui não aparece em nenhuma listagem, ninguém ' +
-    'além de você abre, e ainda não tem número.',
-  'rfcs.nova.bloco.aosalvar': 'ao salvar',
-  'rfcs.nova.bloco.aopublicar': 'ao publicar',
   'rfcs.nova.bloco.nota':
     'Publicar é um botão separado, na tela de edição. É lá que a ideia ' +
     'ganha o número permanente.',
 
   'rfcs.nova.md.titulo': 'markdown reconhecido',
   'rfcs.nova.md.secao': 'seção',
-  'rfcs.nova.md.subsecao': 'subseção',
   'rfcs.nova.md.negrito': 'negrito',
   'rfcs.nova.md.italico': 'itálico',
   'rfcs.nova.md.link': 'link',
   'rfcs.nova.md.lista': 'lista',
-  'rfcs.nova.md.numerada': 'lista numerada',
   'rfcs.nova.md.citacao': 'citação',
-  'rfcs.nova.md.codigo': 'código',
-  'rfcs.nova.md.bloco': 'bloco de código',
-  'rfcs.nova.md.divisoria': 'divisória',
-  'rfcs.nova.md.tabela': 'tabela',
   'rfcs.nova.md.nota':
     'HTML aparece como texto. Imagem não entra: vira link, porque ' +
     'imagem de fora entrega o endereço de quem lê ao dono dela.',
-  'rfcs.nova.como.titulo': 'como se escreve aqui',
-  'rfcs.nova.como.texto':
-    'Comece pelo problema e por quem o sente. Diga o que você não sabe ' +
-    'fazer: é isso que faz alguém se inscrever. Não precisa estar ' +
-    'pronta — precisa estar clara.',
 
   /* ---------- editar ---------- */
   'rfcs.editar.titulo': 'Editar · {titulo}',
@@ -345,14 +326,6 @@ const ptBR = {
 
   'rfcs.editar.titulo.ajuda': ' O endereço da ideia não muda quando o título muda.',
   'rfcs.editar.resumo.ajuda': ' É o que aparece no cartão da listagem.',
-  'rfcs.editar.corpo.ajuda.antes': 'Mínimo de {min} caracteres. Aceita markdown: seções (',
-  'rfcs.editar.corpo.ajuda.depois':
-    ', links, listas, citação (',
-  'rfcs.editar.corpo.ajuda.fim':
-    '), código, tabela. HTML aparece como texto e imagem vira link. "Ver ' +
-    'como fica" mostra o resultado.',
-  'rfcs.editar.corpo.ajuda.negrito': 'negrito',
-  'rfcs.editar.corpo.ajuda.italico': 'itálico',
   'rfcs.editar.salvar': 'salvar',
   'rfcs.editar.vercomo': 'ver como ficou',
 
@@ -373,11 +346,10 @@ const ptBR = {
   'rfcs.editar.previa.nota.arquivada':
     ' Ela nunca recebeu número, então o cartão mostra "rascunho" no lugar dele.',
 
-  'rfcs.editar.publicar.titulo': 'publicar',
   'rfcs.editar.publicar.texto':
     'Publicar tira a ideia da gaveta: ela entra nas listagens, abre para ' +
     'discussão e para quem quiser construir. É este botão que troca o ' +
-    'chip do cartão acima.',
+    'chip do cartão ao lado.',
   'rfcs.editar.publicar.fraco':
     'No mesmo instante o banco atribui o número, em sequência. Nem esta ' +
     'tela sabe qual será — por isso a vaga aparece em branco. Depois de ' +
@@ -780,39 +752,20 @@ const en: Record<keyof typeof ptBR, string> = {
     'idea\'s identity and number, so this picture is provisional — the ' +
     'lab is the only part of it you choose here.',
 
-  'rfcs.nova.bloco.titulo': 'saving does not publish',
-  'rfcs.nova.bloco.texto.antes': 'That is why the chip on the card is locked on ',
-  'rfcs.nova.bloco.texto.negrito': 'draft',
-  'rfcs.nova.bloco.texto.depois':
-    ': what you save here shows up in no list, nobody but you can open ' +
-    'it, and it has no number yet.',
-  'rfcs.nova.bloco.aosalvar': 'on save',
-  'rfcs.nova.bloco.aopublicar': 'on publish',
   'rfcs.nova.bloco.nota':
     'Publishing is a separate button, on the edit screen. That is where ' +
     'the idea gets its permanent number.',
 
   'rfcs.nova.md.titulo': 'recognized markdown',
   'rfcs.nova.md.secao': 'section',
-  'rfcs.nova.md.subsecao': 'subsection',
   'rfcs.nova.md.negrito': 'bold',
   'rfcs.nova.md.italico': 'italic',
   'rfcs.nova.md.link': 'link',
   'rfcs.nova.md.lista': 'list',
-  'rfcs.nova.md.numerada': 'numbered list',
   'rfcs.nova.md.citacao': 'quote',
-  'rfcs.nova.md.codigo': 'code',
-  'rfcs.nova.md.bloco': 'code block',
-  'rfcs.nova.md.divisoria': 'divider',
-  'rfcs.nova.md.tabela': 'table',
   'rfcs.nova.md.nota':
     'HTML shows up as text. Images are not allowed: they become links, ' +
     'because an outside image hands the reader\'s address to its owner.',
-  'rfcs.nova.como.titulo': 'how to write here',
-  'rfcs.nova.como.texto':
-    'Start with the problem and the people who feel it. Say what you do ' +
-    'not know how to do: that is what makes someone sign up. It does ' +
-    'not need to be finished — it needs to be clear.',
 
   /* ---------- edit ---------- */
   'rfcs.editar.titulo': 'Edit · {titulo}',
@@ -867,14 +820,6 @@ const en: Record<keyof typeof ptBR, string> = {
 
   'rfcs.editar.titulo.ajuda': ' The idea\'s address does not change when the title does.',
   'rfcs.editar.resumo.ajuda': ' This is what shows on the card in the list.',
-  'rfcs.editar.corpo.ajuda.antes': 'At least {min} characters. Markdown works: sections (',
-  'rfcs.editar.corpo.ajuda.depois':
-    ', links, lists, quotes (',
-  'rfcs.editar.corpo.ajuda.fim':
-    '), code, tables. HTML shows up as text and images become links. ' +
-    '"Preview" shows the result.',
-  'rfcs.editar.corpo.ajuda.negrito': 'bold',
-  'rfcs.editar.corpo.ajuda.italico': 'italic',
   'rfcs.editar.salvar': 'save',
   'rfcs.editar.vercomo': 'see how it looks',
 
@@ -895,11 +840,10 @@ const en: Record<keyof typeof ptBR, string> = {
   'rfcs.editar.previa.nota.arquivada':
     ' It never got a number, so the card shows "draft" in its place.',
 
-  'rfcs.editar.publicar.titulo': 'publish',
   'rfcs.editar.publicar.texto':
     'Publishing takes the idea out of the drawer: it enters the lists ' +
     'and opens up to discussion and to anyone who wants to build. This ' +
-    'button is what changes the chip on the card above.',
+    'button is what changes the chip on the card beside it.',
   'rfcs.editar.publicar.fraco':
     'At that moment the database assigns the number, in sequence. Not ' +
     'even this screen knows which one it will be — that is why the slot ' +

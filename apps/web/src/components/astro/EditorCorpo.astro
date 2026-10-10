@@ -54,13 +54,32 @@ const idPrevia = `previa-${campo}`;
 </div>
 
 <style>
-  .troca-corpo { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  /* a alternância escrever / ver como fica: duas pílulas, a ativa em
+     preto. Alvo de 40px; o .filtro global é de 30px e branco, que
+     sumiria na página branca. */
+  .troca-corpo { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .troca-corpo .filtro {
+    height: 40px;
+    padding: 0 18px;
+    font-size: 13.5px;
+    background: var(--color-botao-2);
+    color: var(--t-100);
+  }
+  .troca-corpo .filtro:hover { background: var(--color-chip); }
+  .troca-corpo .filtro[aria-pressed="true"] { background: var(--tinta); color: #fff; }
+  .troca-corpo .filtro:focus-visible { outline: 2px solid var(--t-100); outline-offset: 3px; }
+
+  /* --font-mono agora aponta pra Inter: o texto-fonte do corpo pede
+     monoespaçada de verdade, então vai direto pela pilha do sistema */
+  .editor-corpo :global(textarea) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
 
   /* mesma altura mínima do campo: trocar de modo não pode fazer a
      página pular */
   .previa-corpo {
-    min-height: 340px;
-    border: 1px solid var(--t-07);
+    min-height: 360px;
+    border: 1px solid var(--t-12);
     border-radius: var(--r-dentro);
     background: var(--cartao);
   }
@@ -68,17 +87,18 @@ const idPrevia = `previa-${campo}`;
     padding: 22px 24px 24px;
     transition: opacity 200ms var(--ease);
   }
+  @media (max-width: 520px) {
+    .previa-corpo .corpo-rfc { padding: 18px 16px 20px; }
+  }
 
   .estado-previa {
     margin: 0;
     padding: 22px 24px 0;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    color: var(--t-50);
+    font-size: 12.5px;
+    color: var(--t-65);
   }
   .previa-corpo[data-estado="pronto"] .estado-previa { display: none; }
-  .previa-corpo[data-estado="erro"] .estado-previa { color: var(--t-90); }
+  .previa-corpo[data-estado="erro"] .estado-previa { color: var(--t-100); font-weight: 500; }
 
   /* enquanto monta, a versão anterior fica esmaecida em vez de sumir:
      o texto não pisca a cada troca */
