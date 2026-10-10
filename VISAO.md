@@ -250,12 +250,31 @@ Escala de cinzas sólidos sobre branco, dentro de uma moldura cinza clara.
 O laboratório não tem mais cor: distingue-se pelo nome e pelo glyph.
 
 ### Imagem: o gradiente de cada ideia
-Cada RFC e cada laboratório tem uma imagem gerada por código
-(`Materia.astro`): manchas quentes borradas (laranja `#FF5A1F`, rosa `#FF4FA3`,
-azul `#5B8FD6`, areia `#D9C3A5`), faixas verticais onduladas como vidro
-canelado e grão fino por cima. Determinística pela semente: mesma ideia, mesma
-imagem, sem arquivo, sem licença de terceiros. Tipo e laboratório mudam só a
-composição; a paleta é sempre a mesma.
+Cada RFC e cada laboratório tem uma imagem gerada por código (`Materia.astro`,
+com paleta e composição em `src/lib/materia-composicao.ts`, o mesmo módulo do
+PNG de compartilhamento). Não há mais uma paleta única: a semente escolhe uma
+de 12 paletas curadas, e o laboratório puxa a escolha para uma família de três,
+então ideias do mesmo lab se parecem sem ficarem iguais. A semente também
+escolhe o modo (manchas de mesh ou, em cerca de 1/3 das imagens e sempre no
+herói do átrio, blobs de lava lamp que sobem, esticam e se fundem) e o caráter
+do vidro (sem vidro, canelura suave, canelado ou faixas marcadas, em pé,
+inclinadas ou deitadas), com grão fino por cima. A imagem se mexe devagar, num
+ciclo de 16 s sem salto: as manchas passeiam, o raio respira, as caneluras
+escorrem e o matiz desliza dentro da própria paleta. Com
+`prefers-reduced-motion` ou sem WebGL, fica o quadro estático. Determinística:
+mesma ideia, mesma imagem, sem arquivo, sem licença de terceiros.
+- Brasa: laranja, rosa e areia.
+- Oceano: azul-petróleo, ciano e névoa.
+- Floresta: verde-musgo, lima e creme.
+- Crepúsculo: violeta, índigo e pêssego.
+- Cítrico: amarelo, laranja e verde-água.
+- Lavanda: lilás, azul-céu e branco quente.
+- Terracota: terracota, ocre e verde-oliva.
+- Aurora: verde-menta, roxo e azul, sobre fundo escuro.
+- Algodão-doce: rosa-claro, azul-claro e creme.
+- Noite: azul-marinho, magenta e âmbar.
+- Argila: argila, rosa-poeira e cinza quente.
+- Gelo: azul-gelo, prata e lilás.
 
 ### Geometria
 - Moldura com raio 24px; cartões com raio 28px, sem sombra (no máximo um fio
