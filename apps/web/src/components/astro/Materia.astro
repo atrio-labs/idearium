@@ -134,31 +134,31 @@ const fundo = [
     const mx = (x: number) => (espelho ? 1 - x : x);
 
     const manchas: Mancha[] = [];
-    let canelura = 24, forca = 0.35, onda = 0.6, ondaFreq = 1.2;
+    let canelura = 24, forca = 0.35, onda = 0.3, ondaFreq = 1.1;
 
     if (tipo === 'pontos') {
       // várias manchas médias espalhadas; vidro discreto
       for (let i = 0; i < 6; i++) {
         manchas.push({ x: mx(r()), y: r(), r: 0.22 + r() * 0.18, cor: cor(i), a: 0.85 });
       }
-      canelura = 18; forca = 0.22; onda = 0.4; ondaFreq = 1.6;
+      canelura = 18; forca = 0.22; onda = 0.2; ondaFreq = 1.4;
     } else if (tipo === 'grafo') {
       // manchas numa diagonal; vidro largo e forte
       for (let i = 0; i < 4; i++) {
         const t = (i + r() * 0.6) / 4;
         manchas.push({ x: mx(t), y: 1 - t + (r() - 0.5) * 0.3, r: 0.38 + r() * 0.2, cor: cor(i), a: 0.9 });
       }
-      canelura = 34; forca = 0.5; onda = 0.8; ondaFreq = 0.9;
+      canelura = 34; forca = 0.5; onda = 0.4; ondaFreq = 0.8;
     } else if (tipo === 'serie') {
       // tudo pesa embaixo, o topo fica claro; caneluras estreitas
       for (let i = 0; i < 5; i++) {
         manchas.push({ x: mx((i + r()) / 5), y: 0.75 + r() * 0.35, r: 0.3 + r() * 0.15, cor: cor(i), a: 0.9 });
       }
-      canelura = 14; forca = 0.45; onda = 0.5; ondaFreq = 1.4;
+      canelura = 14; forca = 0.45; onda = 0.25; ondaFreq = 1.2;
     } else {
       // mancha: poucas manchas enormes; o caso padrão
       for (let i = 0; i < 4; i++) {
-        manchas.push({ x: mx(r()), y: r(), r: 0.45 + r() * 0.3, cor: cor(i), a: 0.92 });
+        manchas.push({ x: mx(r()), y: r(), r: 0.34 + r() * 0.24, cor: cor(i), a: 0.95 });
       }
     }
 
@@ -230,7 +230,7 @@ const fundo = [
 
     const fw = c.canelura * dpr;            // largura da canelura em px do canvas
     const TAU = Math.PI * 2;
-    const grao = 26;                        // amplitude do grão, em níveis de 0..255
+    const grao = 22;                        // amplitude do grão, em níveis de 0..255
     let ruido = (semente * 747796405 + 2891336453) >>> 0 || 1;
 
     for (let y = 0; y < H; y++) {
