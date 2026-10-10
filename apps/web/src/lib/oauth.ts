@@ -15,6 +15,22 @@ import type { Idioma } from './i18n';
 
 export const OAUTH_ATIVO = import.meta.env.PUBLIC_OAUTH === '1';
 
+/** Origem pública do site, usada pra montar o redirect de volta do
+ *  provedor. Atrás de proxy `url.origin` sai com o host interno; a
+ *  variável de execução SITE_URL (sem prefixo PUBLIC_, lida a cada
+ *  chamada) tem precedência. Valor que não é URL é ignorado. */
+export function origemPublica(url: URL): string {
+  const configurada = process.env.SITE_URL?.trim();
+  if (configurada) {
+    try {
+      return new URL(configurada).origin;
+    } catch {
+      /* cai no fallback */
+    }
+  }
+  return url.origin;
+}
+
 export const PROVEDORES = ['github', 'google'] as const;
 export type Provedor = (typeof PROVEDORES)[number];
 export const ehProvedor = (v: unknown): v is Provedor =>

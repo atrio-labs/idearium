@@ -14,7 +14,7 @@
    link. Com PUBLIC_OAUTH desligada a rota não existe (404).
    ================================================================ */
 import type { APIRoute } from 'astro';
-import { OAUTH_ATIVO, abrirEstado, ehProvedor } from '../../lib/oauth';
+import { OAUTH_ATIVO, abrirEstado, ehProvedor, origemPublica } from '../../lib/oauth';
 import { destinoSeguro, iniciarVinculo } from '../../lib/sessao';
 import { idiomaDe, rota, separarIdioma } from '../../lib/i18n';
 
@@ -35,7 +35,7 @@ export const GET: APIRoute = (context) => {
 
   const state = abrirEstado(context.cookies, { provedor, modo: 'entrar', voltar, lang });
   const destino = new URL(`/auth/${provedor}`, API);
-  destino.searchParams.set('redirect', `${context.url.origin}/entrar/callback`);
+  destino.searchParams.set('redirect', `${origemPublica(context.url)}/entrar/callback`);
   destino.searchParams.set('state', state);
   return context.redirect(destino.toString());
 };
@@ -53,7 +53,7 @@ export const POST: APIRoute = async (context) => {
   const r = await iniciarVinculo(
     context.cookies,
     provedor,
-    `${context.url.origin}/entrar/callback`,
+    `${origemPublica(context.url)}/entrar/callback`,
     state,
   );
 

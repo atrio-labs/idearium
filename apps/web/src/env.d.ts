@@ -4,6 +4,13 @@ import type { UsuarioSessao } from './lib/sessao';
 import type { Idioma } from './lib/i18n';
 
 declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      /** origem pública do site (ex.: https://idearium.org), em execução; usada no redirect do OAuth atrás de proxy */
+      SITE_URL?: string;
+    }
+  }
+
   namespace App {
     interface Locals {
       /** preenchido pelo middleware; null quando ninguém está logado */
