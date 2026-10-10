@@ -14,10 +14,8 @@ const ptBR = {
   'busca.titulo': 'Idearium · Buscar',
   'busca.titulo.termo': 'Idearium · busca por {termo}',
   'busca.descricao': 'Procure ideias abertas por palavra, laboratório e idioma.',
-  'busca.rotulo': 'busca',
-  'busca.h1.antes': 'Procure pelo ',
-  'busca.h1.serif': 'problema',
-  'busca.h1.depois': '.',
+  'busca.h1.antes': 'Procure pelo problema, ',
+  'busca.h1.apagado': 'em um idioma por vez.',
   'busca.sub':
     'A busca lê o título, o resumo e o corpo das ideias já publicadas. ' +
     'Rascunho não aparece aqui.',
@@ -31,7 +29,7 @@ const ptBR = {
   'busca.botao': 'buscar',
   'busca.filtro.lab': 'laboratório',
   'busca.filtro.todos': 'todos',
-  'busca.filtro.idioma': 'idioma',
+  'busca.filtro.idioma': 'idioma da busca',
   'busca.idioma.pt-BR': 'português',
   'busca.idioma.en': 'inglês',
 
@@ -106,10 +104,8 @@ const en: Record<keyof typeof ptBR, string> = {
   'busca.titulo': 'Idearium · Search',
   'busca.titulo.termo': 'Idearium · search for {termo}',
   'busca.descricao': 'Find open ideas by word, lab and language.',
-  'busca.rotulo': 'search',
-  'busca.h1.antes': 'Search for the ',
-  'busca.h1.serif': 'problem',
-  'busca.h1.depois': '.',
+  'busca.h1.antes': 'Search for the problem, ',
+  'busca.h1.apagado': 'one language at a time.',
   'busca.sub':
     'Search reads the title, the summary and the body of ideas that are ' +
     'already published. Drafts do not show up here.',
@@ -123,7 +119,7 @@ const en: Record<keyof typeof ptBR, string> = {
   'busca.botao': 'search',
   'busca.filtro.lab': 'lab',
   'busca.filtro.todos': 'all',
-  'busca.filtro.idioma': 'language',
+  'busca.filtro.idioma': 'search language',
   'busca.idioma.pt-BR': 'Portuguese',
   'busca.idioma.en': 'English',
 
