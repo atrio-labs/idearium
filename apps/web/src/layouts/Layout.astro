@@ -49,18 +49,6 @@ const {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
 
-    {/* === GOOGLE FONTS ===
-        preconnect avisa o browser pra abrir conexão TCP+TLS com fonts.googleapis.com
-        ANTES da request do CSS chegar. Economiza ~100ms na primeira carga.
-        crossorigin é obrigatório no segundo preconnect (gstatic) porque fontes
-        são servidas de domínio diferente do CSS. */}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&display=swap"
-    />
-
     {/* View Transitions API — habilita morph entre páginas */}
     <ClientRouter />
   </head>
