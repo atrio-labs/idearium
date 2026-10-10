@@ -16,9 +16,8 @@ const ptBR = {
 
   /* ---------- lista ---------- */
   'rfcs.lista.titulo': 'Idearium · Ideias',
-  'rfcs.lista.rotulo': 'todas as ideias',
   'rfcs.lista.h1.antes': 'Ideias abertas, ',
-  'rfcs.lista.h1.serif': 'esperando',
+  'rfcs.lista.h1.apagado': 'esperando',
   'rfcs.lista.h1.depois': '.',
   'rfcs.lista.sub':
     'Cada uma é uma proposta numerada, escrita por alguém que conhece o ' +
@@ -457,7 +456,7 @@ const ptBR = {
   'rfcs.versoes.titulo': 'Versões · {titulo}',
   'rfcs.versoes.titulo.padrao': 'Versões · Idearium',
   'rfcs.versoes.falha.antes': 'Não consegui abrir esta ',
-  'rfcs.versoes.falha.serif': 'ideia',
+  'rfcs.versoes.falha.apagado': 'ideia',
   'rfcs.versoes.falha.depois': '.',
   'rfcs.versoes.falha.titulo': 'O servidor não respondeu',
   'rfcs.versoes.falha.texto':
@@ -538,9 +537,8 @@ const en: Record<keyof typeof ptBR, string> = {
 
   /* ---------- list ---------- */
   'rfcs.lista.titulo': 'Idearium · Ideas',
-  'rfcs.lista.rotulo': 'all ideas',
   'rfcs.lista.h1.antes': 'Open ideas, ',
-  'rfcs.lista.h1.serif': 'waiting',
+  'rfcs.lista.h1.apagado': 'waiting',
   'rfcs.lista.h1.depois': '.',
   'rfcs.lista.sub':
     'Each one is a numbered proposal, written by someone who knows the ' +
@@ -983,7 +981,7 @@ const en: Record<keyof typeof ptBR, string> = {
   'rfcs.versoes.titulo': 'Versions · {titulo}',
   'rfcs.versoes.titulo.padrao': 'Versions · Idearium',
   'rfcs.versoes.falha.antes': 'I could not open this ',
-  'rfcs.versoes.falha.serif': 'idea',
+  'rfcs.versoes.falha.apagado': 'idea',
   'rfcs.versoes.falha.depois': '.',
   'rfcs.versoes.falha.titulo': 'The server did not respond',
   'rfcs.versoes.falha.texto':

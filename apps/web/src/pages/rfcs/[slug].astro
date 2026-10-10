@@ -332,16 +332,10 @@ cachePublico(
   <div class="palco" id="palco" data-previa="nao">
     <Nav atual="rfcs" />
 
-    <header class="cabecalho-pagina">
+    <header class="topo-ideia">
       <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
-      <div class="chips" style="margin-top:14px">
-        <a
-          class="chip pastel"
-          href={rota(lang, `/labs/${rfc.lab.slug}`)}
-          style={`background: var(--color-${rfc.lab.slug}); text-decoration:none`}
-        >
-          <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeDoLab(rfc.lab, lang)}
-        </a>
+      <div class="chips">
+        <span class="chip codigo">{codigoRfc(rfc.number, lang)}</span>
         {/* O chip é o mesmo objeto antes e depois do ato: o ponto vive
             sempre no markup e só aparece em "em discussão", pra troca de
             estado não precisar criar nem destruir nó. */}
@@ -358,10 +352,12 @@ cachePublico(
             <span class="chip">{rotuloDoStatus(estadoPrevisto, lang)}</span>
           </span>
         )}
-        <span class="codigo">{codigoRfc(rfc.number, lang)}</span>
+        <a class="chip" href={rota(lang, `/labs/${rfc.lab.slug}`)}>
+          <span aria-hidden="true">{rfc.lab.glyph}</span> {nomeDoLab(rfc.lab, lang)}
+        </a>
       </div>
-      <h1>{rfc.title}</h1>
-      <p class="sub">{rfc.summary}</p>
+      <h1 class="titulo-duplo grande">{rfc.title}</h1>
+      <p class="resumo">{rfc.summary}</p>
     </header>
 
     {rascunhoMeu && (
@@ -370,27 +366,26 @@ cachePublico(
       </p>
     )}
 
-    <div class="rfc-topo">
-      <div>
-        <article class="cartao vem">
-          <figure class="rfc-capa">
-            <Materia
-              tipo={m!.tipo}
-              lab={rfc.lab.slug}
-              semente={m!.semente}
-              alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
-            />
-          </figure>
-          <div class="corpo-rfc" set:html={corpoHtml}></div>
-        </article>
+    <figure class="capa-larga">
+      <Materia
+        tipo={m!.tipo}
+        lab={rfc.lab.slug}
+        semente={m!.semente}
+        alt={t(lang, 'comum.materia.alt', { codigo: codigoRfc(rfc.number, lang) })}
+      />
+    </figure>
 
-        {/* ---------- discussão ---------- */}
-        <div class="faixa-rotulo" id="discussao">
-          <span class="r">{t(lang, 'rfcs.det.discussao')}</span>
-          <span class="mono" style="font-size:11px; color:var(--t-35)">
+    <div class="leitura">
+      <article class="corpo-rfc" set:html={corpoHtml}></article>
+
+      {/* ---------- discussão ---------- */}
+      <section class="secao-discussao" aria-labelledby="titulo-discussao">
+        <div class="cab-discussao" id="discussao">
+          <h2 id="titulo-discussao">{t(lang, 'rfcs.det.discussao')}</h2>
+          <p class="apoio">
             {t(lang, comentarios.meta.total === 1 ? 'rfcs.det.comentarios.um' : 'rfcs.det.comentarios.varios', { n: comentarios.meta.total })}
             {totalPaginas > 1 && t(lang, 'rfcs.det.pagina', { p: paginaAtual, n: totalPaginas })}
-          </span>
+          </p>
         </div>
 
         <div class="discussao">
@@ -408,7 +403,7 @@ cachePublico(
             return (
               <div class:list={['comentario', c.isDeleted && 'removido']} id={`c-${c.id}`}>
                 <div class="cabeca">
-                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`} aria-hidden="true">
+                  <span class="inicial" aria-hidden="true">
                     {iniciais(c.author.username)}
                   </span>
                   <a href={rota(lang, `/users/${c.author.username}`)}>@{c.author.username}</a>
@@ -437,7 +432,7 @@ cachePublico(
                     </div>
                     <div class="acoes-edicao">
                       <button class="botao" type="submit">{t(lang, 'rfcs.det.salvar')}</button>
-                      <a class="botao leve" href={`${voltar}${comPagina()}#c-${c.id}`}>{t(lang, 'rfcs.det.cancelar')}</a>
+                      <a class="botao-secundario" href={`${voltar}${comPagina()}#c-${c.id}`}>{t(lang, 'rfcs.det.cancelar')}</a>
                     </div>
                   </form>
                 ) : (
@@ -494,7 +489,7 @@ cachePublico(
             >
               <input type="hidden" name="acao" value="comentar" />
               <div class="cabeca">
-                <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`} aria-hidden="true">
+                <span class="inicial" aria-hidden="true">
                   {iniciais(usuario.username)}
                 </span>
                 <span class="quem">@{usuario.username}</span>
@@ -533,13 +528,13 @@ cachePublico(
             </p>
           )}
         </div>
-      </div>
+      </section>
 
       {/* ---------- coluna lateral ---------- */}
       <aside class="lado-rfc">
-        <div class="bloco vem">
+        <div class="bloco">
           <p class="titulo-bloco">{t(lang, 'rfcs.det.lado.titulo')}</p>
-          <p style="margin:0 0 16px; font-size:14px; color:var(--t-75)">
+          <p class="lado-resumo">
             {falhaInscricoes
               ? t(lang, 'rfcs.det.lado.falha')
               : ativos.length === 0
@@ -550,7 +545,7 @@ cachePublico(
           {erroParticipacao && <p class="aviso-erro" role="alert">{erroParticipacao}</p>}
 
           {!aberta ? (
-            <p style="margin:0; font-size:12.5px; color:var(--t-50)">
+            <p class="nota-lado">
               {t(lang, rfc.status === 'DRAFT' ? 'rfcs.det.lado.rascunho' : 'rfcs.det.lado.arquivada')}
             </p>
           ) : !usuario ? (
@@ -558,8 +553,8 @@ cachePublico(
           ) : inscrito ? (
             <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="sair-da-ideia" />
-              <button class="botao perigo" type="submit" data-previa-de="sair">{t(lang, 'rfcs.det.sair')}</button>
-              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+              <button class="botao-secundario" type="submit" data-previa-de="sair">{t(lang, 'rfcs.det.sair')}</button>
+              <p class="nota-lado com-espaco">
                 {t(lang, 'rfcs.det.sair.nota')}
               </p>
             </form>
@@ -567,7 +562,7 @@ cachePublico(
             <form method="post" data-guarda-estado>
               <input type="hidden" name="acao" value="entrar-na-ideia" />
               <button class="botao" type="submit" data-previa-de="entrar">{t(lang, 'rfcs.det.construir')}</button>
-              <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+              <p class="nota-lado com-espaco">
                 {t(lang, 'rfcs.det.entrar.nota')}
               </p>
             </form>
@@ -575,7 +570,7 @@ cachePublico(
         </div>
 
         {(ativos.length > 0 || (podeEntrar && usuario)) && (
-          <div class="bloco vem">
+          <div class="bloco">
             <p class="titulo-bloco">{t(lang, 'rfcs.det.construindo')}</p>
             <div class="lista-pessoas">
               {ativos.map((i) => (
@@ -583,7 +578,7 @@ cachePublico(
                   class:list={['pessoa', usuario?.id === i.user.id && 'sou-eu']}
                   href={rota(lang, `/users/${i.user.username}`)}
                 >
-                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                  <span class="inicial">
                     {iniciais(i.user.username)}
                   </span>
                   @{i.user.username}
@@ -595,7 +590,7 @@ cachePublico(
                   sendo a explicação do que o botão faz. */}
               {podeEntrar && usuario && (
                 <span class="pessoa fantasma">
-                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                  <span class="inicial">
                     {iniciais(usuario.username)}
                   </span>
                   @{usuario.username}
@@ -612,12 +607,12 @@ cachePublico(
             ensina errado. A consequência que a tela pode mostrar de
             verdade é a de cima: seu círculo deixando a fila. */}
         {quemSaiu.length > 0 && (
-          <div class="bloco vem">
+          <div class="bloco">
             <p class="titulo-bloco">{t(lang, 'rfcs.det.passaram')}</p>
             <div class="lista-pessoas">
               {quemSaiu.map((i) => (
                 <a class="pessoa" href={rota(lang, `/users/${i.user.username}`)}>
-                  <span class="inicial" style={`background: var(--color-${rfc.lab.slug})`}>
+                  <span class="inicial">
                     {iniciais(i.user.username)}
                   </span>
                   @{i.user.username}
@@ -627,23 +622,23 @@ cachePublico(
           </div>
         )}
 
-        <div class="bloco vem">
+        <div class="bloco">
           <p class="titulo-bloco">{t(lang, 'rfcs.det.historico')}</p>
-          <div class="linha"><span>{t(lang, 'rfcs.det.escrita.por')}</span><a href={rota(lang, `/users/${rfc.author.username}`)} style="color:var(--t-90)"><b>@{rfc.author.username}</b></a></div>
+          <div class="linha"><span>{t(lang, 'rfcs.det.escrita.por')}</span><a href={rota(lang, `/users/${rfc.author.username}`)}><b>@{rfc.author.username}</b></a></div>
           {rfc.publishedAt && (
             <div class="linha"><span>{t(lang, 'rfcs.det.publicada')}</span><b>{haQuantoTempo(rfc.publishedAt, lang)}</b></div>
           )}
           <div class="linha"><span>{t(lang, 'rfcs.det.ultima.mudanca')}</span><b>{haQuantoTempo(rfc.updatedAt, lang)}</b></div>
-          <div class="linha"><span>{t(lang, 'rfcs.det.versoes')}</span>{versoes.length > 1 ? <a href={rota(lang, `/rfcs/${rfc.slug}/versoes`)} style="color:var(--t-90)"><b>{versoes.length}</b></a> : <b>{versoes.length || 1}</b>}</div>
+          <div class="linha"><span>{t(lang, 'rfcs.det.versoes')}</span>{versoes.length > 1 ? <a class="link-versoes" href={rota(lang, `/rfcs/${rfc.slug}/versoes`)}><b>{versoes.length}</b></a> : <b>{versoes.length || 1}</b>}</div>
           {versoes.length > 1 && (
-            <p style="margin:12px 0 0; font-size:12.5px; color:var(--t-50)">
+            <p class="nota-lado com-espaco">
               {t(lang, 'rfcs.det.versoes.nota')}
             </p>
           )}
         </div>
 
         {tags.length > 0 && (
-          <div class="bloco vem">
+          <div class="bloco">
             <p class="titulo-bloco">{t(lang, 'rfcs.det.tags')}</p>
             <div class="nuvem-tags">
               {tags.map((tg) => <a class="tag" href={rota(lang, `/rfcs?tag=${tg.slug}`)}>{tg.name}</a>)}
@@ -661,7 +656,7 @@ cachePublico(
   <div class="palco">
     <Nav atual="rfcs" />
 
-    <header class="cabecalho-pagina">
+    <header class="topo-ideia">
       <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
     </header>
 
@@ -679,219 +674,182 @@ cachePublico(
 )}
 
 <style>
-  /* aviso de rascunho: mesma superfície rebaixada dos outros avisos,
-     sem cor de alarme — rascunho não é erro */
-  .aviso-rascunho {
-    background: var(--rebaixo);
-    border: 1px solid var(--t-07);
-    border-radius: var(--r-dentro);
-    padding: 13px 17px;
-    margin-bottom: 18px;
-    font-size: 13px;
-    color: var(--t-65);
+  /* ---------- cabeçalho e capa ---------- */
+  .topo-ideia { padding: 64px 8px 32px; display: grid; justify-items: start; }
+  .topo-ideia .volta {
+    font-size: 13.5px; color: var(--t-65); text-decoration: none;
+    display: inline-flex; align-items: center; min-height: 40px;
+    transition: color var(--dur) var(--ease);
   }
-  .aviso-rascunho b { font-weight: 460; color: var(--t-90); }
-  .aviso-rascunho a { color: var(--t-90); margin-left: 6px; }
-
-  /* "editar" navega, "remover" muda dado: um é link, o outro é botão
-     dentro de formulário. O global.css só estiliza o botão. */
-  .comentario .acoes-comentario a {
-    font-size: 12px;
-    color: var(--t-50);
-    text-decoration: underline;
+  .topo-ideia .volta:hover { color: var(--t-100); }
+  .topo-ideia .chips { margin: 24px 0 28px; }
+  .topo-ideia .titulo-duplo { max-width: 22ch; }
+  .topo-ideia .resumo {
+    margin: 24px 0 0; max-width: 56ch;
+    font-size: 17px; line-height: 1.5; color: var(--t-65);
   }
-  .comentario .acoes-comentario a:hover { color: var(--t-90); }
+  .topo-ideia a.chip { text-decoration: none; transition: background var(--dur) var(--ease); }
+  .topo-ideia a.chip:hover { background: var(--t-12); }
+  @media (max-width: 520px) { .topo-ideia { padding: 40px 4px 24px; } }
 
-  .acoes-edicao { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
-
-  .convite {
-    margin: 0;
-    font-size: 13px;
-    color: var(--t-50);
-    text-align: center;
-    padding: 6px 0 2px;
+  .capa-larga {
+    position: relative; margin: 0 8px 56px;
+    height: clamp(240px, 38vw, 440px);
+    border-radius: var(--r-fora); overflow: hidden;
   }
-  .convite a { color: var(--t-90); margin-left: 6px; }
+  .capa-larga canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @media (max-width: 520px) { .capa-larga { margin: 0 4px 40px; } }
 
-  /* ================================================================
-     A CONSEQUÊNCIA DO ATO
-     ================================================================
-     Três atos nesta tela — entrar, sair, comentar — e cada um mostra
-     o que produz enquanto está sendo feito, no material de verdade:
-     o círculo entra na fila real, o chip real vira, o comentário é
-     escrito já com a forma que vai ter na thread.
-     ================================================================ */
-
-  /* --- o chip prestes a virar ---
-     Só existe quando o ato de fato muda o estado da ideia, e aí fica
-     sempre visível: apontar o botão é reforço, não é a única forma de
-     ver. Ficar escondido atrás de hover tirava metade da prévia de
-     quem usa toque, que é onde o botão de submit só recebe foco junto
-     com o envio. */
-  .virando {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    opacity: 0.55;
-    transition: opacity 200ms var(--ease);
-  }
-  .palco[data-previa="entrar"] .virando,
-  .palco[data-previa="sair"] .virando { opacity: 1; }
-  .virando .seta { font-size: 12px; color: var(--t-35); }
-  /* vazado: é o estado que ainda não é, não pode competir com o que é */
-  .virando .chip {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--t-12);
-    color: var(--t-50);
-  }
-
-  /* o ponto vive sempre no markup: a troca de estado move texto, não nó */
+  /* chip de estado: o ponto só aparece em "em discussão" */
   #chip-estado .ponto { display: none; }
   #chip-estado.vivo .ponto { display: block; }
 
-  /* --- o círculo que ainda não é ---
-     Você já aparece na lista, esmaecido, antes de clicar. O contorno
-     tracejado é o que separa hipótese de fato sem precisar de legenda. */
-  @keyframes fantasma-firma {
-    from { opacity: 0.38; transform: translateY(-7px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .pessoa.fantasma {
-    opacity: 0.38;
-    transition: opacity 260ms var(--ease);
-    /* @ comprido não pode espremer a nota nem vazar da coluna: quando
-       não cabe na linha, a nota desce */
-    flex-wrap: wrap;
-  }
-  .pessoa.fantasma .inicial { box-shadow: inset 0 0 0 1.5px var(--t-35); }
-  .pessoa.fantasma .nota {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-style: normal;
-    letter-spacing: 0.02em;
-    color: var(--t-35);
-    white-space: nowrap;
-  }
-  .palco[data-previa="entrar"] .pessoa.fantasma {
-    animation: fantasma-firma 320ms var(--ease) both;
-  }
-
-  /* saindo: seu círculo desce e esmaece até quase nada — é a fila
-     perdendo você, que é exatamente o que a API faz. Não há destino
-     desenhado porque não há destino publicado. */
-  .pessoa.sou-eu { transition: opacity 260ms var(--ease), transform 260ms var(--ease); }
-  .palco[data-previa="sair"] .pessoa.sou-eu {
-    opacity: 0.18;
-    transform: translateY(7px);
-  }
-
-  /* --- o comentário nascendo ---
-     Mesma caixa do .comentario, um passo antes de existir. */
-  .comentario .cabeca .inicial {
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--t-90);
-    flex-shrink: 0;
-  }
-  .comentario.removido .cabeca .inicial { opacity: 0.4; }
-
-  @keyframes cara-aparece {
-    from { opacity: 0; transform: scale(0.84); }
-    to   { opacity: 1; transform: scale(1); }
-  }
-
-  .nascendo {
+  /* aviso de rascunho: superfície rebaixada, sem cor de alarme */
+  .aviso-rascunho {
     background: var(--rebaixo);
-    box-shadow: none;
-    transition: background 260ms var(--ease), box-shadow 260ms var(--ease);
+    border-radius: var(--r-dentro);
+    padding: 14px 18px;
+    margin: 0 8px 32px;
+    font-size: 13.5px;
+    color: var(--t-65);
   }
-  .nascendo .cabeca { opacity: 0.45; transition: opacity 260ms var(--ease); }
-  .nascendo .quem { color: var(--t-90); font-weight: 450; }
+  .aviso-rascunho b { font-weight: 500; color: var(--t-100); }
+  .aviso-rascunho a { color: var(--t-100); margin-left: 6px; }
+
+  /* ---------- a leitura: coluna de texto + lateral ---------- */
+  .leitura {
+    display: grid;
+    grid-template-columns: minmax(0, 68ch) 300px;
+    grid-template-areas: "corpo lado" "discussao lado";
+    justify-content: space-between;
+    column-gap: 56px;
+    row-gap: 80px;
+    padding: 0 8px 96px;
+    align-items: start;
+  }
+  .leitura .corpo-rfc { grid-area: corpo; padding: 0; font-size: 16.5px; line-height: 1.7; min-width: 0; }
+  .leitura .secao-discussao { grid-area: discussao; min-width: 0; }
+  .leitura .lado-rfc { grid-area: lado; top: 24px; }
+  @media (max-width: 980px) {
+    .leitura {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "corpo" "lado" "discussao";
+      row-gap: 56px;
+    }
+    .leitura .lado-rfc { position: static; }
+  }
+  @media (max-width: 520px) { .leitura { padding: 0 4px 64px; } }
+
+  /* ---------- lateral ---------- */
+  .lado-resumo { margin: 0 0 18px; font-size: 14px; line-height: 1.45; color: var(--t-75); }
+  .nota-lado { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--t-65); }
+  .nota-lado.com-espaco { margin-top: 12px; }
+  .lado-rfc form { display: block; }
+  .lado-rfc .botao,
+  .lado-rfc .botao-secundario { width: 100%; height: 44px; }
+  .lado-rfc .linha a { color: var(--t-100); text-decoration: none; }
+  .lado-rfc .linha a:hover { text-decoration: underline; }
+  .lado-rfc .linha a.link-versoes { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35); }
+  .pessoa { min-height: 32px; }
+
+  /* o chip prestes a virar: vazado, sem competir com o estado atual */
+  .virando { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; opacity: 0.6; transition: opacity var(--dur) var(--ease); }
+  .palco[data-previa="entrar"] .virando,
+  .palco[data-previa="sair"] .virando { opacity: 1; }
+  .virando .seta { font-size: 12px; color: var(--t-50); }
+  .virando .chip { background: transparent; box-shadow: inset 0 0 0 1px var(--t-12); color: var(--t-65); }
+
+  /* você, se entrar: esmaecido até apontar o botão. Só opacidade. */
+  .pessoa.fantasma { opacity: 0.55; flex-wrap: wrap; transition: opacity var(--dur) var(--ease); }
+  .pessoa.fantasma .inicial { box-shadow: inset 0 0 0 1.5px var(--t-35); }
+  .pessoa.fantasma .nota { margin-left: auto; font-size: 11.5px; font-style: normal; color: var(--t-65); white-space: nowrap; }
+  .palco[data-previa="entrar"] .pessoa.fantasma { opacity: 1; }
+  .pessoa.sou-eu { transition: opacity var(--dur) var(--ease); }
+  .palco[data-previa="sair"] .pessoa.sou-eu { opacity: 0.35; }
+
+  /* ---------- discussão ---------- */
+  .cab-discussao { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cab-discussao h2 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; color: var(--t-100); }
+  .cab-discussao .apoio { font-variant-numeric: tabular-nums; }
+  .discussao { margin-top: 0; }
+
+  /* comentário: linha sobre fundo branco, separada por fio, sem cartão */
+  .comentario {
+    background: none; box-shadow: none; border-radius: 0;
+    padding: 24px 0; margin: 0;
+    border-top: 1px solid var(--t-12);
+  }
+  .comentario .cabeca { margin-bottom: 10px; }
+  .comentario .cabeca .inicial {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 600; color: var(--t-100);
+    background: var(--color-chip); flex-shrink: 0;
+  }
+  .comentario.removido .cabeca .inicial { opacity: 0.5; }
+  .comentario p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--t-75); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .comentario .acoes-comentario { gap: 4px; margin-top: 4px; align-items: center; }
+  .comentario .acoes-comentario a,
+  .comentario .acoes-comentario button {
+    display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px 0 0;
+    font-size: 13px; color: var(--t-65);
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35);
+  }
+  .comentario .acoes-comentario a:hover,
+  .comentario .acoes-comentario button:hover { color: var(--t-100); }
+  .acoes-edicao { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .acoes-edicao .botao,
+  .acoes-edicao .botao-secundario { height: 40px; }
+
+  .convite { margin: 0; padding: 16px 0 0; font-size: 13.5px; color: var(--t-65); }
+  .convite a { color: var(--t-100); margin-left: 6px; }
+
+  /* o campo de escrever é um comentário um passo antes de existir:
+     superfície rebaixada, firma em branco com anel quando recebe foco */
+  .comentario.nascendo {
+    background: var(--rebaixo);
+    border: 0; border-radius: 20px;
+    padding: 20px 22px;
+    margin-top: 24px;
+    transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
   .nascendo:focus-within,
-  .nascendo[data-escrito="sim"] { background: var(--cartao); box-shadow: var(--sombra); }
-  .nascendo:focus-within .cabeca,
-  .nascendo[data-escrito="sim"] .cabeca { opacity: 1; }
-  /* o anel é o foco: o campo por dentro não tem moldura própria */
-  .nascendo:focus-within { box-shadow: 0 0 0 1.5px var(--t-35), var(--sombra); }
-  .nascendo.com-erro { box-shadow: 0 0 0 1.5px var(--t-75), var(--sombra); }
-  .nascendo[data-escrito="sim"] .cabeca .inicial {
-    animation: cara-aparece 320ms var(--ease) both;
-  }
+  .nascendo[data-escrito="sim"] { background: var(--cartao); box-shadow: 0 0 0 1px var(--t-12); }
+  .nascendo:focus-within { box-shadow: 0 0 0 2px var(--tinta); }
+  .nascendo.com-erro { box-shadow: 0 0 0 2px var(--tinta); }
+  .nascendo .quem { color: var(--t-100); font-weight: 500; }
 
-  /* o comentário publicado guarda as quebras de linha que você digitou.
-     Sem isto o navegador colapsa cada Enter num espaço só, e o texto
-     mudaria de forma e de altura ao sair do campo e entrar na thread —
-     a prévia estaria mentindo por uma tecla. Mora aqui, no escopo da
-     página, porque global.css é de outro agente. */
-  .comentario p { white-space: pre-wrap; }
-
-  /* o campo tem exatamente a métrica do .comentario p: o que você lê
-     enquanto escreve é o que a thread vai mostrar depois */
   .nascendo textarea.corpo-nascendo {
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    padding: 0;
-    min-height: 0;
-    font-size: 14px;
-    line-height: 1.55;
-    color: var(--t-75);
+    background: transparent; border: 0; border-radius: 0;
+    padding: 0; min-height: 0;
+    font-size: 15px; line-height: 1.6; color: var(--t-75);
     resize: none;
   }
   .nascendo textarea.corpo-nascendo:hover,
-  .nascendo textarea.corpo-nascendo:focus { background: transparent; border-color: transparent; }
+  .nascendo textarea.corpo-nascendo:focus { background: transparent; border-color: transparent; outline: none; }
 
   .pe-nascendo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-    padding-top: 13px;
-    border-top: 1px solid var(--t-07);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--t-12);
   }
-  .pe-nascendo .ajuda { flex: 1; min-width: 190px; font-size: 12px; color: var(--t-50); }
+  .pe-nascendo .ajuda { flex: 1; min-width: 190px; font-size: 12.5px; color: var(--t-65); }
+  .pe-nascendo .botao { height: 40px; }
 
-  /* o rótulo do campo continua existindo pra quem navega por leitor de
-     tela; na tela quem nomeia o campo é a cabeça do comentário */
+  /* o rótulo do campo existe pra leitor de tela; a cabeça do comentário
+     nomeia o campo na tela */
   .so-leitor {
-    position: absolute;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%);
+    white-space: nowrap; border: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .palco[data-previa="entrar"] .pessoa.fantasma,
-    .nascendo[data-escrito="sim"] .cabeca .inicial { animation: none; }
-    .palco[data-previa="entrar"] .pessoa.fantasma { opacity: 1; }
-  }
+  .tag { min-height: 32px; }
 </style>
 
 <script>
-  function ligarEntrada() {
-    const olho = new IntersectionObserver((entradas) => {
-      for (const e of entradas) {
-        if (!e.isIntersecting) continue;
-        e.target.classList.add('veio');
-        olho.unobserve(e.target);
-      }
-    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
-    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
-      el.style.animationDelay = Math.min(i, 6) * 60 + 'ms';
-      olho.observe(el);
-    });
-  }
-
   /* Remover comentário não tem desfazer. Sem JS o formulário envia
      direto — a confirmação é melhoria, não requisito. */
   function ligarConfirmacao() {
@@ -1018,7 +976,6 @@ cachePublico(
   }
 
   document.addEventListener('astro:page-load', () => {
-    ligarEntrada();
     ligarConfirmacao();
     ligarPrevia();
     ligarLembrete();

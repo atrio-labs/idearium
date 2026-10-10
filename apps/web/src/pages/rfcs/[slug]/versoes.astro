@@ -142,9 +142,9 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
 
     {!rfc ? (
       <>
-        <header class="cabecalho-pagina">
+        <header class="topo-versoes">
           <a class="volta" href={rota(lang, '/rfcs')}>{t(lang, 'rfcs.volta')}</a>
-          <h1>{t(lang, 'rfcs.versoes.falha.antes')}<span class="serif">{t(lang, 'rfcs.versoes.falha.serif')}</span>{t(lang, 'rfcs.versoes.falha.depois')}</h1>
+          <h1 class="titulo-duplo">{t(lang, 'rfcs.versoes.falha.antes')}<span class="apagado">{t(lang, 'rfcs.versoes.falha.apagado')}{t(lang, 'rfcs.versoes.falha.depois')}</span></h1>
         </header>
         <Vazio
           falha
@@ -156,11 +156,11 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
       </>
     ) : (
       <>
-        <header class="cabecalho-pagina">
+        <header class="topo-versoes">
           <a class="volta" href={rota(lang, `/rfcs/${rfc.slug}`)}>{t(lang, 'rfcs.versoes.volta')}</a>
-          <p class="mono" style="margin:14px 0 0; font-size:11px; color:var(--t-35)">{codigoRfc(rfc.number, lang)}</p>
-          <h1>{t(lang, 'rfcs.versoes.h1')}<span class="serif">{rfc.title}</span></h1>
-          <p class="sub">{t(lang, 'rfcs.versoes.sub')}</p>
+          <div class="chips"><span class="chip codigo">{codigoRfc(rfc.number, lang)}</span></div>
+          <h1 class="titulo-duplo">{t(lang, 'rfcs.versoes.h1')}<span class="apagado">{rfc.title}</span></h1>
+          <p class="apoio">{t(lang, 'rfcs.versoes.sub')}</p>
         </header>
 
         {falhaVersoes && (
@@ -340,65 +340,94 @@ const titulo = rfc ? t(lang, 'rfcs.versoes.titulo', { titulo: rfc.title }) : t(l
 </Layout>
 
 <style is:global>
-  .versoes-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .topo-versoes { padding: 64px 8px 40px; display: grid; justify-items: start; gap: 0; }
+  .topo-versoes .volta {
+    font-size: 13.5px; color: var(--t-65); text-decoration: none;
+    display: inline-flex; align-items: center; min-height: 40px;
+    transition: color var(--dur) var(--ease);
+  }
+  .topo-versoes .volta:hover { color: var(--t-100); }
+  .topo-versoes .chips { margin: 24px 0 20px; }
+  .topo-versoes .titulo-duplo { max-width: 24ch; margin-bottom: 20px; }
+  @media (max-width: 520px) { .topo-versoes { padding: 40px 4px 28px; } }
+
+  .versoes-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; padding: 0 8px 96px; }
   @media (max-width: 900px) { .versoes-layout { grid-template-columns: minmax(0, 1fr); } }
-  .versoes-principal { display: grid; gap: 14px; min-width: 0; }
+  @media (max-width: 520px) { .versoes-layout { padding: 0 4px 64px; } }
+  .versoes-principal { display: grid; gap: 16px; min-width: 0; }
+  .versoes-layout .bloco { margin: 0; }
 
   .comparar-campos { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .comparar-campos .campo { margin: 0; flex: 1 1 160px; }
+  .comparar-campos .entrada { min-height: 44px; }
+  .comparar-campos .botao { height: 44px; }
 
   .lista-versoes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-  .lista-versoes li { padding: 10px 12px; border-radius: var(--r-dentro); display: grid; gap: 3px; }
+  .lista-versoes li { padding: 10px 12px; border-radius: var(--r-dentro); display: grid; gap: 2px; }
   .lista-versoes li.atual { background: var(--rebaixo); }
   .v-linha { display: flex; align-items: center; gap: 8px; }
-  .v-num { font-family: var(--font-mono); font-size: 12px; color: var(--t-90); text-decoration: none; }
+  .v-num {
+    display: inline-flex; align-items: center; min-height: 40px;
+    font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums;
+    color: var(--t-100); text-decoration: none;
+  }
   .v-num:hover { text-decoration: underline; }
-  .v-data { font-size: 12px; color: var(--t-50); }
-  .v-acoes { display: flex; gap: 12px; font-size: 12.5px; }
-  .v-acoes a { color: var(--t-65); }
+  .v-data { font-size: 12.5px; color: var(--t-65); }
+  .v-acoes { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; }
+  .v-acoes a {
+    display: inline-flex; align-items: center; min-height: 40px;
+    color: var(--t-65); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--t-35);
+  }
   .v-acoes a:hover { color: var(--t-100); }
 
   .texto-versao {
     margin: 0;
     font-family: var(--font-ui);
-    font-size: 14px;
-    line-height: 1.65;
+    font-size: 15px;
+    line-height: 1.7;
     color: var(--t-75);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  .nota-versao { margin: 12px 0 0; font-size: 12.5px; color: var(--t-50); }
-  .nota-versao a { color: var(--t-90); }
+  .nota-versao { margin: 14px 0 0; font-size: 13px; color: var(--t-65); }
+  .nota-versao a { color: var(--t-100); }
 
-  .resumo-diff { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
+  .resumo-diff { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 18px; }
 
-  /* --- diff, no idioma da errata (global.css §8) --- */
-  .diff { font-size: 14px; line-height: 1.6; }
+  /* --- diff ---
+     Inserção: fundo lilás muito claro, sinal e realce em roxo.
+     Remoção: cinza, riscada. A cor nunca é o único sinal: o sinal −/+,
+     o <del>/<ins> e o texto escondido dizem o mesmo. */
+  .diff { font-size: 14.5px; line-height: 1.65; }
   .diff .dl {
     display: flex; gap: 10px;
-    padding: 1px 8px;
+    padding: 2px 10px;
     border-radius: 6px;
     text-decoration: none;
     color: var(--t-75);
   }
-  .diff .sinal { flex: 0 0 1ch; font-family: var(--font-mono); font-size: 12px; color: var(--t-50); user-select: none; }
+  .diff .sinal { flex: 0 0 1ch; font-size: 13px; font-weight: 600; color: var(--t-65); user-select: none; }
   .diff .txt { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 
-  /* removido: o riscado da errata, com tinta apagada */
-  .diff del.dl { background: var(--rebaixo); color: var(--t-50); }
+  .diff del.dl { background: var(--rebaixo); color: var(--t-65); }
   .diff del.dl .txt { text-decoration: line-through; text-decoration-thickness: 1px; }
-  .diff del.dl .palavra { color: var(--t-65); background: var(--t-07); border-radius: 3px; }
+  .diff del.dl .palavra { color: var(--t-75); background: var(--t-12); border-radius: 3px; }
 
-  /* acrescido: a menta do craft, que é a cor de "deu certo" no resto do app */
-  .diff ins.dl { background: color-mix(in srgb, var(--color-saude) 30%, transparent); color: var(--t-100); }
-  .diff ins.dl .palavra { background: color-mix(in srgb, var(--color-saude) 75%, transparent); border-radius: 3px; }
+  .diff ins.dl { background: #F1E6FB; color: var(--t-100); }
+  .diff ins.dl .sinal { color: #7B3FB0; }
+  .diff ins.dl .palavra { background: #E2CCF4; color: #4B2170; border-radius: 3px; }
 
-  .diff .errata.trecho { margin: 6px 0; padding-top: 8px; border-top: 1px dashed var(--t-12); }
+  .diff .errata.trecho { margin: 8px 0; padding-top: 8px; border-top: 1px dashed var(--t-12); }
+  .diff .trecho .gatilho { min-height: 40px; }
+  .diff .trecho .gatilho:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
   .diff .trecho .fole > div { padding-top: 6px; }
 
+  /* visually-hidden: lido por leitor de tela, invisível e sem ocupar espaço */
   .so-leitor {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    position: absolute; width: 1px; height: 1px;
+    margin: -1px; padding: 0; border: 0;
+    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+    white-space: nowrap;
   }
 </style>
 

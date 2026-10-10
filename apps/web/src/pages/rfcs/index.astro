@@ -46,12 +46,9 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
   <div class="palco">
     <Nav atual="rfcs" />
 
-    <header class="cabecalho-pagina">
-      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        {t(lang, 'rfcs.lista.rotulo')}
-      </span>
-      <h1>{t(lang, 'rfcs.lista.h1.antes')}<span class="serif">{t(lang, 'rfcs.lista.h1.serif')}</span>{t(lang, 'rfcs.lista.h1.depois')}</h1>
-      <p class="sub">{t(lang, 'rfcs.lista.sub')}</p>
+    <header class="topo-lista">
+      <h1 class="titulo-duplo grande">{t(lang, 'rfcs.lista.h1.antes')}<span class="apagado">{t(lang, 'rfcs.lista.h1.apagado')}{t(lang, 'rfcs.lista.h1.depois')}</span></h1>
+      <p class="apoio">{t(lang, 'rfcs.lista.sub')}</p>
     </header>
 
     {semRede && (
@@ -61,35 +58,30 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
     )}
 
     {rfcs.length > 0 && (
-      <div class="filtros">
-        <div class="grupo">
-          <span class="rotulo">{t(lang, 'rfcs.lista.filtro.lab')}</span>
-          <button class="filtro" type="button" data-filtro="lab" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.todos')}</button>
-          {labsPresentes.map((l) => (
-            <button class="filtro" type="button" data-filtro="lab" data-valor={l.slug} aria-pressed="false">
-              <span class="swatch" style={`background: var(--color-${l.slug})`}></span>{nomeDoLab(l, lang)}
-            </button>
-          ))}
+      <div class="filtros-lista">
+        <div class="grupo" role="group" aria-labelledby="rotulo-lab">
+          <span class="apoio" id="rotulo-lab">{t(lang, 'rfcs.lista.filtro.lab')}</span>
+          <div class="pilulas">
+            <button class="filtro" type="button" data-filtro="lab" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.todos')}</button>
+            {labsPresentes.map((l) => (
+              <button class="filtro" type="button" data-filtro="lab" data-valor={l.slug} aria-pressed="false">{nomeDoLab(l, lang)}</button>
+            ))}
+          </div>
         </div>
-      </div>
-    )}
-
-    {rfcs.length > 0 && (
-      <div class="filtros" style="padding-top:0">
-        <div class="grupo">
-          <span class="rotulo">{t(lang, 'rfcs.lista.filtro.momento')}</span>
-          <button class="filtro" type="button" data-filtro="status" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.qualquer')}</button>
-          {estadosPresentes.map((e) => (
-            <button class="filtro" type="button" data-filtro="status" data-valor={e} aria-pressed="false">
-              {rotuloDoStatus(e, lang)}
-            </button>
-          ))}
+        <div class="grupo" role="group" aria-labelledby="rotulo-momento">
+          <span class="apoio" id="rotulo-momento">{t(lang, 'rfcs.lista.filtro.momento')}</span>
+          <div class="pilulas">
+            <button class="filtro" type="button" data-filtro="status" data-valor="" aria-pressed="true">{t(lang, 'rfcs.lista.filtro.qualquer')}</button>
+            {estadosPresentes.map((e) => (
+              <button class="filtro" type="button" data-filtro="status" data-valor={e} aria-pressed="false">{rotuloDoStatus(e, lang)}</button>
+            ))}
+          </div>
         </div>
       </div>
     )}
 
     <p
-      class="contagem"
+      class="contagem apoio"
       id="contagem"
       data-total={rfcs.length}
       data-um={t(lang, 'rfcs.lista.qtd.filtrada.um', { visiveis: '{visiveis}', total: '{total}' })}
@@ -125,6 +117,37 @@ const labsPresentes = labs.filter((l) => rfcs.some((r) => r.lab.slug === l.slug)
     <Rodape />
   </div>
 </Layout>
+
+<style>
+  .topo-lista { padding: 88px 8px 40px; display: grid; gap: 20px; }
+  @media (max-width: 520px) { .topo-lista { padding: 48px 4px 28px; } }
+
+  .filtros-lista { display: grid; gap: 18px; padding: 0 8px 36px; }
+  .grupo { display: grid; gap: 10px; }
+  .pilulas { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* chip de filtro: cinza em repouso, preto quando ativo. 40px de alvo. */
+  .filtro {
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    min-height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: var(--r-pilula);
+    background: var(--color-chip);
+    color: var(--t-100);
+    cursor: pointer;
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .filtro:hover { background: var(--t-12); }
+  .filtro[aria-pressed="true"] { background: var(--tinta); color: #fff; }
+  .filtro:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
+
+  .contagem { padding: 0 8px 20px; font-variant-numeric: tabular-nums; }
+  .grade { padding: 0 0 8px; }
+  #vazio-filtro { padding-top: 8px; }
+</style>
 
 <script>
   function ligarFiltro() {
