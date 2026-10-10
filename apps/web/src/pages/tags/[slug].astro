@@ -116,32 +116,26 @@ cachePublico(Astro, caiu);
         embaixo. Sem JavaScript ele nunca roda e a grade fica em branco. */}
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
-    <header class="cabecalho-pagina">
+    <header class="abertura-tag">
       <a class="volta" href={rota(lang, '/tags')}>{t(lang, 'tags.slug.volta')}</a>
 
-      {/* A tag aparece como a peça que ela é no resto do sistema, no
-          tamanho de quem é o assunto da página — não como um título
-          qualquer que por acaso está em mono. */}
-      <h1 class="selo-tag">{titulo}</h1>
+      <h1 class="titulo-duplo">{titulo}{tag && <>{' '}<span class="apagado">{t(lang, 'tags.slug.h1.apagado')}</span></>}</h1>
 
-      {tag && (
-        <p class="sub">{t(lang, 'tags.slug.sub')}</p>
-      )}
+      {tag && <p class="apoio">{t(lang, 'tags.slug.sub')}</p>}
 
       {tag && atravessa.length > 0 && (
         <div class="atravessa">
-          <span class="mono r">
+          <span class="apoio r">
             {t(lang, 'tags.slug.atravessa')}{total > rfcs.length && t(lang, 'tags.slug.atravessa.recorte', { n: rfcs.length })}
           </span>
-          {atravessa.map((a, i) => (
-            <span class="chip pastel" style={`background: var(--color-${a.lab.slug}); --i:${i}`}>
-              <span class="glyph" aria-hidden="true">{a.lab.glyph}</span>
+          {atravessa.map((a) => (
+            <span class="chip">
               {nomeDoLab(a.lab, lang)}
               <span class="quantas">{a.quantas}</span>
             </span>
           ))}
           {atravessa.length === 1 && (
-            <span class="por-enquanto">{t(lang, 'tags.slug.umlab')}</span>
+            <span class="apoio">{t(lang, 'tags.slug.umlab')}</span>
           )}
         </div>
       )}
@@ -154,7 +148,7 @@ cachePublico(Astro, caiu);
     )}
 
     {tag && rfcs.length > 0 && (
-      <p class="contagem">
+      <p class="apoio contagem">
         {t(lang, total === 1 ? 'tags.slug.contagem.um' : 'tags.slug.contagem.varios', { n: total })}
         {total > rfcs.length && t(lang, 'tags.slug.contagem.mostrando', { n: rfcs.length })}
         {fora > 0 && (fora === 1
@@ -197,66 +191,29 @@ cachePublico(Astro, caiu);
 </Layout>
 
 <style>
-  /* o selo é a mesma pílula da tag, no tamanho de cabeçalho. A mono só
-     fecha a grade do pixel em corpo inteiro, por isso 26px cheios e
-     não um clamp fracionário. */
-  .selo-tag {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-weight: 400;
-    font-size: 26px;
-    letter-spacing: 0;
-    line-height: 1.1;
-    margin: 18px 0 14px;
-    padding: 10px 20px;
-    border-radius: var(--r-pilula);
-    background: var(--t-07);
-    color: var(--t-100);
-  }
-
-  .atravessa {
-    display: flex;
+  .abertura-tag { padding: clamp(40px, 8vh, 72px) 4px 40px; display: grid; gap: 20px; justify-items: start; }
+  .abertura-tag h1 { max-width: 20ch; overflow-wrap: anywhere; }
+  .volta {
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
+    min-height: 40px;
+    font-size: 13px;
+    color: var(--t-65);
+    text-decoration: none;
   }
-  .atravessa .r {
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--t-35);
-    margin-right: 3px;
-  }
-  .atravessa .glyph { color: var(--t-75); }
-  /* a contagem por lab é navegação: diz onde vale entrar */
-  .atravessa .quantas {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--t-75);
-    padding-left: 7px;
-    margin-left: 3px;
-    border-left: 1px solid var(--t-12);
-  }
-  .atravessa .por-enquanto { font-size: 12.5px; color: var(--t-35); }
+  .volta:hover { color: var(--t-100); }
+  .volta:focus-visible,
+  .contagem a:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; border-radius: 4px; }
 
-  .contagem a { color: var(--t-50); text-decoration: none; }
-  .contagem a:hover { color: var(--t-90); }
+  /* os labs que a tag atravessa: chips cinza, sem cor por lab. A
+     contagem por lab é navegação, diz onde vale entrar */
+  .atravessa { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .atravessa .r { margin-right: 4px; }
+  .atravessa .quantas { color: var(--t-50); }
 
-  /* uma animação, nomeada: os labs entram em sequência, do que mais
-     usa a tag para o que menos usa */
-  @keyframes lab-atravessa {
-    from { opacity: 0; transform: translateX(-6px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  .atravessa .chip {
-    animation: lab-atravessa 420ms var(--ease) both;
-    animation-delay: calc(var(--i, 0) * 80ms);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .atravessa .chip { animation: none; }
-  }
+  .contagem { padding: 0 4px 24px; }
+  .contagem a { color: var(--t-65); text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px; }
+  .contagem a:hover { color: var(--t-100); }
 </style>
 
 <script>

@@ -3,10 +3,8 @@
 const ptBR = {
   'tags.titulo': 'Idearium · Tags',
   'tags.descricao': 'Os recortes que atravessam os laboratórios, ordenados por uso.',
-  'tags.rotulo': 'tags',
-  'tags.h1.antes': 'Recortes que ',
-  'tags.h1.serif': 'atravessam',
-  'tags.h1.depois': ' os labs.',
+  'tags.h1.antes': 'Recortes que atravessam os labs, ',
+  'tags.h1.apagado': 'escolhidos por quem escreve.',
   'tags.sub':
     'Uma tag junta ideias de laboratórios diferentes que tratam da mesma ' +
     'coisa. Quem escreve a ideia escolhe as dela.',
@@ -19,10 +17,10 @@ const ptBR = {
     'Ninguém escolheu esta lista. Cada palavra entrou junto com uma ' +
     'ideia, escrita por quem a propôs.',
   'tags.escala':
-    'Da mais usada para a menos usada. A tinta mede quantas ideias ' +
+    'Da mais usada para a menos usada. O tamanho mede quantas ideias ' +
     'usam a palavra, contando também rascunho e arquivada — que não ' +
     'abrem na página da tag.',
-  'tags.escala.orfas': ' As de contorno pontilhado não são usadas por ideia nenhuma.',
+  'tags.escala.orfas': ' As de contorno, sem fundo, não são usadas por ideia nenhuma.',
   'tags.queda.texto': 'Assim que a API voltar, as tags aparecem aqui.',
   'tags.vazio.titulo': 'Nenhuma tag ainda',
   'tags.vazio.texto':
@@ -34,6 +32,7 @@ const ptBR = {
   'tags.slug.volta': '← todas as tags',
   'tags.slug.sub':
     'Ideias de qualquer laboratório marcadas com esta tag por quem as escreveu.',
+  'tags.slug.h1.apagado': 'em qualquer laboratório.',
   'tags.slug.atravessa': 'atravessa',
   'tags.slug.atravessa.recorte': ' · nas {n} mais recentes',
   'tags.slug.umlab': 'um laboratório só, por enquanto.',
@@ -59,10 +58,8 @@ const ptBR = {
 const en: Record<keyof typeof ptBR, string> = {
   'tags.titulo': 'Idearium · Tags',
   'tags.descricao': 'The cuts that run across the labs, ordered by use.',
-  'tags.rotulo': 'tags',
-  'tags.h1.antes': 'Cuts that ',
-  'tags.h1.serif': 'run across',
-  'tags.h1.depois': ' the labs.',
+  'tags.h1.antes': 'Cuts that run across the labs, ',
+  'tags.h1.apagado': 'chosen by whoever writes.',
   'tags.sub':
     'A tag brings together ideas from different labs that deal with the ' +
     'same thing. Whoever writes the idea chooses its tags.',
@@ -75,10 +72,10 @@ const en: Record<keyof typeof ptBR, string> = {
     'Nobody chose this list. Each word came in with an idea, written by ' +
     'whoever proposed it.',
   'tags.escala':
-    'From most used to least used. The ink measures how many ideas use ' +
+    'From most used to least used. The size measures how many ideas use ' +
     'the word, counting drafts and archived ideas too — which do not ' +
     'open on the tag page.',
-  'tags.escala.orfas': ' Tags with a dotted outline are not used by any idea.',
+  'tags.escala.orfas': ' Tags with an outline and no fill are not used by any idea.',
   'tags.queda.texto': 'As soon as the API is back, the tags show up here.',
   'tags.vazio.titulo': 'No tags yet',
   'tags.vazio.texto':
@@ -90,6 +87,7 @@ const en: Record<keyof typeof ptBR, string> = {
   'tags.slug.volta': '← all tags',
   'tags.slug.sub':
     'Ideas from any lab tagged with this tag by whoever wrote them.',
+  'tags.slug.h1.apagado': 'in any lab.',
   'tags.slug.atravessa': 'runs across',
   'tags.slug.atravessa.recorte': ' · in the {n} most recent',
   'tags.slug.umlab': 'just one lab, for now.',

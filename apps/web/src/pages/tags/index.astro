@@ -13,13 +13,12 @@
    vocabulário não foi decidido por ninguém: ele é o resíduo do que as
    pessoas escreveram. A tela precisa deixar isso legível, e o jeito
    de mostrar em vez de afirmar é o PESO — quanto mais ideias a tag
-   marca, mais tinta ela tem. O que se lê não é uma lista alfabética
+   marca, maior e mais escura ela fica. O que se lê não é uma lista alfabética
    de rótulos aprovados: é uma superfície irregular, e a irregularidade
    é o uso.
 
-   O peso vem de tinta e superfície, com um único passo de tamanho.
-   Nuvem de tag dos anos 2000 aumentava a fonte até a palavra virar
-   ilustração ilegível, e a mono só fecha a grade em corpo inteiro.
+   O peso vem de tamanho e tom, em passos pequenos. Nuvem de tag dos
+   anos 2000 aumentava a fonte até a palavra virar ilustração ilegível.
 
    A tag continua aparecendo SEM NÚMERO. O `usageCount` que /tags
    devolve conta toda RFC ligada à tag, inclusive rascunho e
@@ -87,10 +86,9 @@ cachePublico(Astro, caiu);
         embaixo. Sem JavaScript ele nunca roda e o painel inteiro some. */}
     <noscript><style is:inline>.vem { opacity: 1; }</style></noscript>
 
-    <header class="cabecalho-pagina">
-      <span class="mono rotulo-pagina">{t(lang, 'tags.rotulo')}</span>
-      <h1>{t(lang, 'tags.h1.antes')}<span class="serif">{t(lang, 'tags.h1.serif')}</span>{t(lang, 'tags.h1.depois')}</h1>
-      <p class="sub">{t(lang, 'tags.sub')}</p>
+    <header class="abertura-tags">
+      <h1 class="titulo-duplo">{t(lang, 'tags.h1.antes')}<span class="apagado">{t(lang, 'tags.h1.apagado')}</span></h1>
+      <p class="apoio">{t(lang, 'tags.sub')}</p>
     </header>
 
     {caiu && (
@@ -101,21 +99,20 @@ cachePublico(Astro, caiu);
 
     {tags.length > 0 ? (
       <>
-        <p class="contagem">
+        <p class="apoio contagem">
           {t(lang, total === 1 ? 'tags.contagem.um' : 'tags.contagem.varios', { n: total })}
           {total > tags.length && t(lang, 'tags.contagem.mostrando', { n: tags.length })}
         </p>
 
-        <div class="cartao painel-tags vem">
-          <p class="origem">{t(lang, 'tags.origem')}</p>
+        <div class="painel-tags vem">
+          <p class="apoio origem">{t(lang, 'tags.origem')}</p>
 
           <div class="nuvem-tags">
-            {tags.map((tg, i) => (
+            {tags.map((tg) => (
               <a
                 class="tag"
                 href={rota(lang, `/tags/${tg.slug}`)}
                 data-peso={nivelDeUso(tg.usageCount, maiorUso)}
-                style={`--i:${Math.min(i, 24)}`}
               >{tg.name}</a>
             ))}
           </div>
@@ -124,7 +121,7 @@ cachePublico(Astro, caiu);
               rascunho e arquivada. Dizer isso aqui é mais barato que
               deixar a pessoa descobrir clicando numa palavra escura e
               caindo numa página vazia. */}
-          <p class="escala">
+          <p class="apoio escala">
             {t(lang, 'tags.escala')}
             {temOrfas && t(lang, 'tags.escala.orfas')}
           </p>
@@ -145,82 +142,37 @@ cachePublico(Astro, caiu);
 </Layout>
 
 <style>
-  .rotulo-pagina {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--t-35);
-  }
+  .abertura-tags { padding: clamp(48px, 9vh, 88px) 4px 40px; display: grid; gap: 20px; }
+  .abertura-tags h1 { max-width: 22ch; }
 
-  .painel-tags { padding: 22px 26px 24px; }
+  .contagem { padding: 0 4px 24px; }
 
-  .origem {
-    margin: 0 0 20px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--t-07);
-    font-size: 13.5px;
-    color: var(--t-65);
-    max-width: 54ch;
-  }
+  .painel-tags { padding: 0 4px 24px; }
+  .origem { margin: 0 0 32px; }
 
-  /* linha de base maior: com pesos diferentes na mesma linha, o gap
-     apertado faz a palavra pesada parecer colada na leve */
+  /* O peso é só tipográfico: tamanho e tom. A palavra mais usada fica
+     maior e mais escura; a que nenhuma ideia usa perde o fundo. Chip
+     cinza em todos os níveis, altura mínima de 40px pra alvo de toque. */
   .painel-tags .nuvem-tags { gap: 8px; align-items: center; }
+  .painel-tags .tag {
+    height: auto;
+    min-height: 40px;
+    padding: 0 18px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    background: var(--color-chip);
+    color: var(--t-75);
+  }
+  .tag[data-peso="3"] { font-size: 19px; padding: 0 22px; color: var(--t-100); }
+  .tag[data-peso="2"] { font-size: 16px; color: var(--t-100); }
+  .tag[data-peso="1"] { background: var(--t-07); }
+  .tag[data-peso="0"] { background: transparent; box-shadow: inset 0 0 0 1px var(--t-12); color: var(--t-50); }
+  /* o seletor de atributo pesa mais que o :hover da global.css; sem
+     esta regra a nuvem inteira perderia o retorno de hover */
+  .tag[data-peso]:hover { background: var(--tinta); color: #fff; box-shadow: none; }
+  .tag:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
 
-  .escala {
-    margin: 20px 0 0;
-    padding-top: 16px;
-    border-top: 1px solid var(--t-07);
-    font-size: 12.5px;
-    color: var(--t-35);
-    max-width: 60ch;
-  }
-
-  /* peso da tag = uso. Vem de tinta e superfície, com um único passo
-     de tamanho: a mono só fecha a grade do pixel em corpo inteiro, e
-     palavra ampliada até virar desenho deixa de ser navegável.
-     O mesmo bloco existe em /buscar, onde as tags reaparecem — a
-     global.css é território compartilhado e não recebe CSS de tela. */
-  .tag[data-peso="3"] { background: var(--t-12); color: var(--t-100); font-size: 12px; }
-  .tag[data-peso="2"] { background: var(--t-07); color: var(--t-90); }
-  .tag[data-peso="1"] {
-    background: transparent;
-    border: 1px solid var(--t-07);
-    padding: 3px 9px;
-    color: var(--t-65);
-  }
-  .tag[data-peso="0"] {
-    background: transparent;
-    border: 1px dashed var(--t-12);
-    padding: 3px 9px;
-    color: var(--t-35);
-  }
-  /* O seletor de atributo, escopado pelo Astro, pesa mais que o
-     `.tag:hover` da global.css e apagaria o hover de toda tag com peso
-     — a nuvem inteira deixaria de se comportar como link. O hover volta
-     na mesma altura, depois dos pesos, e invertido: sob o ponteiro a
-     palavra para de dizer quanto é usada e passa a dizer que se clica. */
-  .tag[data-peso]:hover {
-    background: var(--t-100);
-    color: #fff;
-    border-color: transparent;
-  }
-
-  /* uma animação, nomeada: o vocabulário aparece na ordem em que é
-     usado, da mais pesada para a mais leve. É a única coisa na tela
-     que diz "isto emergiu" em vez de escrever. */
-  @keyframes tag-emerge {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .painel-tags.veio .tag {
-    animation: tag-emerge 380ms var(--ease) both;
-    animation-delay: calc(var(--i, 0) * 22ms + 120ms);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .painel-tags.veio .tag { animation: none; }
-  }
+  .escala { margin: 32px 0 0; color: var(--t-50); max-width: 60ch; }
 </style>
 
 <script>
