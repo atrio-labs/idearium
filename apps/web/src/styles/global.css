@@ -243,9 +243,8 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; background: var(--moldura); }
 
-/* O body é a moldura. Quem ainda não usa .moldura (todas as páginas,
-   hoje) fica com cartões brancos sobre o cinza — que já é a leitura
-   certa da referência. */
+/* O body é o cinza da moldura; a folha branca (.moldura) vem do
+   Layout.astro e envolve toda página. */
 body {
   margin: 0;
   background: var(--moldura);
@@ -463,6 +462,8 @@ button:focus-visible {
   border-radius: var(--r-pilula);
   padding: 5px 5px 5px 18px;
 }
+.nav ul { list-style: none; margin: 0; padding: 0; }
+.nav .itens { display: flex; align-items: center; gap: 2px; }
 .nav .marca {
   font-weight: 650;
   font-size: 14px;
@@ -472,7 +473,11 @@ button:focus-visible {
   color: var(--t-100);
   text-decoration: none;
 }
-.nav a {
+.nav a,
+.nav summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--t-75);
   text-decoration: none;
   font-size: 13px;
@@ -482,22 +487,69 @@ button:focus-visible {
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
   white-space: nowrap;
 }
-.nav a:hover { background: rgba(17, 17, 17, 0.05); color: var(--t-100); }
+.nav a:hover,
+.nav summary:hover { background: rgba(17, 17, 17, 0.05); color: var(--t-100); }
+/* página atual: tinta cheia e peso um passo acima, com o mesmo fundo
+   leve do hover. Sem sublinhado e sem cor. */
+.nav .itens a[aria-current="page"],
+.nav .painel a[aria-current="page"] { color: var(--t-100); font-weight: 550; background: rgba(17, 17, 17, 0.05); }
 .nav .fim { margin-left: 12px; display: flex; gap: 4px; align-items: center; }
 .nav .entrar {
   background: var(--tinta);
   color: #fff;
   height: 32px;
-  display: inline-flex;
-  align-items: center;
   padding: 0 15px;
   font-weight: 500;
 }
 .nav .entrar:hover { background: #2A2A2A; color: #fff; }
+
+/* ponto de "há notificação nova": parado, pequeno, na tinta. Sem
+   número e sem cor de alarme (VISAO §9). */
+.nav .marcador {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tinta);
+  flex-shrink: 0;
+}
+.nav .marcador[hidden] { display: none; }
+
+/* menu do celular: <details>, fechado por padrão, só abaixo de 760px */
+.nav .menu { display: none; position: relative; }
+.nav .menu summary { list-style: none; cursor: pointer; }
+.nav .menu summary::-webkit-details-marker { display: none; }
+.nav .menu[open] summary { background: var(--cartao); color: var(--t-100); }
+.nav summary:focus-visible { outline: 2px solid var(--t-100); outline-offset: 3px; }
+.nav .painel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 200px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  background: var(--cartao);
+  border-radius: var(--r-dentro);
+  box-shadow: var(--sombra-alta);
+}
+.nav .painel a { display: flex; width: 100%; border-radius: var(--r-bloco); }
+
 @media (max-width: 760px) {
-  .nav { width: auto; }
-  .nav .esconde { display: none; }
-  .nav .fim { margin-left: auto; }
+  .nav { width: auto; padding-left: 16px; }
+  .nav .itens { display: none; }
+  .nav .menu { display: block; }
+  .nav .fim { margin-left: auto; gap: 2px; }
+  /* alvo de toque de 40px no celular */
+  .nav a,
+  .nav summary { min-height: 40px; }
+  .nav .entrar { height: 40px; }
+  .nav .idiomas a { min-width: 36px; justify-content: center; }
+  /* @ comprido estouraria a pílula: no celular fica só a inicial, e o
+     nome segue no aria-label do link */
+  .nav .eu .nome { display: none; }
+  .nav .eu { padding: 4px; }
+  .nav .eu .inicial { width: 32px; height: 32px; }
+}
+@media (max-width: 360px) {
+  .nav .marca { margin-right: 4px; }
 }
 
 /* nav: bloco de quem está logado */
@@ -520,13 +572,14 @@ button:focus-visible {
 
 /* nav: seletor de idioma. Pequeno e cinza: é metadado da página, não
    destino de navegação, e não pode competir com os itens. Fica visível
-   na tela estreita, onde os itens somem. */
+   na tela estreita, onde os itens vão pro menu. O cinza é o t-65, e
+   não o t-50: sobre o cinza da pílula, o t-50 não passa no AA. */
 .nav .idiomas { display: inline-flex; align-items: center; }
 .nav .idiomas a {
   font-size: 12px;
   font-weight: 500;
   padding: 7px 7px;
-  color: var(--t-50);
+  color: var(--t-65);
 }
 .nav .idiomas a[aria-current] { color: var(--t-100); }
 
@@ -1274,15 +1327,28 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
 }
 .chamada p { margin: 0 auto 28px; color: var(--t-65); font-size: 14.5px; line-height: 1.45; max-width: 40ch; }
 
+/* Rodapé: uma linha de texto pequeno sobre a folha branca, separada
+   do conteúdo por um fio. Cinza t-65 (o t-50 não passa no AA). */
 .rodape {
-  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
-  padding: 24px 10px 8px;
+  display: flex; align-items: baseline; gap: 12px 24px; flex-wrap: wrap;
+  margin-top: 72px;
+  padding: 20px 4px 0;
+  border-top: 1px solid var(--t-12);
   font-size: 12.5px;
-  color: var(--t-50);
+  color: var(--t-65);
 }
+.rodape .marca { color: var(--t-100); font-weight: 500; }
 .rodape a { color: var(--t-65); text-decoration: none; transition: color var(--dur) var(--ease); }
 .rodape a:hover { color: var(--t-100); }
-.rodape nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.rodape nav { display: flex; gap: 4px 16px; flex-wrap: wrap; }
+.rodape .licencas { margin: 0 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.rodape .licencas a { text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .rodape { flex-direction: column; gap: 8px; }
+  .rodape .licencas { margin-left: 0; }
+  /* alvo de toque de 40px no celular */
+  .rodape a { display: inline-flex; align-items: center; min-height: 40px; }
+}
 
 
 /* ================================================================

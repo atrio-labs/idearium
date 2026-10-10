@@ -4,10 +4,10 @@
    ================================================================
    Toda página em src/pages/ que importar este Layout vai receber:
      - <html>, <head>, <body> já configurados
-     - Inter e Newsreader do Google Fonts; Departure Mono é self-hosted
-       e declarada em global.css
-     - global.css importado (Tailwind + tokens)
-     - <slot /> pra conteúdo específico da página
+     - global.css importado (Tailwind, tokens e a Inter self-hosted)
+     - a moldura: o body é o cinza claro e a página é a folha branca
+       de raio 24 por cima dele (.moldura em global.css)
+     - <slot /> pra conteúdo específico da página, dentro da moldura
 
    Uso típico em uma página:
      ---
@@ -66,8 +66,11 @@ const absoluto = (l: typeof lang) => new URL(rota(l, caminho), origem).href;
     <ClientRouter />
   </head>
   <body>
-    {/* slot é onde o conteúdo de cada página é injetado.
-        Astro substitui essa tag pelo HTML que vier dentro de <Layout>...</Layout> */}
-    <slot />
+    {/* A folha branca. Toda página cai aqui dentro, então nenhuma
+        precisa lembrar de pôr a moldura. O slot recebe o HTML que vier
+        dentro de <Layout>...</Layout>. */}
+    <div class="moldura">
+      <slot />
+    </div>
   </body>
 </html>

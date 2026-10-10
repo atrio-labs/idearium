@@ -20,6 +20,8 @@ declare global {
 interface ImportMetaEnv {
   /** URL base da API. Default http://localhost:3000 */
   readonly PUBLIC_API_URL?: string;
+  /** '1' liga as notificações (F6). Desligada por padrão */
+  readonly PUBLIC_NOTIFICACOES?: string;
 }
 
 interface ImportMeta {

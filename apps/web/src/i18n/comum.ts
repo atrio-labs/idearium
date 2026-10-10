@@ -16,6 +16,13 @@ const ptBR = {
   'comum.nav.buscar': 'buscar',
   'comum.nav.entrar': 'entrar',
   'comum.nav.idioma': 'idioma',
+  'comum.nav.principal': 'principal',
+  'comum.nav.menu': 'menu',
+  'comum.nav.perfil': 'seu perfil, @{username}',
+  'comum.nav.notificacoes': 'notificações',
+  /* só leitor de tela ouve isto; na tela é um ponto. Sem número de
+     propósito (VISAO §9): o aviso diz que há algo, não quanto. */
+  'comum.nav.novas': 'há notificações novas',
 
   /* O convite é escrito no idioma pra onde ele leva: quem vai ler em
      inglês lê o convite em inglês. Por isso a página em pt-BR usa as
@@ -27,6 +34,9 @@ const ptBR = {
   'comum.rodape.governanca': 'governança',
   'comum.rodape.conduta': 'código de conduta',
   'comum.rodape.transparencia': 'transparência',
+  'comum.rodape.institucional': 'institucional',
+  'comum.rodape.conteudo': 'conteúdo',
+  'comum.rodape.codigo': 'código',
 
   'comum.vazio.rotulo.falha': 'sem resposta do servidor',
   'comum.vazio.rotulo.nada': 'nada por aqui',
@@ -46,7 +56,7 @@ const ptBR = {
   'comum.tempo.mes': 'há 1 mês',
   'comum.tempo.meses': 'há {n} meses',
 
-  'comum.materia.alt': 'Campo de dados em dithering, {codigo}',
+  'comum.materia.alt': 'Imagem gerada para {codigo}',
 };
 
 const en: Record<keyof typeof ptBR, string> = {
@@ -60,6 +70,11 @@ const en: Record<keyof typeof ptBR, string> = {
   'comum.nav.buscar': 'search',
   'comum.nav.entrar': 'sign in',
   'comum.nav.idioma': 'language',
+  'comum.nav.principal': 'main',
+  'comum.nav.menu': 'menu',
+  'comum.nav.perfil': 'your profile, @{username}',
+  'comum.nav.notificacoes': 'notifications',
+  'comum.nav.novas': 'there are new notifications',
 
   'comum.sugestao.ler': 'Read in English',
   'comum.sugestao.dispensar': 'dismiss',
@@ -68,6 +83,9 @@ const en: Record<keyof typeof ptBR, string> = {
   'comum.rodape.governanca': 'governance',
   'comum.rodape.conduta': 'code of conduct',
   'comum.rodape.transparencia': 'transparency',
+  'comum.rodape.institucional': 'about the project',
+  'comum.rodape.conteudo': 'content',
+  'comum.rodape.codigo': 'code',
 
   'comum.vazio.rotulo.falha': 'no response from the server',
   'comum.vazio.rotulo.nada': 'nothing here',
@@ -87,7 +105,7 @@ const en: Record<keyof typeof ptBR, string> = {
   'comum.tempo.mes': '1 month ago',
   'comum.tempo.meses': '{n} months ago',
 
-  'comum.materia.alt': 'Dithered data field, {codigo}',
+  'comum.materia.alt': 'Image generated for {codigo}',
 };
 
 export default { 'pt-BR': ptBR, en };

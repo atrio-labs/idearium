@@ -1,36 +1,53 @@
 ---
-/* Nav — pílula flutuante, sticky. Aparece em toda página.
+/* Nav — pílula cinza clara, centralizada, sticky. Aparece em toda
+   página: marca em negrito à esquerda, links pequenos em cinza
+   escuro, ação preta em pílula à direita.
 
    Toda página é SSR, então `locals.usuario` sempre existe aqui: a nav
-   sai do servidor já com o @ de quem está logado. O antigo script que
-   lia o cookie id_quem pra corrigir a nav de página estática saiu junto
-   com o prerender.
+   sai do servidor já com o @ de quem está logado.
+
+   Celular: os links não cabem na pílula. Eles vão pra um <details>
+   ("menu"), que abre e fecha sem JavaScript e já é anunciado como
+   expandido/recolhido pelo leitor de tela. Foi escolhido no lugar de
+   um botão com script porque funciona antes de o JS carregar e não
+   pisca na primeira pintura. Os links aparecem duas vezes no HTML
+   (linha da pílula e painel), mas só um dos dois é exibido por vez.
 
    Idioma: o seletor pt / en leva à MESMA página no outro idioma. Não há
    redirect por idioma; quem chega sem prefixo e prefere inglês vê só a
-   sugestão discreta abaixo da pílula, que pode dispensar. */
+   sugestão discreta abaixo da pílula, que pode dispensar.
+
+   Notificações (F6, só com PUBLIC_NOTIFICACOES=1 e sessão): um ponto
+   discreto quando há não lidas. Sem número (VISAO §9). Quem acende o
+   ponto é o script, consultando /api/notificacoes/contagem; o HTML sai
+   com ele apagado, então a nav não custa uma chamada à API a mais por
+   página. */
 import { COOKIE_SUGESTAO_DISPENSADA, IDIOMAS, idiomaDe, rota, t } from '../../lib/i18n';
+import { notificacoesLigadas } from '../../lib/notificacoes';
 
 interface Props {
   /** rota atual, pra marcar o item ativo */
-  atual?: 'labs' | 'rfcs' | 'builders' | 'buscar' | 'sobre';
+  atual?: 'labs' | 'rfcs' | 'builders' | 'buscar' | 'sobre' | 'notificacoes';
 }
 const { atual } = Astro.props;
 
 const lang = idiomaDe(Astro);
 const usuario = Astro.locals.usuario ?? null;
+const comNotificacoes = notificacoesLigadas() && usuario != null;
 
 const itens = [
   { chave: 'labs',     href: '/labs',     texto: t(lang, 'comum.nav.labs') },
   { chave: 'rfcs',     href: '/rfcs',     texto: t(lang, 'comum.nav.rfcs') },
   { chave: 'builders', href: '/builders', texto: t(lang, 'comum.nav.builders') },
   { chave: 'sobre',    href: '/sobre',    texto: t(lang, 'comum.nav.sobre') },
+  { chave: 'buscar',   href: '/buscar',   texto: t(lang, 'comum.nav.buscar') },
 ] as const;
 
 /* Astro.url chega sem o prefixo /en (o middleware reescreveu), então
    serve de base pra montar a mesma página em qualquer idioma. */
 const aqui = Astro.url.pathname + Astro.url.search;
 const sigla = { 'pt-BR': 'pt', en: 'en' } as const;
+const corrente = (chave: string) => (atual === chave ? 'page' : undefined);
 
 /* Sugestão de idioma. Só existe em pt-BR por enquanto, porque só o
    inglês tem pra onde convidar. Quem decide se ela aparece:
@@ -44,19 +61,26 @@ const sugerir = lang === 'pt-BR';
 const perfilPedeIngles = Astro.locals.idiomaPreferido === 'en';
 ---
 
-<nav class="nav">
+<nav class="nav" aria-label={t(lang, 'comum.nav.principal')}>
   <a class="marca" href={rota(lang, '/')}>idearium</a>
-  {itens.map((i) => (
-    <a
-      class="esconde"
-      href={rota(lang, i.href)}
-      aria-current={atual === i.chave ? 'page' : undefined}
-    >{i.texto}</a>
-  ))}
+
+  <ul class="itens">
+    {itens.map((i) => (
+      <li><a href={rota(lang, i.href)} aria-current={corrente(i.chave)}>{i.texto}</a></li>
+    ))}
+    {comNotificacoes && (
+      <li>
+        <a href={rota(lang, '/notificacoes')} aria-current={corrente('notificacoes')}>
+          {t(lang, 'comum.nav.notificacoes')}
+          <span class="marcador" data-marcador hidden>
+            <span class="sr-only">{t(lang, 'comum.nav.novas')}</span>
+          </span>
+        </a>
+      </li>
+    )}
+  </ul>
+
   <span class="fim">
-    <a class="esconde" href={rota(lang, '/buscar')} aria-current={atual === 'buscar' ? 'page' : undefined}>
-      {t(lang, 'comum.nav.buscar')}
-    </a>
     <span class="idiomas" role="group" aria-label={t(lang, 'comum.nav.idioma')}>
       {IDIOMAS.map((l) => (
         <a
@@ -67,14 +91,45 @@ const perfilPedeIngles = Astro.locals.idiomaPreferido === 'en';
         >{sigla[l]}</a>
       ))}
     </span>
+
     {usuario ? (
-      <a class="eu" href={rota(lang, '/perfil')}>
-        <span class="inicial">{usuario.username.slice(0, 2).toUpperCase()}</span>
-        @{usuario.username}
+      <a
+        class="eu"
+        href={rota(lang, '/perfil')}
+        aria-label={t(lang, 'comum.nav.perfil', { username: usuario.username })}
+      >
+        <span class="inicial" aria-hidden="true">{usuario.username.slice(0, 2).toUpperCase()}</span>
+        <span class="nome">@{usuario.username}</span>
       </a>
     ) : (
       <a class="entrar" href={rota(lang, '/entrar')}>{t(lang, 'comum.nav.entrar')}</a>
     )}
+
+    <details class="menu">
+      <summary>
+        {t(lang, 'comum.nav.menu')}
+        {comNotificacoes && (
+          <span class="marcador" data-marcador hidden>
+            <span class="sr-only">{t(lang, 'comum.nav.novas')}</span>
+          </span>
+        )}
+      </summary>
+      <ul class="painel">
+        {itens.map((i) => (
+          <li><a href={rota(lang, i.href)} aria-current={corrente(i.chave)}>{i.texto}</a></li>
+        ))}
+        {comNotificacoes && (
+          <li>
+            <a href={rota(lang, '/notificacoes')} aria-current={corrente('notificacoes')}>
+              {t(lang, 'comum.nav.notificacoes')}
+              <span class="marcador" data-marcador hidden>
+                <span class="sr-only">{t(lang, 'comum.nav.novas')}</span>
+              </span>
+            </a>
+          </li>
+        )}
+      </ul>
+    </details>
   </span>
 </nav>
 
@@ -119,5 +174,45 @@ const perfilPedeIngles = Astro.locals.idiomaPreferido === 'en';
     });
   }
 
-  document.addEventListener('astro:page-load', ligarSugestao);
+  /* Marcador de notificações. Consulta o endpoint do próprio web (a
+     sessão vai no cookie httpOnly; nenhum token passa por aqui) ao
+     abrir a página e a cada 60s, mas só com a aba visível: aba em
+     segundo plano não gasta requisição. Ao voltar pra aba, consulta
+     na hora se a última leitura já passou de 60s. */
+  const INTERVALO = 60_000;
+  let relogio: number | undefined;
+  let ultima = 0;
+
+  async function consultar() {
+    const marcadores = document.querySelectorAll<HTMLElement>('[data-marcador]');
+    if (!marcadores.length || document.visibilityState !== 'visible') return;
+    ultima = Date.now();
+    try {
+      const r = await fetch('/api/notificacoes/contagem', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      if (!r.ok) return;
+      const { novas } = (await r.json()) as { novas: boolean | null };
+      if (novas === null) return;            // não deu pra saber: deixa como está
+      marcadores.forEach((m) => { m.hidden = !novas; });
+    } catch { /* rede fora: tenta de novo no próximo ciclo */ }
+  }
+
+  function aoVoltar() {
+    if (document.visibilityState === 'visible' && Date.now() - ultima >= INTERVALO) consultar();
+  }
+
+  function ligarMarcador() {
+    window.clearInterval(relogio);
+    if (!document.querySelector('[data-marcador]')) return;
+    consultar();
+    relogio = window.setInterval(consultar, INTERVALO);
+  }
+
+  document.addEventListener('visibilitychange', aoVoltar);
+  document.addEventListener('astro:page-load', () => {
+    ligarSugestao();
+    ligarMarcador();
+  });
 </script>
