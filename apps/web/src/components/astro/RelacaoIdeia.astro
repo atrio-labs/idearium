@@ -1,0 +1,108 @@
+---
+/* ================================================================
+   RelacaoIdeia — o que liga uma ideia a outras e a quem a lê (C5)
+   ================================================================
+   Duas partes, uma por lugar da página da RFC:
+
+     parte="origem"  logo abaixo do resumo: "tradução de RFC-0004",
+                     se esta ideia é tradução de outra.
+     parte="acoes"   na coluna lateral: traduzir esta ideia, as
+                     traduções que já existem (PUBLIC_TRADUCOES) e
+                     acompanhar (PUBLIC_ACOMPANHAR).
+
+   Acompanhar não tem contador público: ninguém vê quantas pessoas
+   acompanham, nem quem (VISAO §9, anti-vaidade). O botão é um POST
+   comum pra /rfcs/<slug>/acompanhar, que responde 303; funciona sem JS.
+   ================================================================ */
+import { codigoRfc, type Rfc } from '../../lib/api';
+import { rota, t, type Idioma } from '../../lib/i18n';
+import { traducoesLigadas } from '../../lib/ideia';
+
+interface Props {
+  parte: 'origem' | 'acoes';
+  rfc: Rfc;
+  lang: Idioma;
+  logado: boolean;
+  /** null: acompanhar desligado ou a API não respondeu */
+  acompanhando?: boolean | null;
+  /** o último POST de acompanhar falhou */
+  erroAcompanhar?: boolean;
+}
+const { parte, rfc, lang, logado, acompanhando = null, erroAcompanhar = false } = Astro.props;
+
+const origem = rfc.translationOf ?? null;
+const traducoes = traducoesLigadas() ? (rfc.translations ?? []) : [];
+const podeTraduzir = rfc.status !== 'DRAFT' && rfc.number != null;
+const nova = `${rota(lang, '/rfcs/nova')}?traducaoDe=${encodeURIComponent(rfc.id)}&original=${encodeURIComponent(rfc.slug)}`;
+const hrefTraduzir = logado ? nova : `${rota(lang, '/entrar')}?voltar=${encodeURIComponent(nova)}`;
+const nomeLocale = (l: string) => t(lang, l === 'en' ? 'ideia.locale.en' : 'ideia.locale.pt-BR');
+const temAcoes = podeTraduzir || traducoes.length > 0 || acompanhando !== null;
+---
+
+{parte === 'origem' && origem && (
+  <p class="relacao-origem">
+    {t(lang, 'ideia.traducao.de')}
+    <a href={rota(lang, `/rfcs/${origem.slug}`)}>{codigoRfc(origem.number, lang)}</a>
+    <span class="mudo">· {origem.title}</span>
+  </p>
+)}
+
+{parte === 'acoes' && temAcoes && (
+  <div class="relacao-bloco">
+    {traducoes.length > 0 && (
+      <>
+        <p class="relacao-titulo">{t(lang, 'ideia.traducoes.titulo')}</p>
+        <ul class="relacao-lista">
+          {traducoes.map((x) => (
+            <li>
+              <a href={rota(lang, `/rfcs/${x.slug}`)}>
+                <span class="mono">{codigoRfc(x.number, lang)}</span> {nomeLocale(x.locale)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+
+    {podeTraduzir && (
+      <>
+        <a class="botao-secundario relacao-acao" href={hrefTraduzir}>
+          {t(lang, 'ideia.traducao.acao')}
+        </a>
+        <p class="relacao-nota">{t(lang, 'ideia.traducao.acao.nota')}</p>
+      </>
+    )}
+
+    {acompanhando !== null && logado && (
+      <form method="post" action={rota(lang, `/rfcs/${rfc.slug}/acompanhar`)}>
+        <input type="hidden" name="acao" value={acompanhando ? 'deixar' : 'seguir'} />
+        {erroAcompanhar && <p class="aviso-erro" role="alert">{t(lang, 'ideia.acompanhar.erro')}</p>}
+        <button class:list={['relacao-acao', acompanhando ? 'botao-secundario' : 'botao']} type="submit">
+          {t(lang, acompanhando ? 'ideia.acompanhar.parar' : 'ideia.acompanhar.acao')}
+        </button>
+        <p class="relacao-nota">{t(lang, acompanhando ? 'ideia.acompanhar.parar.nota' : 'ideia.acompanhar.nota')}</p>
+      </form>
+    )}
+  </div>
+)}
+
+<style>
+  .relacao-origem { margin: 0 0 16px; font-size: 14px; color: var(--t-65); }
+  .relacao-origem a {
+    display: inline-flex; align-items: center; min-height: 40px; margin: 0 6px;
+    color: var(--t-100); text-decoration: underline;
+    text-decoration-color: var(--t-35); text-underline-offset: 3px;
+  }
+  .relacao-origem .mudo { color: var(--t-65); overflow-wrap: anywhere; }
+  .relacao-bloco { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 24px; }
+  .relacao-titulo { margin: 0; font-size: 13px; color: var(--t-65); }
+  .relacao-lista { margin: 0 0 8px; padding: 0; list-style: none; }
+  .relacao-lista a {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+    font-size: 14px; color: var(--t-100);
+    text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px;
+  }
+  .relacao-acao { min-height: 40px; }
+  .relacao-nota { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: var(--t-65); }
+  .relacao-bloco form { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+</style>

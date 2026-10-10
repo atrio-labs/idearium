@@ -49,7 +49,9 @@ import {
   type Rfc, type Versao, type Inscricao, type Comentario, type Tag, type Pagina,
 } from '../../lib/api';
 import { idiomaDe, rota, separarIdioma, t } from '../../lib/i18n';
-import { renderizarMarkdown } from '../../lib/markdown';
+import { renderizarMarkdown, renderizarComentario } from '../../lib/markdown';
+import RelacaoIdeia from '../../components/astro/RelacaoIdeia.astro';
+import { acompanharLigado, estouAcompanhando } from '../../lib/ideia';
 import AtualizacoesRfc from '../../components/astro/AtualizacoesRfc.astro';
 import {
   cicloLigado, LIMITE_CICLO, listarAtualizacoes, projetoDaRfc, publicarAtualizacao,
@@ -367,6 +369,13 @@ const textoDiscussaoVazia = t(lang, falhaComentarios
    editor usa na prévia: o que se vê ao escrever é o que se lê aqui. */
 const corpoHtml = rfc ? renderizarMarkdown(rfc.body) : '';
 
+/* Acompanhar (PUBLIC_ACOMPANHAR): só pergunta com sessão e flag. null
+   esconde o botão, inclusive quando a API ainda não tem o endpoint. */
+const acompanhando = rfc && usuario && acompanharLigado()
+  ? await estouAcompanhando(Astro.cookies, rfc.id)
+  : null;
+const erroAcompanhar = Astro.url.searchParams.get('acompanhar') === 'erro';
+
 cachePublico(
   Astro,
   semRede || leituraVersoes.falhou || falhaInscricoes || falhaComentarios || leituraTags.falhou
@@ -409,6 +418,7 @@ cachePublico(
       </div>
       <h1 class="titulo-duplo grande">{rfc.title}</h1>
       <p class="resumo">{rfc.summary}</p>
+      <RelacaoIdeia parte="origem" rfc={rfc} lang={lang} logado={!!usuario} />
     </header>
 
     {rascunhoMeu && (
@@ -519,7 +529,7 @@ cachePublico(
                     </div>
                   </form>
                 ) : (
-                  <p>{c.body}</p>
+                  <div class="corpo-comentario" set:html={renderizarComentario(c.body, lang)}></div>
                 )}
 
                 {meu && !emEdicao && (
@@ -599,7 +609,7 @@ cachePublico(
               >{textoNovoFalha ?? ''}</textarea>
               <div class="pe-nascendo">
                 <span class="ajuda" id="ajuda-novo-comentario">
-                  {t(lang, 'rfcs.det.novo.ajuda')}
+                  {t(lang, 'rfcs.det.novo.ajuda')} {t(lang, 'ideia.formato')}
                 </span>
                 <button class="botao" type="submit">{t(lang, 'rfcs.det.novo.acao')}</button>
               </div>
@@ -650,6 +660,11 @@ cachePublico(
               </p>
             </form>
           )}
+
+          <RelacaoIdeia
+            parte="acoes" rfc={rfc} lang={lang} logado={!!usuario}
+            acompanhando={acompanhando} erroAcompanhar={erroAcompanhar}
+          />
         </div>
 
         {(ativos.length > 0 || (podeEntrar && usuario)) && (

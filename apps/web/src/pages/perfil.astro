@@ -31,6 +31,7 @@ import { comSessao, desvincular, exigirSessao, reenviarVerificacao } from '../li
 import { NOME_DO_PROVEDOR, OAUTH_ATIVO, PROVEDORES, ehProvedor } from '../lib/oauth';
 import { CONTA_LIGADA, SENHA_MAX, SENHA_MIN, pedirTrocaDeEmail, sairDeTodos, trocarSenha, type ResultadoConta } from '../lib/conta';
 import { idiomaDe, rota, t, type Idioma } from '../lib/i18n';
+import OQueAcompanho from '../components/astro/OQueAcompanho.astro';
 
 const lang = idiomaDe(Astro);
 const usuario = Astro.locals.usuario;
@@ -587,6 +588,8 @@ const temasPrevia = builder.topics
               </div>
             </section>
           )}
+
+          <OQueAcompanho lang={lang} />
 
           <nav class="conta" aria-label={t(lang, 'conta.perfil.link.publico')}>
             <a class="botao-secundario" href={rota(lang, `/users/${eu.username}`)}>{t(lang, 'conta.perfil.link.publico')}</a>

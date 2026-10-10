@@ -1,0 +1,26 @@
+---
+/* /rfcs/:slug/acompanhar — só POST (PUBLIC_ACOMPANHAR)
+   O botão da página da RFC aponta pra cá; a resposta é sempre 303 de
+   volta pra ideia, com ?acompanhar=erro quando a API recusou. GET não
+   faz nada além de voltar. */
+import { comSessao } from '../../../lib/sessao';
+import { acompanharLigado, mudarAcompanhar } from '../../../lib/ideia';
+import { idiomaDe, rota } from '../../../lib/i18n';
+
+if (!acompanharLigado()) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+const { slug } = Astro.params;
+const volta = rota(lang, `/rfcs/${slug}`);
+
+if (Astro.request.method !== 'POST') return Astro.redirect(volta, 303);
+if (!Astro.locals.usuario) {
+  return Astro.redirect(`${rota(lang, '/entrar')}?voltar=${encodeURIComponent(volta)}`, 303);
+}
+
+const dados = await Astro.request.formData();
+const seguir = String(dados.get('acao') ?? '') === 'seguir';
+const leitura = await comSessao<{ id: string }>(Astro.cookies, 'GET', `/rfcs/${encodeURIComponent(String(slug))}`);
+const r = leitura.ok && leitura.dado ? await mudarAcompanhar(Astro.cookies, leitura.dado.id, seguir) : { ok: false };
+return Astro.redirect(r.ok ? volta : `${volta}?acompanhar=erro`, 303);
+---

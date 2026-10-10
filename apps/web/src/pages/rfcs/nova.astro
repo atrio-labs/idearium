@@ -30,6 +30,8 @@ import EditorCorpo from '../../components/astro/EditorCorpo.astro';
 import { listarLabs, apiIndisponivel, nomeDoLab, type Rfc } from '../../lib/api';
 import { idiomaDe, rota, t } from '../../lib/i18n';
 import { comSessao } from '../../lib/sessao';
+import { codigoRfc } from '../../lib/api';
+import { ehLocale, localeOposto } from '../../lib/ideia';
 
 const lang = idiomaDe(Astro);
 const loc = lang === 'en' ? 'en' : 'pt-BR';
@@ -85,7 +87,7 @@ function separarTags(bruto: string) {
   return { tags, semLetras, repetidas };
 }
 
-interface Campos { title: string; summary: string; body: string; labId: string; tags: string }
+interface Campos { title: string; summary: string; body: string; labId: string; tags: string; locale: 'pt-BR' | 'en' }
 
 /* Validar aqui, e não só no servidor da API, é o que devolve o erro
    grudado no campo certo. A API responde uma lista de mensagens sem
@@ -120,7 +122,22 @@ const semLabs = labs.length === 0;
 /* lido aqui, logo após a busca: vale só pra esta requisição */
 const semRede = apiIndisponivel();
 
-let valores: Campos = { title: '', summary: '', body: '', labId: '', tags: '' };
+/* Tradução (VISAO §10 #7): ?traducaoDe=<id>&original=<slug>. A API só
+   lê RFC por slug, então o slug vai junto e o id é conferido contra
+   ele. Como o <form> não tem action, o POST herda esta querystring. */
+const traducaoDe = Astro.url.searchParams.get('traducaoDe') ?? '';
+let original: Rfc | null = null;
+if (traducaoDe) {
+  const r = await comSessao<Rfc>(Astro.cookies, 'GET', `/rfcs/${encodeURIComponent(Astro.url.searchParams.get('original') ?? '')}`);
+  if (r.ok && r.dado && r.dado.id === traducaoDe) original = r.dado;
+}
+const traducaoSemOriginal = !!traducaoDe && !original;
+
+let valores: Campos = {
+  title: '', summary: '', body: '', tags: '',
+  labId: original?.lab.id ?? '',
+  locale: original ? localeOposto(original.locale) : (Astro.locals.idiomaPreferido ?? lang),
+};
 let erros: Record<string, string> = {};
 let avisoGeral = '';
 
@@ -132,17 +149,21 @@ if (Astro.request.method === 'POST') {
     body:    String(f.get('body') ?? '').trim(),
     labId:   String(f.get('labId') ?? ''),
     tags:    String(f.get('tags') ?? ''),
+    locale:  ehLocale(String(f.get('locale') ?? '')) ? (String(f.get('locale')) as Campos['locale']) : valores.locale,
   };
 
   const tags = separarTags(valores.tags);
   erros = validar(valores, tags);
 
-  if (Object.keys(erros).length === 0) {
+  if (traducaoSemOriginal) avisoGeral = t(lang, 'ideia.nova.traducao.erro');
+  else if (Object.keys(erros).length === 0) {
     const r = await comSessao<Rfc>(Astro.cookies, 'POST', '/rfcs', {
       title: valores.title,
       summary: valores.summary,
       body: valores.body,
       labId: valores.labId,
+      locale: valores.locale,
+      ...(original ? { translationOfId: original.id } : {}),
     });
 
     if (r.ok && r.dado) {
@@ -200,7 +221,7 @@ const rascunhoProvisorio = {
   slug: '',
   title: valores.title.trim() || VAZIO.titulo,
   summary: valores.summary.trim() || VAZIO.resumo,
-  locale: 'pt-BR',
+  locale: valores.locale,
   status: 'DRAFT' as const,
   publishedAt: null,
   createdAt: agora,
@@ -260,6 +281,11 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
           </p>
         )}
 
+        {original && (
+          <p class="apoio">
+            {t(lang, 'ideia.nova.traducao.antes')}<a href={rota(lang, `/rfcs/${original.slug}`)}>{codigoRfc(original.number, lang)} · {original.title}</a>{t(lang, 'ideia.nova.traducao.depois')}
+          </p>
+        )}
         <div class="escrita-grade">
           <div class="coluna-escrita">
 
@@ -332,6 +358,14 @@ const textoMin = t(lang, 'rfcs.contador.min', { n: '{n}', min: '{min}' });
                 {t(lang, 'rfcs.nova.lab.ajuda')}
               </span>
               {erros.labId && <span class="erro-campo" id="erro-labId">{erros.labId}</span>}
+            </div>
+            <div class="campo">
+              <label class="rotulo" for="locale">{t(lang, 'ideia.nova.locale.rotulo')}</label>
+              <select class="entrada" id="locale" name="locale" aria-describedby="ajuda-locale">
+                <option value="pt-BR" selected={valores.locale === 'pt-BR'}>{t(lang, 'ideia.locale.pt-BR')}</option>
+                <option value="en" selected={valores.locale === 'en'}>{t(lang, 'ideia.locale.en')}</option>
+              </select>
+              <span class="ajuda" id="ajuda-locale">{t(lang, 'ideia.nova.locale.ajuda')}</span>
             </div>
 
             <div class:list={['campo', erros.tags && 'com-erro']}>

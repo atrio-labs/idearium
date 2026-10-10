@@ -55,6 +55,7 @@ import auth from '../i18n/auth';
 import ciclo from '../i18n/ciclo';
 import moderacao from '../i18n/moderacao';
 import seguranca from '../i18n/seguranca';
+import ideia from '../i18n/ideia';
 
 export type Idioma = 'pt-BR' | 'en';
 export const IDIOMAS: readonly Idioma[] = ['pt-BR', 'en'];
@@ -65,9 +66,9 @@ const PREFIXO: Record<Idioma, string> = { 'pt-BR': '', en: '/en' };
 
 const DICIONARIOS = {
   'pt-BR': { ...comum['pt-BR'], ...atrio['pt-BR'], ...labs['pt-BR'], ...conta['pt-BR'], ...erro['pt-BR'],
-             ...busca['pt-BR'], ...tags['pt-BR'], ...builders['pt-BR'], ...usuario['pt-BR'], ...sessao['pt-BR'], ...rfcs['pt-BR'], ...notificacoes['pt-BR'], ...auth['pt-BR'], ...ciclo['pt-BR'], ...moderacao['pt-BR'], ...seguranca['pt-BR'] },
+             ...busca['pt-BR'], ...tags['pt-BR'], ...builders['pt-BR'], ...usuario['pt-BR'], ...sessao['pt-BR'], ...rfcs['pt-BR'], ...notificacoes['pt-BR'], ...auth['pt-BR'], ...ciclo['pt-BR'], ...moderacao['pt-BR'], ...seguranca['pt-BR'], ...ideia['pt-BR'] },
   en:      { ...comum.en,       ...atrio.en,       ...labs.en, ...conta.en, ...erro.en,
-             ...busca.en, ...tags.en, ...builders.en, ...usuario.en, ...sessao.en, ...rfcs.en, ...notificacoes.en, ...auth.en, ...ciclo.en, ...moderacao.en, ...seguranca.en },
+             ...busca.en, ...tags.en, ...builders.en, ...usuario.en, ...sessao.en, ...rfcs.en, ...notificacoes.en, ...auth.en, ...ciclo.en, ...moderacao.en, ...seguranca.en, ...ideia.en },
 };
 
 export type Chave = keyof (typeof DICIONARIOS)['pt-BR'];

@@ -31,6 +31,10 @@ interface ImportMetaEnv {
   readonly PUBLIC_NOTIFICACOES?: string;
   /** '1' liga a moderação (C2): reportar, /moderacao e /contestar. Desligada por padrão */
   readonly PUBLIC_MODERACAO?: string;
+  /** '1' lista as traduções de uma RFC (precisa de `translations` na API) */
+  readonly PUBLIC_TRADUCOES?: string;
+  /** '1' liga acompanhar uma ideia e a lista "o que acompanho" */
+  readonly PUBLIC_ACOMPANHAR?: string;
   /** '1' liga OAuth, recuperação de senha e verificação de email (Etapa 6) */
   readonly PUBLIC_OAUTH?: string;
   /** '1' liga o fechamento do ciclo da ideia: virou projeto, desarquivar, atualizações, nota de mudança */

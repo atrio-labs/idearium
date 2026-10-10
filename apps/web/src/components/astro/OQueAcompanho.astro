@@ -1,0 +1,53 @@
+---
+/* ================================================================
+   OQueAcompanho — lista privada das ideias que a pessoa acompanha
+   ================================================================
+   Aparece só no /perfil (a pessoa logada) e só com PUBLIC_ACOMPANHAR.
+   Nunca vai pro perfil público: acompanhar é privado e não tem
+   contador. Sem o endpoint (404/405) a seção nem aparece.
+   ================================================================ */
+import { acompanharLigado, listarAcompanhadas } from '../../lib/ideia';
+import { codigoRfc } from '../../lib/api';
+import { rota, t, type Idioma } from '../../lib/i18n';
+
+interface Props { lang: Idioma }
+const { lang } = Astro.props;
+
+const estado = acompanharLigado()
+  ? await listarAcompanhadas(Astro.cookies, 1, 20)
+  : ({ tipo: 'indisponivel' } as const);
+---
+
+{estado.tipo !== 'indisponivel' && (
+  <section class="acompanho" aria-labelledby="titulo-acompanho">
+    <h2 id="titulo-acompanho">{t(lang, 'ideia.acompanhando.titulo')}</h2>
+    {estado.tipo === 'erro' ? (
+      <p class="vazio-acompanho" role="alert">{t(lang, 'ideia.acompanhando.falha')}</p>
+    ) : estado.itens.length === 0 ? (
+      <p class="vazio-acompanho">{t(lang, 'ideia.acompanhando.vazio')}</p>
+    ) : (
+      <ul>
+        {estado.itens.map((r) => (
+          <li>
+            <a href={rota(lang, `/rfcs/${r.slug}`)}>
+              <span class="mono">{codigoRfc(r.number, lang)}</span> {r.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+)}
+
+<style>
+  .acompanho { margin: 32px 0 0; }
+  .acompanho h2 { margin: 0 0 8px; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: var(--t-100); }
+  .acompanho ul { margin: 0; padding: 0; list-style: none; }
+  .acompanho li { border-top: 1px solid var(--t-12); }
+  .acompanho a {
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 0;
+    font-size: 15px; color: var(--t-100); overflow-wrap: anywhere;
+  }
+  .acompanho a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .vazio-acompanho { margin: 0; font-size: 14px; line-height: 1.5; color: var(--t-65); }
+</style>

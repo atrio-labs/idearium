@@ -75,6 +75,18 @@ export interface Rfc extends RfcResumo {
   /** PROPOSTA (docs/contratos/moderacao.md): quando a moderação ocultou a ideia */
   hiddenAt?: string | null;
   translationOfId: string | null;
+  /** a API devolve o resumo do original quando esta RFC é tradução */
+  translationOf?: RfcRelacionada | null;
+  /** PROPOSTA (docs/contratos/ideia.md): traduções existentes desta RFC */
+  translations?: RfcRelacionada[];
+}
+
+export interface RfcRelacionada {
+  id: string;
+  number: number | null;
+  slug: string;
+  locale: string;
+  title: string;
 }
 
 export interface Versao {
