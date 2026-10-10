@@ -1,52 +1,10 @@
-# Astro Starter Kit: Minimal
+# @idearium/web
 
-```sh
-npm create astro@latest -- --template minimal
-```
+Frontend do Idearium: átrio, RFCs, laboratórios, perfis e as telas com sessão.
+Astro 6 + React 19 + Tailwind 4, servido por um processo Node
+(`@astrojs/node`, modo `standalone`). Fala com a API NestJS de `apps/api`.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
-
-## Rodar com a API
-
-As páginas públicas são pré-renderizadas, então **a API precisa estar no ar
-durante `dev` e durante `build`** — é dela que saem as rotas de `/rfcs/:slug`,
-`/labs/:slug` e `/users/:username`.
+## Rodar em dev, junto com a API
 
 ```bash
 # 1. banco
@@ -59,11 +17,75 @@ cp apps/api/.env.example apps/api/.env      # gerar JWT_ACCESS_SECRET
 cd apps/api && npx prisma generate && npx prisma migrate deploy && npx prisma db seed
 npm run dev:api                              # :3000
 
-# 3. web
+# 3. web (na raiz do monorepo)
 npm run dev:web                              # :4321
 ```
 
-Apontar para outra API: `PUBLIC_API_URL=http://host:porta npm run build:web`.
+As páginas são renderizadas no servidor a cada requisição, então **a API
+precisa estar no ar para `dev` e para servir o app**. O `build` não chama a API.
+Com a API fora do ar, `api.ts` nunca lança: a página sai sem conteúdo e com aviso.
 
-Com a API fora do ar o build **não quebra**: as páginas saem com aviso e o log
-avisa quais rotas deixaram de ser geradas. Confira esse aviso antes de publicar.
+## Variáveis
+
+| Variável | Quando vale | Padrão | O que faz |
+| :-- | :-- | :-- | :-- |
+| `PUBLIC_API_URL` | **build** | `http://localhost:3000` | URL base da API (`src/lib/api.ts`, `src/lib/sessao.ts`). O prefixo `PUBLIC_` faz o Vite gravá-la no bundle, então trocar o valor exige novo build. |
+| `HOST` | execução | `0.0.0.0` na imagem | Endereço em que o servidor Node escuta. |
+| `PORT` | execução | `4321` | Porta do servidor Node. |
+| `NODE_ENV` | execução | `production` na imagem | Mantenha `production` em produção. |
+| `PUBLIC_NOTIFICACOES` | build | a ser adicionada | Flag futura para ligar as notificações. |
+| `PUBLIC_OAUTH` | build | a ser adicionada | Flag futura para ligar o login por OAuth. |
+
+### Cookies e HTTPS
+
+Os tokens vivem em cookies `httpOnly` com `sameSite=lax` (`src/lib/sessao.ts`).
+O atributo `secure` fica ligado quando o build é de produção
+(`import.meta.env.PROD`). Por isso, em produção o app **precisa ser servido por
+HTTPS**: em `http://` o browser descarta o cookie e o login não gruda. Rodar a
+imagem em `http://localhost` serve para testar a renderização, mas não o login.
+
+## Build e execução
+
+```bash
+npm run build:web                      # na raiz; gera apps/web/dist/
+node apps/web/dist/server/entry.mjs    # HOST e PORT valem aqui
+```
+
+Checagem de tipos: `npm run check -w apps/web` (`astro check`, roda no CI).
+
+### Imagem Docker
+
+O contexto é a raiz do monorepo, porque o build usa o `package-lock.json` e os
+workspaces da raiz.
+
+```bash
+docker build -f apps/web/Dockerfile \
+  --build-arg PUBLIC_API_URL=https://api.exemplo.org \
+  -t idearium-web .
+
+docker run --rm -p 4321:4321 idearium-web
+```
+
+A imagem usa `node:22-alpine` em estágios (deps, build, deps de produção,
+runner), roda como o usuário `node` (não-root) e inicia com
+`node apps/web/dist/server/entry.mjs`.
+
+## Cache
+
+As páginas públicas são SSR com `Cache-Control` público e curto quando a
+requisição não traz sessão. Páginas com sessão nunca vão para cache
+compartilhado. Atrás de CDN ou proxy reverso, o cache precisa respeitar
+`s-maxage` e `Vary`, e não deve guardar respostas que tenham `Set-Cookie`.
+Como o conteúdo não é gerado no build, mudar um RFC não exige novo deploy: a
+página nova aparece quando o cache expira.
+
+## Fontes
+
+Inter e Newsreader (OFL) vêm dos pacotes `@fontsource-variable/inter` e
+`@fontsource-variable/newsreader`, só com os subsets latin e latin-ext. A
+Departure Mono (MIT) está em `public/fonts/`. Todas são declaradas em
+`src/styles/global.css`, e o app não faz nenhum request a terceiros para fontes.
+
+## Diagramas
+
+<!-- preenchida no fim do trabalho -->

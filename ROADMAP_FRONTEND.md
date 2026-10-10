@@ -26,10 +26,14 @@ existem e já têm teste e2e. Nada além da F6 depende de código novo do Kae.
 ### Pendências externas (não-código)
 
 - [ ] Decidir onde o `apps/web` é hospedado. A F2 precisa de um runtime Node
-      (ver "Decisão: renderização"). Envolve infra do Kae.
-- [ ] Self-host de Inter e Newsreader. Hoje vêm do Google Fonts por `<link>`,
-      o que vaza IP do visitante pro Google. Num projeto de bem comum isso
-      incomoda; a Departure Mono já é self-hosted.
+      (ver "Decisão: renderização"). Envolve infra do Kae. A imagem já está
+      pronta em `apps/web/Dockerfile` (contexto na raiz; `PUBLIC_API_URL` como
+      build arg); falta só o host (Railway/Fly, ver `ROADMAP_BACKEND.md`).
+- [ ] Alinhar a versão do Node: `apps/api/Dockerfile` usa `node:20-alpine`,
+      enquanto `.nvmrc`, o CI e `apps/web/Dockerfile` usam 22.
+- [x] Self-host de Inter e Newsreader. Feito com `@fontsource-variable/*`
+      (subsets latin e latin-ext), declarado em `global.css`; nenhum request
+      vai ao Google Fonts. A Departure Mono já era self-hosted.
 
 ---
 
