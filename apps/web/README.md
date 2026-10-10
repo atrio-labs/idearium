@@ -54,6 +54,37 @@ node apps/web/dist/server/entry.mjs    # HOST e PORT valem aqui
 
 Checagem de tipos: `npm run check -w apps/web` (`astro check`, roda no CI).
 
+## Testes
+
+**Unitários** (Vitest, `tests/unit/`): funções puras de `src/lib` (markdown e
+XSS, diff de versões, i18n, `destinoSeguro`, `cachePublico`) e um bloqueador de
+acentos que falha se texto pt-BR dos dicionários ou das páginas institucionais
+tiver palavra comum sem acento ("nao", "voce", "sessao"...). Não precisam de API
+e rodam no CI.
+
+```bash
+npm run test -w apps/web
+```
+
+**E2E** (Playwright, `tests/e2e/`): rodam contra um web já no ar, sem subir
+servidor. Projetos `desktop` e `mobile` (390x844). Cobrem as páginas públicas
+em pt-BR e `/en` (status, `lang`, rolagem horizontal no celular, axe sem
+violação serious/critical, cache público, nenhuma fonte do Google) e os fluxos
+com conta: criar conta e sair, criar e publicar ideia com diff de versões,
+inscrever-se e comentar.
+
+```bash
+# web em :4321 e API em :3000 já no ar (seção "Rodar em dev")
+npx playwright install chromium          # uma vez
+npm run e2e -w apps/web
+BASE_URL=http://localhost:4321 API_URL=http://localhost:3000 npm run e2e -w apps/web
+```
+
+Os fluxos com conta **gravam no banco** da API (contas e ideias com prefixo
+`e2e<tempo>`). Rode só contra o banco local de dev. Com o web ou a API fora,
+ou se a API recusar a criação de conta, os testes são pulados com o motivo.
+O e2e não roda no CI porque exigiria subir API e banco no job do web.
+
 ### Imagem Docker
 
 O contexto é a raiz do monorepo, porque o build usa o `package-lock.json` e os
