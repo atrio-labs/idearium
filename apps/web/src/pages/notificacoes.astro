@@ -1,0 +1,204 @@
+---
+/* ================================================================
+   /notificacoes — a central de notificações (F6)
+   ================================================================
+   Atrás da flag PUBLIC_NOTIFICACOES: desligada, a rota responde 404,
+   como se não existisse. Ligada, exige sessão.
+
+   O backend ainda não tem o módulo (ROADMAP_BACKEND, Etapa 5). Por
+   isso a tela tem quatro saídas, e não duas: lista, vazio, erro do
+   servidor e "a API ainda não oferece notificações" (endpoint 404).
+   O contrato que ela assume está em lib/notificacoes.ts.
+
+   Marcar como lida, uma ou todas, é formulário POST pra própria URL:
+   funciona sem JavaScript. Depois de gravar, 303 de volta pra cá, pra
+   recarregar a página não reenviar o pedido.
+
+   Sem contadores e sem tom de urgência (VISAO §9). A não lida se
+   distingue pelo peso do texto e por um ponto, não por cor.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import Vazio from '../components/astro/Vazio.astro';
+import { exigirSessao } from '../lib/sessao';
+import { haQuantoTempo } from '../lib/api';
+import { idiomaDe, rota, t } from '../lib/i18n';
+import {
+  lerNotificacao, listarNotificacoes, marcarLida, marcarTodasLidas, notificacoesLigadas,
+} from '../lib/notificacoes';
+
+if (!notificacoesLigadas()) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+/* O login devolve a pessoa pra cá no mesmo idioma: o ?voltar= leva o
+   prefixo, e o /entrar também. */
+const aquiComIdioma = new URL(rota(lang, Astro.url.pathname) + Astro.url.search, Astro.url);
+const paraLogin = exigirSessao(Astro.locals.usuario, aquiComIdioma);
+if (paraLogin) return Astro.redirect(rota(lang, paraLogin));
+
+const bruta = Number(Astro.url.searchParams.get('pagina'));
+const pagina = Number.isInteger(bruta) && bruta > 1 ? bruta : 1;
+const enderecoDaPagina = (n: number) =>
+  rota(lang, '/notificacoes') + (n > 1 ? `?pagina=${n}` : '');
+
+let erroMarcar = false;
+
+if (Astro.request.method === 'POST') {
+  const dados = await Astro.request.formData();
+  const acao = dados.get('acao');
+  const id = String(dados.get('id') ?? '');
+
+  const r = acao === 'todas'
+    ? await marcarTodasLidas(Astro.cookies)
+    : acao === 'lida' && id && id.length <= 64
+      ? await marcarLida(Astro.cookies, id)
+      : { ok: false, status: 400 };
+
+  if (r.status === 401) return Astro.redirect(rota(lang, exigirSessao(null, aquiComIdioma)!));
+  if (r.ok) return Astro.redirect(enderecoDaPagina(pagina), 303);
+  erroMarcar = true;
+}
+
+const estado = await listarNotificacoes(Astro.cookies, pagina);
+if (estado.tipo === 'sem-sessao') return Astro.redirect(rota(lang, exigirSessao(null, aquiComIdioma)!));
+
+const itens = estado.tipo === 'ok'
+  ? estado.itens.map((n) => ({ id: n.id, quando: haQuantoTempo(n.createdAt, lang), ...lerNotificacao(n, lang) }))
+  : [];
+const meta = estado.tipo === 'ok' ? estado.meta : null;
+const haNaoLidas = (meta?.unread ?? itens.filter((i) => i.nova).length) > 0;
+---
+
+<Layout title={`Idearium · ${t(lang, 'comum.nav.notificacoes')}`}>
+  <div class="palco">
+    <Nav atual="notificacoes" />
+
+    <header class="cabeca-notificacoes">
+      <h1 class="titulo-duplo">
+        {t(lang, 'notificacoes.titulo.antes')}{' '}
+        <span class="apagado">{t(lang, 'notificacoes.titulo.apagado')}</span>
+      </h1>
+      <p class="apoio">{t(lang, 'notificacoes.apoio')}</p>
+
+      {haNaoLidas && (
+        <form method="post" class="todas">
+          <input type="hidden" name="acao" value="todas" />
+          <button class="botao-secundario" type="submit">{t(lang, 'notificacoes.marcar.todas')}</button>
+        </form>
+      )}
+    </header>
+
+    {erroMarcar && <p class="aviso-erro" role="alert">{t(lang, 'notificacoes.erro.marcar')}</p>}
+
+    {estado.tipo === 'indisponivel' && (
+      <Vazio
+        titulo={t(lang, 'notificacoes.indisponivel.titulo')}
+        texto={t(lang, 'notificacoes.indisponivel.texto')}
+      />
+    )}
+
+    {estado.tipo === 'erro' && (
+      <Vazio
+        falha
+        titulo={t(lang, 'notificacoes.erro.titulo')}
+        texto={t(lang, 'notificacoes.erro.texto')}
+      />
+    )}
+
+    {estado.tipo === 'ok' && itens.length === 0 && (
+      <Vazio
+        titulo={t(lang, 'notificacoes.vazio.titulo')}
+        texto={t(lang, 'notificacoes.vazio.texto')}
+      />
+    )}
+
+    {itens.length > 0 && (
+      <ul class="notificacoes">
+        {itens.map((n) => (
+          <li class:list={['notificacao', n.nova && 'nova']}>
+            <span class="ponto" aria-hidden="true"></span>
+            <div class="miolo">
+              {n.href ? <a class="texto" href={n.href}>{n.texto}</a> : <span class="texto">{n.texto}</span>}
+              {n.detalhe && <p class="detalhe">{n.detalhe}</p>}
+              <span class="quando">
+                {n.nova && <span class="sr-only">{t(lang, 'notificacoes.nova')} · </span>}
+                {n.quando}
+              </span>
+            </div>
+            {n.nova && (
+              <form method="post" class="marcar">
+                <input type="hidden" name="acao" value="lida" />
+                <input type="hidden" name="id" value={n.id} />
+                <button
+                  class="botao-secundario"
+                  type="submit"
+                  aria-label={t(lang, 'notificacoes.marcar.uma.rotulo', { texto: n.texto })}
+                >{t(lang, 'notificacoes.marcar.uma')}</button>
+              </form>
+            )}
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {meta && meta.totalPages > 1 && (
+      <nav class="paginas" aria-label={t(lang, 'notificacoes.paginacao')}>
+        {pagina > 1
+          ? <a class="botao-secundario" href={enderecoDaPagina(pagina - 1)} rel="prev">{t(lang, 'notificacoes.pagina.anterior')}</a>
+          : <span></span>}
+        <span class="rotulo">{t(lang, 'notificacoes.pagina.rotulo', { n: pagina, total: meta.totalPages })}</span>
+        {pagina < meta.totalPages
+          ? <a class="botao-secundario" href={enderecoDaPagina(pagina + 1)} rel="next">{t(lang, 'notificacoes.pagina.proxima')}</a>
+          : <span></span>}
+      </nav>
+    )}
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .cabeca-notificacoes { padding: 48px 4px 32px; display: grid; gap: 16px; justify-items: start; }
+  .cabeca-notificacoes .todas { margin-top: 8px; }
+
+  .notificacoes { list-style: none; margin: 0; padding: 0; max-width: 760px; }
+  .notificacao {
+    display: grid;
+    grid-template-columns: 6px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: start;
+    padding: 18px 4px;
+    border-top: 1px solid var(--t-12);
+  }
+  .notificacao:last-child { border-bottom: 1px solid var(--t-12); }
+
+  /* lida: texto no corpo; não lida: tinta cheia, peso 500 e o ponto */
+  .ponto { width: 6px; height: 6px; border-radius: 50%; margin-top: 8px; }
+  .nova .ponto { background: var(--tinta); }
+
+  .texto { font-size: 14.5px; line-height: 1.45; color: var(--t-75); text-decoration: none; }
+  .nova .texto { color: var(--t-100); font-weight: 500; }
+  a.texto:hover { text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px; }
+  .detalhe { margin: 4px 0 0; font-size: var(--text-apoio); line-height: 1.45; color: var(--t-65); }
+  .quando { display: block; margin-top: 4px; font-size: 12.5px; color: var(--t-65); font-variant-numeric: tabular-nums; }
+
+  .marcar .botao-secundario { height: 32px; padding: 0 14px; font-size: 12.5px; }
+
+  .paginas {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+    max-width: 760px; margin-top: 24px;
+  }
+  .paginas a[rel="next"] { justify-self: end; }
+  .paginas .rotulo { font-size: 12.5px; color: var(--t-65); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 520px) {
+    .notificacao { grid-template-columns: 6px minmax(0, 1fr); }
+    .marcar { grid-column: 2; }
+    /* alvo de toque de 40px no celular */
+    .marcar .botao-secundario,
+    .paginas .botao-secundario { height: 40px; }
+  }
+</style>

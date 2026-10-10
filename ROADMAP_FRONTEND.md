@@ -18,7 +18,7 @@
 | F3. Participação | ⏳ planejada | destravada — Etapa 3 pronta |
 | F4. Autoria | ⏳ planejada | destravada — Etapa 2 pronta |
 | F5. Descoberta | ⏳ planejada | destravada — Etapa 4 pronta |
-| F6. Notificações | 🔒 bloqueada | espera Etapa 5 do backend |
+| F6. Notificações | 🚧 front pronto atrás de flag | `PUBLIC_NOTIFICACOES`; espera Etapa 5 do backend e o contrato (ver F6) |
 
 **O frontend é o gargalo, não o backend.** F1 a F5 consomem endpoints que já
 existem e já têm teste e2e. Nada além da F6 depende de código novo do Kae.
@@ -238,13 +238,59 @@ detalhe.
 
 ---
 
-### **F6 — Notificações** — 🔒 BLOQUEADA (Etapa 5 do backend)
+### **F6 — Notificações** — 🚧 FRONT ATRÁS DE FLAG (espera a Etapa 5 do backend)
 
 Central de notificações por polling, sem WebSocket, espelhando `GET /notifications`.
 
 Cuidado de produto: o `VISAO.md` §9 proíbe "notificações de engagement estilo
 Instagram". Notificar que alguém comentou na sua RFC é serviço; notificar que
 "alguém viu seu perfil" é vaidade e não entra.
+
+**Feito no front (10/10/2026), atrás da flag `PUBLIC_NOTIFICACOES=1`.**
+Desligada por padrão; com ela desligada a rota e o endpoint respondem 404 e a
+nav não muda. O backend ainda não tem a Etapa 5, então tudo segue o contrato
+*previsto* no `ROADMAP_BACKEND.md` e precisa ser confirmado com o Kae.
+
+- `apps/web/src/lib/notificacoes.ts`: `listarNotificacoes`, `marcarLida`,
+  `marcarTodasLidas` e `haNovas`, via `comSessao`. Não lançam: devolvem estado
+  (`ok`, `sem-sessao`, `indisponivel` quando a API dá 404, `erro`). O texto de
+  cada notificação é montado no front a partir de `type` + `payload`, em pt-BR e
+  em inglês (`src/i18n/notificacoes.ts`); tipo desconhecido ou payload
+  incompleto cai no `title`/`body` da API. O link do item sai do `rfcSlug` (e do
+  `commentId`, pra âncora `#c-<id>`), nunca de uma URL vinda do payload.
+- `/notificacoes`: SSR, exige sessão. Lista paginada (`?pagina=`), não lidas
+  com peso maior e um ponto, "marcar como lida" por item e "marcar todas como
+  lidas" em formulário POST (funciona sem JS). Estados próprios: vazio ("nada
+  novo por aqui"), erro do servidor e "a API ainda não oferece notificações".
+- Nav: com a flag e sessão, um item "notificações" e um ponto discreto quando
+  há não lidas, sem número. O ponto é aceso no cliente, que consulta
+  `/api/notificacoes/contagem` ao abrir a página e a cada 60s, só com a aba
+  visível. Esse endpoint é do próprio web: usa a sessão httpOnly no servidor,
+  responde só `{ novas: true | false | null }` e sai com `private, no-store`.
+  Nenhum token passa pelo cliente.
+
+**A combinar com o Kae antes de ligar a flag:**
+
+1. Formato de `GET /notifications`: o front assume o padrão paginado da API,
+   `{ data, meta: { page, limit, total, totalPages } }`, com `?page=&limit=`.
+2. `meta.unread` (proposta): total de não lidas da pessoa, não só da página. É
+   o que o "badge de unread" do roadmap do back vira aqui. Sem ele o marcador
+   da nav fica apagado e o "marcar todas" só aparece se houver não lida na
+   página atual. Alternativa: um `GET /notifications/unread-count` leve, que
+   também pouparia o polling de trazer uma notificação inteira.
+3. Valores de `type`: o roadmap do back já usa `new_enrollment` e
+   `new_comment`; o front propõe `rfc_status_changed` e `mention`.
+4. Shape de `payload` por evento (proposta, todos os campos opcionais):
+   - `new_enrollment`: `rfcSlug`, `rfcNumber`, `rfcTitle`, `actorUsername`
+   - `new_comment`: os mesmos + `commentId`
+   - `rfc_status_changed`: `rfcSlug`, `rfcNumber`, `rfcTitle`, `status` (o novo,
+     no enum `RfcStatus`)
+   - `mention`: `rfcSlug`, `rfcNumber`, `rfcTitle`, `actorUsername`, `commentId`
+5. Respostas de `PATCH /notifications/:id/read` e `/read-all`: o front só olha
+   o status (2xx = deu certo). 404 em id de outra pessoa, não 403, pra não
+   confirmar que o id existe.
+6. Se abrir uma RFC deve marcar como lidas as notificações dela. Hoje o item
+   leva direto ao lugar e marcar é ação separada.
 
 ---
 
