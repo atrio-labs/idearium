@@ -37,6 +37,11 @@ const ptBR = {
   'comum.rodape.institucional': 'institucional',
   'comum.rodape.conteudo': 'conteúdo',
   'comum.rodape.codigo': 'código',
+  'comum.rodape.rss': 'rss',
+  'comum.rss.titulo': 'Idearium · ideias publicadas',
+  'comum.rss.descricao': 'As ideias mais recentes do Idearium, um periódico aberto de construção coletiva.',
+  'comum.rss.tituloLab': 'Idearium · {lab}',
+  'comum.rss.descricaoLab': 'As ideias mais recentes do laboratório {lab} no Idearium.',
 
   'comum.vazio.rotulo.falha': 'sem resposta do servidor',
   'comum.vazio.rotulo.nada': 'nada por aqui',
@@ -86,6 +91,11 @@ const en: Record<keyof typeof ptBR, string> = {
   'comum.rodape.institucional': 'about the project',
   'comum.rodape.conteudo': 'content',
   'comum.rodape.codigo': 'code',
+  'comum.rodape.rss': 'rss',
+  'comum.rss.titulo': 'Idearium · published ideas',
+  'comum.rss.descricao': 'The latest ideas on Idearium, an open journal of collective building.',
+  'comum.rss.tituloLab': 'Idearium · {lab}',
+  'comum.rss.descricaoLab': 'The latest ideas from the {lab} lab on Idearium.',
 
   'comum.vazio.rotulo.falha': 'no response from the server',
   'comum.vazio.rotulo.nada': 'nothing here',

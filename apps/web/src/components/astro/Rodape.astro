@@ -18,6 +18,7 @@ const links = [
   <span class="marca">{t(lang, 'comum.rodape.marca')}</span>
   <nav aria-label={t(lang, 'comum.rodape.institucional')}>
     {links.map((l) => <a href={rota(lang, l.href)}>{l.texto}</a>)}
+    <a href={rota(lang, '/rss.xml')} type="application/rss+xml">{t(lang, 'comum.rodape.rss')}</a>
   </nav>
   <p class="licencas">
     {t(lang, 'comum.rodape.conteudo')}

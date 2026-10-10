@@ -324,7 +324,7 @@ cachePublico(
 ---
 
 {rfc ? (
-<Layout title={`${codigoRfc(rfc.number, lang)} · ${rfc.title}`} description={rfc.summary}>
+<Layout title={`${codigoRfc(rfc.number, lang)} · ${rfc.title}`} description={rfc.summary} imagem={`/og/rfc/${rfc.slug}.png`}>
   {/* data-previa é o interruptor da vitrine: o botão de participação o
       liga, e daqui pra baixo cada peça que vai mudar se mostra mudando.
       Fica no palco porque o chip está no cabeçalho e os círculos na

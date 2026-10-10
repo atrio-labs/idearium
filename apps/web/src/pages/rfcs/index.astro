@@ -28,6 +28,11 @@ import { cachePublico } from '../../lib/cache';
 
 const lang = idiomaDe(Astro);
 
+/* A listagem não traz tags nem a API filtra por elas (?tag= dá 400):
+   quem chega com ?tag= vai pra /tags/:slug, que já lista as ideias. */
+const tag = Astro.url.searchParams.get('tag')?.trim().toLowerCase();
+if (tag && /^[a-z0-9-]+$/.test(tag)) return Astro.redirect(rota(lang, `/tags/${tag}`));
+
 const [labs, rfcs] = await Promise.all([
   listarLabs(),
   listarTodasRfcs(),

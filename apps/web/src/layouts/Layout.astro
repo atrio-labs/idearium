@@ -26,11 +26,13 @@ import '../styles/global.css';
 // transition:name="X" igual em duas páginas FAZEM MORPH entre posições.
 import { ClientRouter } from 'astro:transitions';
 import { IDIOMAS, IDIOMA_PADRAO, idiomaDe, rota, t } from '../lib/i18n';
+import { origemPublica } from '../lib/site';
 
 // Define props que páginas podem passar
 interface Props {
   title?: string;       // <title> do browser tab
   description?: string; // <meta name="description"> pro SEO
+  imagem?: string;      // caminho da imagem de compartilhamento (og:image)
 }
 
 /* O idioma não é prop: vem do endereço, resolvido pelo middleware.
@@ -40,6 +42,7 @@ const lang = idiomaDe(Astro);
 const {
   title = t(lang, 'comum.layout.titulo'),
   description = t(lang, 'comum.layout.descricao'),
+  imagem = '/og/padrao.png',
 } = Astro.props;
 
 /* As versões desta mesma página em cada idioma, pro buscador ligar uma
@@ -47,8 +50,11 @@ const {
    é o caminho-base de qualquer idioma. x-default aponta pro padrão,
    que é a versão servida a quem não pediu idioma nenhum. */
 const caminho = Astro.url.pathname + Astro.url.search;
-const origem = Astro.site ?? Astro.url.origin;
+const origem = origemPublica(Astro.url);
 const absoluto = (l: typeof lang) => new URL(rota(l, caminho), origem).href;
+/* Canonical sem query: ?q=, ?page= e afins são a mesma página. */
+const canonical = new URL(rota(lang, Astro.url.pathname), origem).href;
+const imagemAbsoluta = new URL(imagem, origem).href;
 ---
 
 <html lang={lang}>
@@ -59,6 +65,16 @@ const absoluto = (l: typeof lang) => new URL(rota(l, caminho), origem).href;
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+    <meta property="og:site_name" content="Idearium" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'pt_BR'} />
+    <meta property="og:image" content={imagemAbsoluta} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="alternate" type="application/rss+xml" title="Idearium" href={rota(lang, '/rss.xml')} />
     {IDIOMAS.map((l) => <link rel="alternate" hreflang={l} href={absoluto(l)} />)}
     <link rel="alternate" hreflang="x-default" href={absoluto(IDIOMA_PADRAO)} />
 
