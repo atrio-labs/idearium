@@ -1396,3 +1396,58 @@ textarea.entrada.corpo-longo { min-height: 340px; font-size: 14px; }
   .errata .fole, .errata .chevron { transition: none; }
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+
+/* ================================================================
+   16. CONTA — entrar, criar conta, perfil, sair e as telas de senha
+   ================================================================
+   Bloco da R5. Tudo escopado por .pagina-conta (o wrapper dessas
+   páginas), pra alvo de 44px, foco em contorno e ações sem fio não
+   vazarem pro resto do site.
+
+   .dupla é o layout de duas colunas de /entrar e /criar-conta:
+   formulário à esquerda, uma Materia grande à direita. No celular a
+   Materia some (entrar) ou vira uma faixa que abraça o conteúdo
+   (criar conta).
+   ================================================================ */
+
+.pagina-conta .botao,
+.pagina-conta .botao-secundario { height: 44px; padding: 0 22px; }
+.pagina-conta .entrada { min-height: 44px; }
+.pagina-conta textarea.entrada { min-height: 120px; }
+.pagina-conta .entrada:focus-visible { outline: 2px solid var(--t-100); outline-offset: 2px; }
+.pagina-conta .marcavel { min-height: 44px; align-items: center; }
+.pagina-conta .acoes-form { border-top: 0; padding-top: 0; margin-top: 28px; }
+.pagina-conta .campo > .ajuda a,
+.pagina-conta .apoio a { color: var(--t-100); text-decoration: underline; text-decoration-color: var(--t-35); text-underline-offset: 3px; }
+.pagina-conta .campo > .ajuda a { display: inline-block; padding: 8px 0; }
+
+/* telas de uma coluna só (senha, verificação, callback, falha do perfil) */
+.pagina-conta .form-estreito { padding: 72px 0 96px; }
+.cabeca-estreita { margin-bottom: 32px; }
+.cabeca-estreita .apoio { margin-top: 16px; }
+
+.dupla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+.dupla-forma { align-self: center; width: 100%; max-width: 400px; justify-self: center; padding: 32px 0; }
+.dupla-forma .apoio { margin-top: 16px; }
+.dupla-forma form { margin-top: 36px; }
+.dupla-materia {
+  position: relative;
+  isolation: isolate;
+  min-height: 640px;
+  border-radius: var(--r-fora);
+  overflow: hidden;
+}
+.dupla-materia > canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+@media (max-width: 900px) {
+  .dupla { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .dupla-forma { max-width: 440px; padding: 8px 0 0; }
+  .dupla-materia { min-height: 0; }
+  .dupla-materia.so-desktop { display: none; }
+}
