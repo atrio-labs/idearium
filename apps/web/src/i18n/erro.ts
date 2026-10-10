@@ -2,16 +2,18 @@
 
 const ptBR = {
   'erro.404.titulo': 'Idearium · Página não encontrada',
-  'erro.404.vazio': 'Esta página não existe',
+  'erro.404.vazio': 'Esta página não existe.',
   'erro.404.texto': 'O endereço pode ter mudado ou ter sido digitado errado.',
   'erro.404.acao': 'voltar ao início',
+  'erro.404.ideias': 'ver as ideias',
 };
 
 const en: Record<keyof typeof ptBR, string> = {
   'erro.404.titulo': 'Idearium · Page not found',
-  'erro.404.vazio': 'This page does not exist',
+  'erro.404.vazio': 'This page does not exist.',
   'erro.404.texto': 'The address may have changed or been mistyped.',
   'erro.404.acao': 'back to the start',
+  'erro.404.ideias': 'see the ideas',
 };
 
 export default { 'pt-BR': ptBR, en };

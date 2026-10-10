@@ -10,7 +10,6 @@
 import Layout from '../layouts/Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
-import Vazio from '../components/astro/Vazio.astro';
 import { idiomaDe, rota, t } from '../lib/i18n';
 import { cachePublico } from '../lib/cache';
 
@@ -22,14 +21,23 @@ cachePublico(Astro);
 <Layout title={t(lang, 'erro.404.titulo')}>
   <div class="palco">
     <Nav />
-    <div class="form-estreito">
-      <Vazio
-        titulo={t(lang, 'erro.404.vazio')}
-        texto={t(lang, 'erro.404.texto')}
-        acaoHref={rota(lang, '/')}
-        acaoTexto={t(lang, 'erro.404.acao')}
-      />
-    </div>
+    <section class="nao-achou">
+      <h1 class="titulo-duplo grande">
+        {t(lang, 'erro.404.vazio')}{' '}
+        <span class="apagado">{t(lang, 'erro.404.texto')}</span>
+      </h1>
+      <div class="acoes">
+        <a class="botao" href={rota(lang, '/')}>{t(lang, 'erro.404.acao')}</a>
+        <a class="botao-secundario" href={rota(lang, '/rfcs')}>{t(lang, 'erro.404.ideias')}</a>
+      </div>
+    </section>
     <Rodape />
   </div>
 </Layout>
+
+<style>
+  .nao-achou { padding: clamp(72px, 14vh, 140px) 4px clamp(72px, 12vh, 120px); }
+  .nao-achou h1 { max-width: 16ch; margin-bottom: 40px; overflow-wrap: anywhere; }
+  .nao-achou .botao,
+  .nao-achou .botao-secundario { height: 44px; padding: 0 24px; }
+</style>
