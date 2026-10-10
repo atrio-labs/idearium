@@ -85,6 +85,9 @@ export const temChave = (chave: string): chave is Chave =>
 export function rota(lang: Idioma, caminho: string): string {
   const prefixo = PREFIXO[lang];
   if (!prefixo) return caminho;
+  /* Idempotente: exigirSessao já devolve o caminho com prefixo, e quem
+     o recebe costuma passar por rota() de novo. Sem isto, /en/en/entrar. */
+  if (caminho === prefixo || caminho.startsWith(prefixo + '/') || caminho.startsWith(prefixo + '?')) return caminho;
   return caminho === '/' ? prefixo : prefixo + caminho;
 }
 
