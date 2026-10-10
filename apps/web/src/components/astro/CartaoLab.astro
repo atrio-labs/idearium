@@ -1,0 +1,86 @@
+---
+/* ================================================================
+   CartaoLab.astro — um laboratório na grade
+   ================================================================
+   Usado no átrio e em /labs. Cartão branco sem sombra, nome e
+   contagem em cima, e a Materia do lab sangrando na base. A imagem
+   vem do slug (materiaDoLab), então o lab tem a mesma cara em todo
+   lugar, inclusive no topo da página dele.
+
+   `grande` é a variante de /labs: imagem mais alta e o texto de
+   apoio do lab, quando a API tiver um.
+   ================================================================ */
+import Materia from './Materia.astro';
+import { materiaDoLab, nomeDoLab, type Lab } from '../../lib/api';
+import { idiomaDe, rota, t } from '../../lib/i18n';
+
+interface Props {
+  lab: Lab;
+  grande?: boolean;
+}
+
+const { lab, grande = false } = Astro.props;
+const lang = idiomaDe(Astro);
+const nome = nomeDoLab(lab, lang);
+const m = materiaDoLab(lab.slug);
+---
+
+<a class:list={['cartao-lab', grande && 'grande']} href={rota(lang, `/labs/${lab.slug}`)}>
+  <span class="texto">
+    <span class="nome"><span class="glyph" aria-hidden="true">{lab.glyph}</span>{nome}</span>
+    <span class="qtd">
+      {t(lang, lab.rfcsCount === 1 ? 'labs.qtd.um' : 'labs.qtd.varios', { n: lab.rfcsCount })}
+    </span>
+  </span>
+  <span class="imagem">
+    <Materia tipo={m.tipo} lab={lab.slug} semente={m.semente} alt={t(lang, 'labs.materia.alt', { nome })} />
+  </span>
+</a>
+
+<style>
+  .cartao-lab {
+    display: flex;
+    flex-direction: column;
+    background: var(--cartao);
+    border-radius: var(--r-fora);
+    box-shadow: var(--sombra);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow var(--dur) var(--ease);
+  }
+  .cartao-lab:hover { box-shadow: var(--sombra-alta); }
+  .cartao-lab:focus-visible { outline: 2px solid var(--t-100); outline-offset: 3px; }
+
+  .texto { display: block; padding: 18px 20px 16px; }
+  .grande .texto { padding: 24px 26px 20px; }
+  .nome {
+    display: block;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--t-100);
+  }
+  .grande .nome { font-size: 20px; letter-spacing: -0.025em; }
+  .glyph { color: var(--t-65); margin-right: 6px; }
+  .qtd {
+    display: block;
+    margin-top: 4px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--t-65);
+  }
+
+  /* a imagem fecha o cartão, dentro dele, com o mesmo raio menos a
+     margem: é a "imagem sangrando na base" do CartaoIdeia */
+  .imagem {
+    display: block;
+    position: relative;
+    height: 88px;
+    margin: auto 6px 6px;
+    border-radius: calc(var(--r-fora) - 6px);
+    overflow: hidden;
+  }
+  .grande .imagem { height: 168px; margin: auto 8px 8px; border-radius: calc(var(--r-fora) - 8px); }
+  .imagem :global(canvas) { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>

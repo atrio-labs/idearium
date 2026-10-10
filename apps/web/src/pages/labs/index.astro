@@ -1,11 +1,14 @@
 ---
-/* /labs — os seis domínios (F1.4). Página de referência do i18n. */
+/* /labs — os seis domínios (F1.4). Página de referência do i18n.
+   Título em dois tons com o apoio ao lado, e um cartão branco por lab
+   com a Materia dele (CartaoLab). */
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { listarLabs, nomeDoLab, apiIndisponivel } from '../../lib/api';
-import { idiomaDe, rota, t } from '../../lib/i18n';
+import CartaoLab from '../../components/astro/CartaoLab.astro';
+import { listarLabs, apiIndisponivel } from '../../lib/api';
+import { idiomaDe, t } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
 
 const lang = idiomaDe(Astro);
@@ -18,12 +21,11 @@ cachePublico(Astro, semRede);
   <div class="palco">
     <Nav atual="labs" />
 
-    <header class="cabecalho-pagina">
-      <span class="mono" style="font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--t-35)">
-        {t(lang, 'labs.rotulo')}
-      </span>
-      <h1>{t(lang, 'labs.h1.antes')}<span class="serif">{t(lang, 'labs.h1.serif')}</span>{t(lang, 'labs.h1.depois')}</h1>
-      <p class="sub">{t(lang, 'labs.sub')}</p>
+    <header class="cabeca">
+      <h1 class="titulo-duplo grande">
+        {t(lang, 'labs.h1.antes')}<span class="apagado">{t(lang, 'labs.h1.apagado')}</span>
+      </h1>
+      <p class="apoio">{t(lang, 'labs.sub')}</p>
     </header>
 
     {semRede && (
@@ -33,20 +35,8 @@ cachePublico(Astro, semRede);
     )}
 
     {labs.length > 0 ? (
-      <div class="labs-faixa vem" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
-        {labs.map((lab) => (
-          <a class="lab-card" href={rota(lang, `/labs/${lab.slug}`)}>
-            <span class="fita" style={`background: var(--color-${lab.slug}); height: 78px`}></span>
-            <span class="txt">
-              <span class="nome">
-                <span class="glyph" aria-hidden="true">{lab.glyph}</span>{nomeDoLab(lab, lang)}
-              </span>
-              <span class="qtd">
-                {t(lang, lab.rfcsCount === 1 ? 'labs.qtd.um' : 'labs.qtd.varios', { n: lab.rfcsCount })}
-              </span>
-            </span>
-          </a>
-        ))}
+      <div class="grade-labs">
+        {labs.map((lab) => <CartaoLab lab={lab} grande />)}
       </div>
     ) : (
       <Vazio
@@ -60,11 +50,26 @@ cachePublico(Astro, semRede);
   </div>
 </Layout>
 
-<script>
-  document.addEventListener('astro:page-load', () => {
-    const olho = new IntersectionObserver((es) => {
-      for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
-    }, { threshold: 0.12 });
-    document.querySelectorAll('.vem').forEach((el) => olho.observe(el));
-  });
-</script>
+<style>
+  /* mesmo ajuste de contraste do átrio: o apagado do global fica
+     abaixo de 3:1 */
+  .titulo-duplo .apagado { color: #858585; }
+
+  .cabeca {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: var(--espaco-7);
+    align-items: end;
+    padding: var(--espaco-9) 4px var(--espaco-8);
+  }
+  .grade-labs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--espaco-4);
+    margin-bottom: var(--espaco-8);
+  }
+
+  @media (max-width: 900px) {
+    .cabeca { grid-template-columns: 1fr; gap: var(--espaco-4); padding: var(--espaco-8) 4px var(--espaco-7); }
+  }
+</style>

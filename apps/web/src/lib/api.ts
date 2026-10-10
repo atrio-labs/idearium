@@ -189,8 +189,6 @@ export function listarRfcs(q: {
   return buscar<Pagina<RfcResumo>>(`/rfcs${qs ? '?' + qs : ''}`, vazio<RfcResumo>());
 }
 
-export const listarDestaques = () => buscar<RfcResumo[]>('/rfcs/featured', []);
-
 /** Teto de `limit` imposto pelo PaginationDto da API. Pedir mais que
  *  isso devolve 400, não uma lista maior. */
 export const LIMITE_API = 100;
@@ -289,4 +287,13 @@ export function materiaDaRfc(rfc: { id: string; number: number | null }) {
     tipo: CAMPOS[h % CAMPOS.length],
     semente: (rfc.number ?? 0) * 1000 + (h % 997),
   };
+}
+
+/** A imagem de um laboratório: mesma ideia de materiaDaRfc, derivada
+ *  do slug. O lab ganha sempre a mesma imagem, no átrio, em /labs e na
+ *  página dele, sem guardar nada. */
+export function materiaDoLab(slug: string) {
+  let h = 0;
+  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return { tipo: CAMPOS[h % CAMPOS.length], semente: h % 100_000 };
 }

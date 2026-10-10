@@ -8,10 +8,8 @@
 
 const ptBR = {
   'labs.titulo': 'Idearium · Laboratórios',
-  'labs.rotulo': 'laboratórios',
   'labs.h1.antes': 'Seis recortes, ',
-  'labs.h1.serif': 'nenhum silo',
-  'labs.h1.depois': '.',
+  'labs.h1.apagado': 'nenhum silo.',
   'labs.sub':
     'Um laboratório organiza ideias por domínio de problema, não por ' +
     'tecnologia. Uma ideia pertence a um laboratório, mas qualquer pessoa ' +
@@ -28,6 +26,8 @@ const ptBR = {
     'Problemas deste domínio, propostos por quem convive com eles e ' +
     'abertos a quem sabe construir.',
   'labs.meta.descricao': 'Ideias do laboratório de {nome}.',
+  'labs.lab.h1.apagado': 'Ideias de quem convive com o problema.',
+  'labs.materia.alt': 'Imagem abstrata do laboratório de {nome}',
   'labs.contagem.um': '{n} ideia neste laboratório',
   'labs.contagem.varios': '{n} ideias neste laboratório',
   'labs.lab.vazio.titulo': 'Nenhuma ideia em {nome} ainda',
@@ -48,10 +48,8 @@ const ptBR = {
 
 const en: Record<keyof typeof ptBR, string> = {
   'labs.titulo': 'Idearium · Labs',
-  'labs.rotulo': 'labs',
   'labs.h1.antes': 'Six domains, ',
-  'labs.h1.serif': 'no silos',
-  'labs.h1.depois': '.',
+  'labs.h1.apagado': 'no silos.',
   'labs.sub':
     'A lab groups ideas by problem domain, not by technology. An idea ' +
     'belongs to one lab, but anyone can move between all of them.',
@@ -67,6 +65,8 @@ const en: Record<keyof typeof ptBR, string> = {
     'Problems in this domain, proposed by people who live with them and ' +
     'open to anyone who knows how to build.',
   'labs.meta.descricao': 'Ideas from the {nome} lab.',
+  'labs.lab.h1.apagado': 'Ideas from people who live with the problem.',
+  'labs.materia.alt': 'Abstract image for the {nome} lab',
   'labs.contagem.um': '{n} idea in this lab',
   'labs.contagem.varios': '{n} ideas in this lab',
   'labs.lab.vazio.titulo': 'No ideas in {nome} yet',

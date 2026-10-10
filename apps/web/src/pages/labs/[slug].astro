@@ -10,8 +10,9 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/astro/Nav.astro';
 import Rodape from '../../components/astro/Rodape.astro';
 import CartaoIdeia from '../../components/astro/CartaoIdeia.astro';
+import Materia from '../../components/astro/Materia.astro';
 import Vazio from '../../components/astro/Vazio.astro';
-import { obterLab, listarTodasRfcs, nomeDoLab, apiIndisponivel } from '../../lib/api';
+import { obterLab, listarTodasRfcs, nomeDoLab, materiaDoLab, apiIndisponivel } from '../../lib/api';
 import { idiomaDe, rota, t } from '../../lib/i18n';
 import { cachePublico } from '../../lib/cache';
 
@@ -27,6 +28,7 @@ if (!lab) Astro.response.status = semRede ? 503 : 404;
 cachePublico(Astro, semRede);
 
 const nome = lab ? nomeDoLab(lab, lang) : '';
+const m = materiaDoLab(slug!);
 ---
 
 {lab ? (
@@ -37,20 +39,20 @@ const nome = lab ? nomeDoLab(lab, lang) : '';
     <div class="palco">
       <Nav atual="labs" />
 
-      <header class="cabecalho-pagina">
+      <header class="cabeca">
         <a class="volta" href={rota(lang, '/labs')}>{t(lang, 'labs.volta')}</a>
-        <h1 style="margin-top:16px">
-          <span aria-hidden="true" style={`color: var(--color-${lab.slug})`}>{lab.glyph}</span> {nome}
-        </h1>
-        <p class="sub">{lab.description ?? t(lang, 'labs.descricao.padrao')}</p>
+        <div class="linha">
+          <h1 class="titulo-duplo grande">
+            <span class="glyph" aria-hidden="true">{lab.glyph}</span>{nome}. <span class="apagado">{t(lang, 'labs.lab.h1.apagado')}</span>
+          </h1>
+          <p class="apoio">{lab.description ?? t(lang, 'labs.descricao.padrao')}</p>
+        </div>
       </header>
 
-      {/* a fita pastel é a identidade do lab, em tamanho generoso */}
-      <div
-        class="vem"
-        style={`background: var(--color-${lab.slug}); height: 90px; border-radius: var(--r-fora); margin-bottom: 22px`}
-        aria-hidden="true"
-      ></div>
+      {/* a mesma imagem do cartão do lab, larga: é a identidade dele */}
+      <figure class="imagem-lab">
+        <Materia tipo={m.tipo} lab={lab.slug} semente={m.semente} alt={t(lang, 'labs.materia.alt', { nome })} />
+      </figure>
 
       <p class="contagem">
         {t(lang, rfcs.length === 1 ? 'labs.contagem.um' : 'labs.contagem.varios', { n: rfcs.length })}
@@ -88,14 +90,55 @@ const nome = lab ? nomeDoLab(lab, lang) : '';
   </Layout>
 )}
 
+<style>
+  /* mesmo ajuste de contraste do átrio: o apagado do global fica
+     abaixo de 3:1 */
+  .titulo-duplo .apagado { color: #858585; }
+
+  .cabeca { padding: var(--espaco-7) 4px var(--espaco-7); }
+  .volta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    font-size: var(--text-apoio);
+    color: var(--t-65);
+    text-decoration: none;
+    transition: color var(--dur) var(--ease);
+  }
+  .volta:hover { color: var(--t-100); }
+  .linha {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: var(--espaco-7);
+    align-items: end;
+    margin-top: var(--espaco-7);
+  }
+  .linha .titulo-duplo { max-width: 16ch; }
+  .glyph { color: var(--t-65); margin-right: 0.3em; }
+
+  .imagem-lab {
+    position: relative;
+    margin: 0 0 var(--espaco-8);
+    height: clamp(180px, 26vw, 320px);
+    border-radius: var(--r-fora);
+    overflow: hidden;
+  }
+  .imagem-lab :global(canvas) { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* o --t-50 do global não chega a 4,5:1 em texto pequeno */
+  .contagem { margin: 0; padding: 0 4px var(--espaco-5); color: var(--t-65); }
+
+  @media (max-width: 900px) {
+    .linha { grid-template-columns: 1fr; gap: var(--espaco-4); margin-top: var(--espaco-5); }
+  }
+</style>
+
 <script>
+  /* .vem → .veio: o CartaoIdeia nasce com opacidade 0 (global.css) */
   document.addEventListener('astro:page-load', () => {
     const olho = new IntersectionObserver((es) => {
       for (const e of es) if (e.isIntersecting) { e.target.classList.add('veio'); olho.unobserve(e.target); }
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    document.querySelectorAll<HTMLElement>('.vem').forEach((el, i) => {
-      el.style.animationDelay = Math.min(i, 8) * 60 + 'ms';
-      olho.observe(el);
-    });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.vem').forEach((el) => olho.observe(el));
   });
 </script>
