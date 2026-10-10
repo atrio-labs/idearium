@@ -4,7 +4,8 @@
    O idioma vem do endereço, não do navegador: /labs é pt-BR e
    /en/labs é inglês. O middleware tira o prefixo /en, reescreve pra
    rota sem prefixo e guarda o idioma em `Astro.locals.lang`. Não existe
-   página duplicada em src/pages/en/; a mesma página serve os dois.
+   página duplicada em src/pages/en/ (só a âncora [...caminho].astro, que
+   responde 404 a /en/en/...); a mesma página serve os dois.
 
    Ninguém é redirecionado por idioma. Quem prefere inglês e chegou sem
    o prefixo vê só um convite discreto (Nav.astro).
