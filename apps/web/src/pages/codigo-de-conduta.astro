@@ -1,16 +1,18 @@
 ---
 /* Página institucional: SSR, texto vem da coleção `institucional`.
-   O idioma vem de locals.lang (camada i18n, outra frente); sem ele,
-   pt-BR. Cache curto na borda: o texto só muda por commit. */
+   O idioma vem de idiomaDe (lib/i18n). Cache curto na borda só pra
+   quem não tem sessão: o texto muda por commit. */
+import { idiomaDe } from '../lib/i18n';
+import { cachePublico } from '../lib/cache';
 import { getEntry, render } from 'astro:content';
 import Leitura from '../layouts/Leitura.astro';
 
-const lang = (Astro.locals as any).lang === 'en' ? 'en' : 'pt-BR';
+const lang = idiomaDe(Astro);
 const entrada = await getEntry('institucional', `${lang}/codigo-de-conduta`);
 if (!entrada) return new Response(null, { status: 404 });
 const { Content } = await render(entrada);
 
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+cachePublico(Astro);
 ---
 
 <Leitura

@@ -11,6 +11,7 @@
 import Layout from './Layout.astro';
 import Nav from '../components/astro/Nav.astro';
 import Rodape from '../components/astro/Rodape.astro';
+import { rota } from '../lib/i18n';
 
 type Pagina = 'sobre' | 'governanca' | 'codigo-de-conduta' | 'transparencia';
 
@@ -25,7 +26,6 @@ interface Props {
 const { titulo, descricao, rascunho, atualizado, pagina, lang } = Astro.props;
 
 const en = lang === 'en';
-const prefixo = en ? '/en' : '';
 
 const indice: { chave: Pagina; texto: string }[] = en
   ? [
@@ -50,7 +50,7 @@ const data = atualizado.toLocaleDateString(en ? 'en-GB' : 'pt-BR', {
 });
 ---
 
-<Layout title={`Idearium · ${titulo}`} description={descricao} lang={lang}>
+<Layout title={`Idearium · ${titulo}`} description={descricao}>
   <div class="palco">
     <Nav atual={pagina === 'sobre' ? 'sobre' : undefined} />
 
@@ -60,7 +60,7 @@ const data = atualizado.toLocaleDateString(en ? 'en-GB' : 'pt-BR', {
         <ul>
           {indice.map((i) => (
             <li>
-              <a href={`${prefixo}/${i.chave}`} aria-current={i.chave === pagina ? 'page' : undefined}>{i.texto}</a>
+              <a href={rota(lang, `/${i.chave}`)} aria-current={i.chave === pagina ? 'page' : undefined}>{i.texto}</a>
             </li>
           ))}
         </ul>
