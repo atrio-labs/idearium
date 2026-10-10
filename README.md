@@ -6,6 +6,8 @@ Idearium é uma plataforma onde ideias com potencial de impacto social viram pro
 
 Veja a visão completa em [`VISAO.md`](./VISAO.md).
 
+Diagramas do frontend (requisição, sessão, OAuth e rotas): [`apps/web/README.md#diagramas`](./apps/web/README.md#diagramas).
+
 ## Co-criadores
 
 - **Kae Brazauskas** — backend, infraestrutura, modelagem de dados.

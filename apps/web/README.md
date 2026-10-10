@@ -119,4 +119,187 @@ nenhum request a terceiros para fontes.
 
 ## Diagramas
 
-<!-- preenchida no fim do trabalho -->
+Quatro diagramas, todos lidos do código. Os nomes entre crases são funções e
+arquivos de `src/`.
+
+### Caminho de uma requisição
+
+Toda requisição passa por `middleware.ts`, que tira o prefixo `/en`, abre o
+contexto da requisição e resolve a sessão uma única vez. A última decisão é do
+`cachePublico`: só página de visitante anônimo, sem cookie de sessão e sem
+falha da API vai para cache compartilhado.
+
+```mermaid
+flowchart TD
+  A["GET /en/labs"] --> B["separarIdioma<br/>lang = en, caminho = /labs"]
+  B --> C["locals.lang e locals.idiomaPreferido = null"]
+  C --> D["dentroDaRequisicao(lang)<br/>contexto por requisição:<br/>x-lang nas chamadas à API, apiFalhou"]
+  D --> E["usuarioAtual: GET /auth/me<br/>com id_acesso"]
+  E -->|"401 ou sem id_acesso"| F["renovar: POST /auth/refresh<br/>grava par novo de cookies"]
+  F --> G["GET /auth/me de novo"]
+  E -->|"200"| H["locals.usuario"]
+  G --> H
+  E -->|"API fora (fetch lança)"| I["locals.usuario = null<br/>segue como anônimo<br/>cookies intactos"]
+  F -->|"refresh recusado"| J["limpa cookies<br/>anônimo"]
+  H --> K{"logado, lang pt-BR,<br/>GET, fora de /api/,<br/>sem cookie idioma_sugestao?"}
+  K -->|"sim"| L["GET /users/me<br/>idiomaPreferido"]
+  K -->|"não"| M{"lang = pt-BR?"}
+  L --> M
+  I --> M
+  J --> M
+  M -->|"sim"| N["next()"]
+  M -->|"não, en"| O["next(URL sem /en)<br/>mantém locals e cookies"]
+  N --> P["página SSR"]
+  O --> P
+  P --> Q["cachePublico(Astro)"]
+  Q --> R{"GET e sem usuário e<br/>sem cookie id_acesso ou id_renova<br/>e API não falhou?"}
+  R -->|"sim"| S["public, s-maxage=60,<br/>stale-while-revalidate=600"]
+  R -->|"não"| T["private, no-store"]
+
+  classDef roxo fill:#EDE4FB,stroke:#6D28D9,color:#2E1065,stroke-width:2px
+  classDef azul fill:#DBEAFE,stroke:#1D4ED8,color:#172554,stroke-width:2px
+  classDef decisao fill:#FFFFFF,stroke:#6D28D9,color:#2E1065,stroke-width:2px
+  class A,B,C,D,N,O,P roxo
+  class E,F,G,H,I,J,L azul
+  class K,M,R decisao
+  class Q,S,T roxo
+```
+
+### Sessão
+
+Os dois tokens ficam em cookies `httpOnly`; a página nunca os vê. O access token
+expira em 14 minutos no cookie (15 na API) e o refresh em 30 dias. Em qualquer
+401, `comSessao` renova uma vez e repete a chamada, e o refresh antigo morre a
+cada rotação. No logout, os cookies são limpos mesmo que a revogação falhe.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant N as Navegador
+  participant W as Web (Astro)
+  participant A as API
+
+  rect rgb(237, 228, 251)
+  Note over N,A: Login por senha
+  N->>W: POST /entrar (email, senha)
+  W->>A: POST /auth/login
+  A-->>W: accessToken, refreshToken, user
+  W-->>N: Set-Cookie id_acesso (httpOnly, lax, 14 min)<br/>Set-Cookie id_renova (httpOnly, lax, 30 dias)<br/>secure só fora de dev
+  end
+
+  rect rgb(219, 234, 254)
+  Note over N,A: Chamada autenticada com renovação
+  N->>W: requisição com cookies
+  W->>A: comSessao: Bearer id_acesso
+  A-->>W: 401
+  W->>A: POST /auth/refresh com id_renova
+  A-->>W: par novo, o refresh antigo é revogado
+  W-->>N: Set-Cookie com o par novo
+  W->>A: repete a chamada com o token novo
+  A-->>W: resposta
+  end
+
+  rect rgb(237, 228, 251)
+  Note over N,A: Logout
+  N->>W: /sair
+  W->>A: POST /auth/logout com id_renova
+  A-->>W: ok ou falha
+  W-->>N: apaga id_acesso e id_renova<br/>(mesmo se a revogação falhou)
+  end
+```
+
+### OAuth proposto
+
+Contrato proposto: o backend da Etapa 6 ainda não existe, e todo este fluxo
+está atrás da flag `PUBLIC_OAUTH=1` (sem ela, as rotas respondem 404). O
+`state` nasce na web, vai e volta pela API, e é conferido contra o cookie
+`id_oauth` (httpOnly, 10 minutos, uso único). Os tokens nunca passam pelo
+endereço.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant N as Navegador
+  participant W as Web (Astro)
+  participant A as API (proposta)
+  participant P as Provedor (GitHub ou Google)
+
+  Note over N,P: Contrato proposto. Backend da Etapa 6 ainda não existe. Atrás de PUBLIC_OAUTH.
+  N->>W: GET /entrar/provedor
+  W-->>N: Set-Cookie id_oauth (state, modo, voltar, lang)<br/>302 para a API
+  N->>A: GET /auth/provedor?redirect=WEB/entrar/callback&state=...
+  A-->>N: 302 para a tela do provedor
+  N->>P: autoriza
+  P-->>N: 302 para o callback da API
+  N->>A: callback do provedor
+  A-->>N: 302 WEB/entrar/callback?code=...&state=...
+  N->>W: GET /entrar/callback?code&state
+  Note over W: consumirEstado apaga id_oauth<br/>estadoConfere compara state (timingSafeEqual)
+  W->>A: POST /auth/oauth/exchange { code }
+  A-->>W: accessToken, refreshToken (login)<br/>ou { linked } (vínculo)
+  W-->>N: gravarSessao e 302 para voltar<br/>(vínculo: /perfil?conta=conectada)
+```
+
+### Mapa de rotas por área
+
+Cada grupo de páginas com os endpoints da API que consome. Leitura pública usa
+`lib/api.ts` (sem token; a página da RFC lê com `comSessao` quando há sessão, por
+causa dos rascunhos); escrita e dados da pessoa usam `comSessao`. Os grupos
+tracejados só existem com a flag ligada. Institucional é conteúdo estático, sem
+chamada à API.
+
+```mermaid
+flowchart LR
+  subgraph pub["Leitura pública (cachePublico)"]
+    direction TB
+    p1["/ e /labs, /labs/slug"] --> e1["GET /labs, /labs/slug"]
+    p2["/rfcs, /rfcs/slug"] --> e2["GET /rfcs, /rfcs/slug<br/>/rfcs/id/versions, enrollments,<br/>comments, tags"]
+    p3["/tags, /tags/slug"] --> e3["GET /tags, /tags/slug"]
+    p4["/buscar"] --> e4["GET /search, /tags"]
+    p5["/builders, /users/username"] --> e5["GET /builders, /users/username,<br/>/users/username/rfcs, enrollments"]
+  end
+
+  subgraph aut["Autoria (sessão)"]
+    direction TB
+    a1["/rfcs/nova"] --> f1["POST /rfcs, /rfcs/id/tags"]
+    a2["/rfcs/slug/editar"] --> f2["PATCH /rfcs/id, POST /rfcs/id/publish,<br/>archive, tags"]
+    a3["/rfcs/slug/versoes"] --> f3["GET /rfcs/id/versions"]
+    a4["POST /api/previa"] --> f4["sem API: renderizarMarkdown<br/>no servidor, exige sessão"]
+  end
+
+  subgraph par["Participação (sessão, na página da RFC)"]
+    direction TB
+    c1["/rfcs/slug"] --> g1["POST e DELETE /rfcs/id/enroll<br/>POST /rfcs/id/comments<br/>PATCH e DELETE /comments/id"]
+  end
+
+  subgraph con["Conta"]
+    direction TB
+    k1["/entrar, /criar-conta, /sair"] --> h1["POST /auth/login, /auth/register,<br/>/auth/logout"]
+    k2["/perfil"] --> h2["GET e PATCH /users/me<br/>PATCH /builders/me"]
+  end
+
+  subgraph ins["Institucional (estático)"]
+    direction TB
+    i1["/sobre, /governanca, /transparencia,<br/>/codigo-de-conduta, 404"]
+  end
+
+  subgraph not["Notificações (PUBLIC_NOTIFICACOES=1)"]
+    direction TB
+    n1["/notificacoes"] --> j1["GET /notifications<br/>PATCH /notifications/id/read,<br/>/notifications/read-all"]
+    n2["GET /api/notificacoes/contagem<br/>(polling da nav, 60 s)"] --> j2["GET /notifications (meta.unread)"]
+  end
+
+  subgraph oa["Auth da Etapa 6 (PUBLIC_OAUTH=1, contrato proposto)"]
+    direction TB
+    o1["/entrar/provedor,<br/>/entrar/callback"] --> l1["GET /auth/provedor<br/>POST /auth/oauth/exchange<br/>POST e DELETE /users/me/link-provedor"]
+    o2["/recuperar-senha, /redefinir-senha,<br/>/verificar-email/token"] --> l2["POST /auth/forgot-password,<br/>/auth/reset-password,<br/>/auth/verify-email/token"]
+  end
+
+  classDef roxo fill:#EDE4FB,stroke:#6D28D9,color:#2E1065,stroke-width:2px
+  classDef azul fill:#DBEAFE,stroke:#1D4ED8,color:#172554,stroke-width:2px
+  classDef flag fill:#FFFFFF,stroke:#6D28D9,color:#2E1065,stroke-width:2px,stroke-dasharray:5 3
+  class p1,p2,p3,p4,p5,a1,a2,a3,a4,c1,k1,k2,i1,n1,n2,o1,o2 roxo
+  class e1,e2,e3,e4,e5,f1,f2,f3,f4,g1,h1,h2,j1,j2,l1,l2 azul
+  style not stroke-dasharray:5 3
+  style oa stroke-dasharray:5 3
+```
