@@ -1,0 +1,134 @@
+---
+/* ================================================================
+   /excluir-conta — apagar a própria conta (LGPD art. 18)
+   ================================================================
+   Atrás de PUBLIC_CONTA (sem ela, 404). Com sessão. A explicação vem
+   antes do botão e diz a verdade do VISAO: o histórico público não se
+   deleta, ele é anonimizado como "[conta removida]"; os dados pessoais
+   saem. Confirmação: digitar o @username e a senha.
+
+   POST no próprio arquivo, 303 pro átrio com aviso. Os cookies são
+   limpos por excluirConta() depois do sim da API; antes disso nada
+   local muda. Sem JS funciona igual.
+   ================================================================ */
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/astro/Nav.astro';
+import Rodape from '../components/astro/Rodape.astro';
+import { CONTA_LIGADA, SENHA_MAX, excluirConta } from '../lib/conta';
+import { exigirSessao } from '../lib/sessao';
+import { idiomaDe, rota, t } from '../lib/i18n';
+
+if (!CONTA_LIGADA) return new Response(null, { status: 404 });
+
+const lang = idiomaDe(Astro);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const usuario = Astro.locals.usuario;
+const destino = exigirSessao(usuario, Astro.url);
+if (destino) return Astro.redirect(rota(lang, destino));
+
+let erro: string | null = null;
+
+if (Astro.request.method === 'POST' && usuario) {
+  const dados = await Astro.request.formData();
+  const digitado = String(dados.get('confirmUsername') ?? '').trim().replace(/^@/, '').toLowerCase();
+  const senha = String(dados.get('senha') ?? '');
+
+  if (!digitado || !senha) {
+    erro = t(lang, 'seguranca.excluir.erro.vazio');
+  } else if (digitado !== usuario.username.toLowerCase()) {
+    erro = t(lang, 'seguranca.excluir.erro.username');
+  } else {
+    const r = await excluirConta(Astro.cookies, senha, digitado);
+    if (r.situacao === 'ok') return Astro.redirect(rota(lang, '/?aviso=conta-removida'), 303);
+    erro = r.situacao === 'indisponivel' ? t(lang, 'seguranca.indisponivel')
+      : r.situacao === 'senha' ? t(lang, 'seguranca.erro.senha')
+      : r.erro ?? t(lang, 'seguranca.erro.generico');
+  }
+}
+---
+
+<Layout title={t(lang, 'seguranca.excluir.titulo')} description={t(lang, 'seguranca.excluir.descricao')}>
+  <div class="palco pagina-conta">
+    <Nav />
+
+    <div class="excluir">
+      <h1 class="titulo-duplo">{t(lang, 'seguranca.excluir.h1.antes')}<span class="apagado">{t(lang, 'seguranca.excluir.h1.apagado')}</span></h1>
+      <p class="apoio sub">{t(lang, 'seguranca.excluir.sub')}</p>
+
+      <dl class="explica">
+        <div>
+          <dt>{t(lang, 'seguranca.excluir.sai.titulo')}</dt>
+          <dd>{t(lang, 'seguranca.excluir.sai.texto')}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'seguranca.excluir.fica.titulo')}</dt>
+          <dd>{t(lang, 'seguranca.excluir.fica.texto')}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'seguranca.excluir.desfazer.titulo')}</dt>
+          <dd>
+            {t(lang, 'seguranca.excluir.desfazer.texto')}
+            {' '}<a href="/api/meus-dados" download data-astro-reload>{t(lang, 'seguranca.excluir.baixar')}</a>
+          </dd>
+        </div>
+      </dl>
+
+      <form method="POST" action={rota(lang, '/excluir-conta')}>
+        {erro && (
+          <p class="aviso-erro" role="alert" id="erro-form" tabindex="-1" autofocus>{erro}</p>
+        )}
+
+        <div class="campo">
+          <label class="rotulo" for="confirmUsername">{t(lang, 'seguranca.excluir.username', { username: '@' + usuario?.username })}</label>
+          <input
+            class="entrada mono"
+            id="confirmUsername"
+            name="confirmUsername"
+            type="text"
+            required
+            maxlength="31"
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            aria-describedby={erro ? 'erro-form' : undefined}
+          />
+        </div>
+
+        <div class="campo">
+          <label class="rotulo" for="senha">{t(lang, 'seguranca.excluir.senha')}</label>
+          <input
+            class="entrada"
+            id="senha"
+            name="senha"
+            type="password"
+            required
+            maxlength={SENHA_MAX}
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="acoes-form">
+          <button class="botao" type="submit">{t(lang, 'seguranca.excluir.botao')}</button>
+          <a class="botao-secundario" href={rota(lang, '/perfil')}>{t(lang, 'seguranca.excluir.voltar')}</a>
+        </div>
+      </form>
+    </div>
+
+    <Rodape />
+  </div>
+</Layout>
+
+<style>
+  .excluir { max-width: 520px; margin: 0 auto; padding: 72px 0 96px; }
+  .sub { margin: 16px 0 0; }
+  .explica { margin: 32px 0; display: grid; gap: 20px; }
+  .explica dt { font-size: 15px; font-weight: 500; color: var(--t-100); margin-bottom: 4px; }
+  .explica dd { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--t-75); }
+  .explica a {
+    color: var(--t-100); text-decoration: underline; text-underline-offset: 3px;
+    text-decoration-color: var(--t-35);
+  }
+  .explica a:hover { text-decoration-color: var(--t-100); }
+</style>
